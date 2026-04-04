@@ -1,0 +1,94 @@
+{
+  "IN": {
+    "2026": {
+      "2026-01-26": { "name": "Republic Day", "description": "Celebrates the adoption of the Indian Constitution" },
+      "2026-03-09": { "name": "Maha Shivaratri", "description": "Festival dedicated to Lord Shiva" },
+      "2026-03-25": { "name": "Holi", "description": "Festival of Colors" },
+      "2026-03-29": { "name": "Good Friday", "description": "Christian holiday" },
+      "2026-04-02": { "name": "Eid ul-Fitr", "description": "Islamic festival marking end of Ramadan" },
+      "2026-04-10": { "name": "Mahavir Jayanti", "description": "Birth of Lord Mahavir" },
+      "2026-04-14": { "name": "Ambedkar Jayanti", "description": "Birth anniversary of B.R. Ambedkar" },
+      "2026-05-01": { "name": "May Day", "description": "International Labor Day" },
+      "2026-05-25": { "name": "Buddha Purnima", "description": "Birth of Gautama Buddha" },
+      "2026-07-17": { "name": "Eid ul-Adha", "description": "Islamic festival" },
+      "2026-08-15": { "name": "Independence Day", "description": "India's independence from British rule" },
+      "2026-09-02": { "name": "Janmashtami", "description": "Birth of Lord Krishna" },
+      "2026-10-02": { "name": "Gandhi Jayanti", "description": "Birth anniversary of Mahatma Gandhi" },
+      "2026-10-13": { "name": "Diwali", "description": "Festival of Lights" },
+      "2026-10-15": { "name": "Govardhan Puja", "description": "Hindu festival" },
+      "2026-10-16": { "name": "Bhai Dooj", "description": "Festival celebrating sibling bonds" },
+      "2026-11-08": { "name": "Milad-un-Nabi", "description": "Birth of Prophet Muhammad" },
+      "2026-12-25": { "name": "Christmas", "description": "Christian festival" }
+    },
+    "2027": {
+      "2027-01-26": { "name": "Republic Day", "description": "Celebrates the adoption of the Indian Constitution" },
+      "2027-02-25": { "name": "Maha Shivaratri", "description": "Festival dedicated to Lord Shiva" },
+      "2027-03-14": { "name": "Holi", "description": "Festival of Colors" },
+      "2027-04-02": { "name": "Good Friday", "description": "Christian holiday" },
+      "2027-04-22": { "name": "Eid ul-Fitr", "description": "Islamic festival marking end of Ramadan" },
+      "2027-04-30": { "name": "Mahavir Jayanti", "description": "Birth of Lord Mahavir" },
+      "2027-05-14": { "name": "Buddha Purnima", "description": "Birth of Gautama Buddha" },
+      "2027-06-25": { "name": "Eid ul-Adha", "description": "Islamic festival" },
+      "2027-08-15": { "name": "Independence Day", "description": "India's independence from British rule" },
+      "2027-08-22": { "name": "Janmashtami", "description": "Birth of Lord Krishna" },
+      "2027-10-02": { "name": "Gandhi Jayanti", "description": "Birth anniversary of Mahatma Gandhi" },
+      "2027-11-03": { "name": "Diwali", "description": "Festival of Lights" },
+      "2027-11-04": { "name": "Govardhan Puja", "description": "Hindu festival" },
+      "2027-11-05": { "name": "Bhai Dooj", "description": "Festival celebrating sibling bonds" },
+      "2027-11-16": { "name": "Milad-un-Nabi", "description": "Birth of Prophet Muhammad" },
+      "2027-12-25": { "name": "Christmas", "description": "Christian festival" }
+    }
+  },
+  "US": {
+    "2026": {
+      "2026-01-01": { "name": "New Year's Day", "description": "First day of the year" },
+      "2026-01-19": { "name": "MLK Jr. Day", "description": "Martin Luther King Jr. Birthday" },
+      "2026-02-16": { "name": "Presidents Day", "description": "Presidents Day" },
+      "2026-03-17": { "name": "St. Patrick's Day", "description": "Irish-American holiday" },
+      "2026-04-05": { "name": "Easter Sunday", "description": "Christian holiday" },
+      "2026-05-25": { "name": "Memorial Day", "description": "Day to remember fallen soldiers" },
+      "2026-07-04": { "name": "Independence Day", "description": "US Independence Day" },
+      "2026-09-07": { "name": "Labor Day", "description": "Labor Day" },
+      "2026-10-12": { "name": "Columbus Day", "description": "Columbus Day" },
+      "2026-11-11": { "name": "Veterans Day", "description": "Veterans Day" },
+      "2026-11-26": { "name": "Thanksgiving", "description": "Thanksgiving Day" },
+      "2026-12-25": { "name": "Christmas", "description": "Christmas Day" }
+    },
+    "2027": {
+      "2027-01-01": { "name": "New Year's Day", "description": "First day of the year" },
+      "2027-01-18": { "name": "MLK Jr. Day", "description": "Martin Luther King Jr. Birthday" },
+      "2027-02-15": { "name": "Presidents Day", "description": "Presidents Day" },
+      "2027-03-17": { "name": "St. Patrick's Day", "description": "Irish-American holiday" },
+      "2027-03-28": { "name": "Easter Sunday", "description": "Christian holiday" },
+      "2027-05-31": { "name": "Memorial Day", "description": "Day to remember fallen soldiers" },
+      "2027-07-04": { "name": "Independence Day", "description": "US Independence Day" },
+      "2027-09-06": { "name": "Labor Day", "description": "Labor Day" },
+      "2027-10-11": { "name": "Columbus Day", "description": "Columbus Day" },
+      "2027-11-11": { "name": "Veterans Day", "description": "Veterans Day" },
+      "2027-11-25": { "name": "Thanksgiving", "description": "Thanksgiving Day" },
+      "2027-12-25": { "name": "Christmas", "description": "Christmas Day" }
+    }
+  },
+  "UK": {
+    "2026": {
+      "2026-01-01": { "name": "New Year's Day", "description": "First day of the year" },
+      "2026-04-05": { "name": "Easter Sunday", "description": "Christian holiday" },
+      "2026-04-06": { "name": "Easter Monday", "description": "Day after Easter" },
+      "2026-05-04": { "name": "Early May Bank Holiday", "description": "Bank holiday" },
+      "2026-05-25": { "name": "Spring Bank Holiday", "description": "Bank holiday" },
+      "2026-08-31": { "name": "Summer Bank Holiday", "description": "Bank holiday" },
+      "2026-12-25": { "name": "Christmas Day", "description": "Christmas Day" },
+      "2026-12-26": { "name": "Boxing Day", "description": "Day after Christmas" }
+    },
+    "2027": {
+      "2027-01-01": { "name": "New Year's Day", "description": "First day of the year" },
+      "2027-03-28": { "name": "Easter Sunday", "description": "Christian holiday" },
+      "2027-03-29": { "name": "Easter Monday", "description": "Day after Easter" },
+      "2027-05-03": { "name": "Early May Bank Holiday", "description": "Bank holiday" },
+      "2027-05-31": { "name": "Spring Bank Holiday", "description": "Bank holiday" },
+      "2027-08-30": { "name": "Summer Bank Holiday", "description": "Bank holiday" },
+      "2027-12-25": { "name": "Christmas Day", "description": "Christmas Day" },
+      "2027-12-26": { "name": "Boxing Day", "description": "Day after Christmas" }
+    }
+  }
+}
