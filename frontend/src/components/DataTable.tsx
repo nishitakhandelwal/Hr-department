@@ -18,7 +18,7 @@ interface DataTableProps<T> {
 
 export function DataTable<T>({ columns, data, onRowClick }: DataTableProps<T>) {
   return (
-    <div className="overflow-hidden rounded-[28px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.82))] shadow-card backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(10,14,28,0.96),rgba(15,20,37,0.94))]">
+    <div className="overflow-hidden rounded-[28px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.82))] shadow-card backdrop-blur-xl dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)]">
       {data.length === 0 ? (
         <div className="p-6">
           <EmptyState title="No records available yet." description="New items will appear here as soon as your team starts using this module." />
@@ -26,7 +26,7 @@ export function DataTable<T>({ columns, data, onRowClick }: DataTableProps<T>) {
       ) : (
         <Table>
           <TableHeader className="sticky top-0 z-10">
-            <TableRow className="border-b bg-[linear-gradient(180deg,rgba(99,102,241,0.08),rgba(255,255,255,0.8))] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(99,102,241,0.16),rgba(14,19,36,0.92))]">
+            <TableRow className="border-b bg-[linear-gradient(180deg,rgba(230,199,163,0.12),rgba(255,255,255,0.8))] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)]">
               {columns.map((col) => (
                 <TableHead key={col.key} className={col.key === "actions" ? "text-right" : undefined}>
                   {col.label}
@@ -40,7 +40,7 @@ export function DataTable<T>({ columns, data, onRowClick }: DataTableProps<T>) {
                 key={i}
                 onClick={() => onRowClick?.(item)}
                 className={[
-                  "border-b border-border/70 transition-all duration-300 hover:bg-[linear-gradient(90deg,rgba(99,102,241,0.07),rgba(34,197,94,0.04))] dark:border-white/8 dark:hover:bg-[linear-gradient(90deg,rgba(99,102,241,0.12),rgba(56,189,248,0.08))]",
+                  "border-b border-border/70 transition-all duration-300 hover:bg-[linear-gradient(90deg,rgba(230,199,163,0.14),rgba(166,124,82,0.08))] dark:border-white/8 dark:hover:bg-[linear-gradient(90deg,rgba(230,199,163,0.2),rgba(166,124,82,0.12))]",
                   onRowClick ? "cursor-pointer" : "",
                 ].join(" ")}
               >
@@ -72,12 +72,12 @@ export const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     processed: "bg-[linear-gradient(135deg,rgba(34,197,94,0.14),rgba(16,185,129,0.08))] text-success border-success/20",
     present: "bg-[linear-gradient(135deg,rgba(34,197,94,0.14),rgba(16,185,129,0.08))] text-success border-success/20",
     absent: "bg-[linear-gradient(135deg,rgba(239,68,68,0.14),rgba(251,113,133,0.08))] text-destructive border-destructive/20",
-    leave: "bg-[linear-gradient(135deg,rgba(59,130,246,0.14),rgba(99,102,241,0.08))] text-info border-info/20",
+    leave: "bg-[linear-gradient(135deg,rgba(230,199,163,0.2),rgba(166,124,82,0.12))] text-info border-[#2A2623]",
     late: "bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(249,115,22,0.08))] text-warning border-warning/20",
     paid: "bg-[linear-gradient(135deg,rgba(34,197,94,0.14),rgba(16,185,129,0.08))] text-success border-success/20",
-    processing: "bg-[linear-gradient(135deg,rgba(59,130,246,0.14),rgba(99,102,241,0.08))] text-info border-info/20",
-    new: "bg-[linear-gradient(135deg,rgba(59,130,246,0.14),rgba(99,102,241,0.08))] text-info border-info/20",
-    "interview scheduled": "bg-[linear-gradient(135deg,rgba(99,102,241,0.14),rgba(139,92,246,0.08))] text-primary border-primary/20",
+    processing: "bg-[linear-gradient(135deg,rgba(230,199,163,0.2),rgba(166,124,82,0.12))] text-info border-[#2A2623]",
+    new: "bg-[linear-gradient(135deg,rgba(230,199,163,0.2),rgba(166,124,82,0.12))] text-info border-[#2A2623]",
+    "interview scheduled": "bg-[linear-gradient(135deg,rgba(200,162,124,0.18),rgba(139,94,60,0.08))] text-primary border-primary/20",
   };
 
   const className = variants[status.toLowerCase()] || "bg-muted text-muted-foreground border-border";

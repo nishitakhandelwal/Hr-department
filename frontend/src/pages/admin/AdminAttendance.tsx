@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { CheckCircle2, Filter, FileClock, XCircle } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -69,7 +69,7 @@ const AdminAttendance: React.FC = () => {
   const [reviewRemarks, setReviewRemarks] = useState("");
   const { toast } = useToast();
 
-  const loadAttendance = async () => {
+  const loadAttendance = useCallback(async () => {
     setLoading(true);
     try {
       const [attendanceData, correctionData] = await Promise.all([
@@ -118,11 +118,11 @@ const AdminAttendance: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   React.useEffect(() => {
     void loadAttendance();
-  }, []);
+  }, [loadAttendance]);
 
   const filteredAttendance = rows.filter((row) => {
     const term = appliedFilters.search.toLowerCase();

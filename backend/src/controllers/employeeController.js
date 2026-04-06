@@ -1,9 +1,13 @@
 import bcrypt from "bcryptjs";
 import { Employee } from "../models/Employee.js";
 import { User } from "../models/User.js";
+import { Attendance } from "../models/Attendance.js";
+import { Leave } from "../models/Leave.js";
+import { Payroll } from "../models/Payroll.js";
 import { ensureEmployeeProfileForUser } from "../services/employeeProfileService.js";
 import { createDefaultPermissions } from "../utils/permissions.js";
 import { deleteEntity, updateEntity } from "./crudFactory.js";
+import { secureUploadUrls } from "../utils/uploadAccess.js";
 
 const createError = (message, statusCode) => {
   const error = new Error(message);
@@ -30,7 +34,7 @@ export const getMyEmployeeProfile = async (req, res) => {
 
   if (!employee) return res.status(404).json({ success: false, message: "Employee profile not found", data: null });
 
-  return res.json({ success: true, message: "Fetched employee profile", data: employee });
+  return res.json({ success: true, message: "Fetched employee profile", data: secureUploadUrls(employee, req, req.user) });
 };
 
 export const getEmployees = async (_req, res) => {
@@ -171,12 +175,43 @@ export const updateEmployeeSalaryStructure = async (req, res) => {
   };
 
   employee.salaryStructure = salaryStructure;
-  employee.salary = salaryStructure.monthlyGrossSalary + salaryStructure.bonus;
+  employee.salary = salaryStructure.monthlyGrossSalary;
   await employee.save();
 
   res.json({
     success: true,
     message: "Salary structure updated successfully.",
     data: employee,
+  });
+};
+
+export const getEmployeeDashboardSummary = async (req, res) => {
+  const employee = await ensureEmployeeProfileForUser(req.user);
+  if (!employee) {
+    return res.status(404).json({ success: false, message: "Employee profile not found." });
+  }
+
+  const [attendanceRows, leaveRows, payrollRows] = await Promise.all([
+    Attendance.find({ employeeId: employee._id }).sort({ date: -1 }).limit(60),
+    Leave.find({ employeeId: employee._id }).sort({ createdAt: -1 }).limit(20),
+    Payroll.find({ employeeId: employee._id }).sort({ year: -1, monthNumber: -1, createdAt: -1 }).limit(12),
+  ]);
+
+  const approvedLeaveDays = leaveRows
+    .filter((row) => row.status === "approved")
+    .reduce((sum, row) => {
+      if (!row.fromDate || !row.toDate) return sum;
+      return sum + (Math.ceil((new Date(row.toDate).getTime() - new Date(row.fromDate).getTime()) / (1000 * 3600 * 24)) + 1);
+    }, 0);
+
+  return res.json({
+    success: true,
+    message: "Fetched employee dashboard summary",
+    data: {
+      attendanceRows,
+      leaveRows,
+      payrollRows,
+      approvedLeaveDays,
+    },
   });
 };

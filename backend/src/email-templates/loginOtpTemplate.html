@@ -1,0 +1,19 @@
+<div>
+  <div style="display:inline-block; padding:6px 12px; border-radius:999px; background-color:#EEF2FF; color:#4338CA; font-size:12px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">
+    Login Protection
+  </div>
+  <h1 class="email-title" style="margin:18px 0 10px; font-size:30px; line-height:1.2; font-weight:700; color:#111827;">Login Attempt Detected</h1>
+  <p style="margin:0 0 22px; font-size:15px; line-height:1.8; color:#4B5563;">
+    Hello {{name}}, login attempt detected. Use this OTP to continue securely.
+  </p>
+  <div style="margin:0 0 22px; padding:22px; border:1px solid #C7D2FE; border-radius:20px; background:linear-gradient(135deg, #EEF2FF 0%, #FFFFFF 100%); text-align:center;">
+    <div style="font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#6366F1;">Login OTP</div>
+    <div class="otp-code" style="margin-top:12px; font-size:36px; font-weight:800; letter-spacing:0.34em; color:#111827;">{{otp}}</div>
+  </div>
+  <div style="margin:0 0 20px; padding:18px 20px; border:1px solid #E5E7EB; border-radius:18px; background-color:#F9FAFB;">
+    <p style="margin:0; font-size:14px; line-height:1.8; color:#4B5563;">{{message}}</p>
+  </div>
+  <div style="padding-top:18px;border-top:1px solid #E5E7EB;">
+    <p style="margin:0; font-size:13px; line-height:1.8; color:#6B7280;">This OTP will expire in {{expiresInMinutes}} minutes. If this wasn't you, please reset your password and review your account activity.</p>
+  </div>
+</div>

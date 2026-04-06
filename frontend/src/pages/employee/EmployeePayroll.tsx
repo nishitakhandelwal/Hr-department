@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { DollarSign } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { IndianRupee } from "lucide-react";
 import { motion } from "framer-motion";
 
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import { apiService, type PayrollRecord } from "@/services/api";
 import PayslipModal from "@/components/payroll/PayslipModal";
 import { downloadPdfBlob } from "@/utils/downloadPdf";
@@ -13,28 +14,33 @@ const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "
 
 const EmployeePayroll: React.FC = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState("");
   const [payslips, setPayslips] = useState<PayrollRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [payslipModalOpen, setPayslipModalOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const loadPayroll = async () => {
+  const loadPayroll = useCallback(async () => {
     setLoading(true);
+    setErrorMessage("");
     try {
       const rows = await apiService.getPayroll();
       setPayslips(rows);
       setSelectedId(rows[0]?._id || "");
     } catch (error) {
-      console.error("Failed to fetch payroll", error);
+      const message = error instanceof Error ? error.message : "Unable to load payroll.";
+      setErrorMessage(message);
+      toast({ title: "Payroll unavailable", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void loadPayroll();
-  }, [user?.id]);
+  }, [loadPayroll, user?.id]);
 
   const handleDownload = async (slip: PayrollRecord) => {
     setDownloadingId(slip._id);
@@ -45,7 +51,11 @@ const EmployeePayroll: React.FC = () => {
         result.fileName || `${slip.employeeCode || slip.employeeName}-${slip.month}-${slip.year}-salary-slip.pdf`
       );
     } catch (error) {
-      console.error("Failed to download salary slip", error);
+      toast({
+        title: "Download failed",
+        description: error instanceof Error ? error.message : "Unable to download salary slip.",
+        variant: "destructive",
+      });
     } finally {
       setDownloadingId("");
     }
@@ -63,15 +73,21 @@ const EmployeePayroll: React.FC = () => {
       <PageHeader title="My Payroll" subtitle="Review salary history in a clean list, open the payslip in a modal, and download the final PDF when needed." />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard title="Full Wages" value={currency.format(selectedSlip?.fullWages || 0)} change="Current cycle" icon={DollarSign} color="primary" />
-        <StatCard title="Last Net Pay" value={currency.format(selectedSlip?.netSalary || 0)} change={selectedSlip ? `${selectedSlip.month} ${selectedSlip.year}` : "No record"} icon={DollarSign} color="success" delay={1} />
-        <StatCard title="YTD Earnings" value={currency.format(ytd)} change={new Date().getFullYear().toString()} icon={DollarSign} color="info" delay={2} />
+        <StatCard title="Full Wages" value={currency.format(selectedSlip?.fullWages || 0)} change="Current cycle" icon={IndianRupee} color="primary" />
+        <StatCard title="Last Net Pay" value={currency.format(selectedSlip?.netSalary || 0)} change={selectedSlip ? `${selectedSlip.month} ${selectedSlip.year}` : "No record"} icon={IndianRupee} color="success" delay={1} />
+        <StatCard title="YTD Earnings" value={currency.format(ytd)} change={new Date().getFullYear().toString()} icon={IndianRupee} color="info" delay={2} />
       </div>
+
+      {errorMessage ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {errorMessage}
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="text-sm text-muted-foreground">Loading payroll...</div>
       ) : (
-        <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.2)]">
+        <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_80px_-48px_rgba(166,124,82,0.18)]">
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Payslip History</p>
@@ -103,10 +119,10 @@ const EmployeePayroll: React.FC = () => {
                       setSelectedId(slip._id);
                     }
                   }}
-                  className={`w-full rounded-[24px] border p-5 text-left shadow-[0_24px_80px_-48px_rgba(15,23,42,0.18)] transition-all ${
+                  className={`w-full rounded-[24px] border p-5 text-left shadow-[0_24px_80px_-48px_rgba(166,124,82,0.18)] transition-all ${
                     selectedId === slip._id
-                      ? "border-blue-300 bg-blue-50/70"
-                      : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-300"
+                      ? "border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#2A211B)] text-[#F5F5F5]"
+                      : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-[#2A2623] hover:bg-[rgba(230,199,163,0.2)]"
                   }`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">

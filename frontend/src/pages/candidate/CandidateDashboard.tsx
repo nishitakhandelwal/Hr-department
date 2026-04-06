@@ -1,215 +1,285 @@
 import React, { useMemo } from "react";
-import { addDays, format, parseISO, startOfDay } from "date-fns";
-import { ArrowRight, Bell, CalendarClock, CheckCircle2, FileText, FolderOpen, UserCircle2 } from "lucide-react";
+import { Briefcase, CheckCircle2, FileText, LifeBuoy, Sparkles, Video } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "@/components/PageHeader";
-import { StatCard } from "@/components/StatCard";
-import PortalProfileCard from "@/components/dashboard/PortalProfileCard";
-import CircularStatsWidget from "@/components/dashboard/CircularStatsWidget";
-import TaskProgressList from "@/components/dashboard/TaskProgressList";
-import PortalCalendarCard, { type PortalCalendarEvent } from "@/components/dashboard/PortalCalendarCard";
 import InlineStatusMessage from "@/components/InlineStatusMessage";
 import { Button } from "@/components/ui/button";
 import { useCandidatePortal } from "@/context/CandidatePortalContext";
-import {
-  getCandidateApplicationMeta,
-  getCandidatePortalStep,
-  getCandidatePortalStepLabel,
-  getCandidateProfileCompletion,
-} from "@/lib/candidatePortal";
+import { useAuth } from "@/context/AuthContext";
+import { useSystemSettings } from "@/context/SystemSettingsContext";
+
+type DashboardAction = {
+  title: string;
+  description: string;
+  link: string;
+  icon: typeof Briefcase;
+};
 
 const CandidateDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { candidate, joiningForm, notifications, loading, error } = useCandidatePortal();
+  const { user } = useAuth();
+  const { candidate, notifications, loading, error } = useCandidatePortal();
+  const { publicSettings } = useSystemSettings();
 
-  const applicationMeta = useMemo(() => getCandidateApplicationMeta(candidate, joiningForm), [candidate, joiningForm]);
-  const profileCompletion = useMemo(() => getCandidateProfileCompletion(candidate, joiningForm), [candidate, joiningForm]);
-  const portalStep = useMemo(() => getCandidatePortalStep(candidate, joiningForm), [candidate, joiningForm]);
-  const uploadedFiles = candidate?.documents?.uploadedFiles || [];
-  const today = useMemo(() => startOfDay(new Date()), []);
+  const displayName = candidate?.fullName || user?.name || "Candidate";
+  const supportEmail = publicSettings?.company?.contactEmail?.trim() || "Not configured";
+  const stage1Submitted = Boolean(candidate?.stage1?.submittedAt);
+  const stage2Submitted = Boolean(candidate?.stage2SubmittedAt);
+  const canApply = !stage1Submitted;
+
+  const profileCompletion = useMemo(() => {
+    if (!candidate) return 0;
+    if (stage2Submitted) return 100;
+    if (stage1Submitted) return 70;
+    return 30;
+  }, [candidate, stage1Submitted, stage2Submitted]);
+
+  const currentStatus = candidate?.status || "Application started";
+
+  const nextStep = useMemo(() => {
+    if (!candidate) return "Start your application";
+    if (!stage1Submitted) return "Submit Stage 1";
+    if (!stage2Submitted) return "Complete Stage 2";
+    return "Wait for HR review";
+  }, [candidate, stage1Submitted, stage2Submitted]);
+
+  const upcomingActions = useMemo<DashboardAction[]>(() => {
+    if (!candidate) {
+      return [
+        {
+          title: "Submit your application",
+          description: "Start by completing Stage 1 to begin your profile.",
+          link: "/apply",
+          icon: Briefcase,
+        },
+      ];
+    }
+
+    const actions: DashboardAction[] = [];
+
+    if (!stage1Submitted) {
+      actions.push({
+        title: "Submit Stage 1",
+        description: "Complete the basic candidate application form.",
+        link: "/apply",
+        icon: FileText,
+      });
+    } else if (!stage2Submitted) {
+      actions.push({
+        title: "Complete Stage 2",
+        description: "Finish your detailed candidate profile for HR evaluation.",
+        link: "/candidate/stage2",
+        icon: Sparkles,
+      });
+    }
+
+    if (!candidate.videoIntroduction?.url) {
+      actions.push({
+        title: "Add video introduction",
+        description: "Record or upload a short introduction video for HR.",
+        link: "/candidate/profile",
+        icon: Video,
+      });
+    }
+
+    if ((candidate.documents?.uploadedFiles?.length || 0) === 0) {
+      actions.push({
+        title: "Upload documents",
+        description: "Add your resume and certificates to keep your profile complete.",
+        link: "/candidate/documents",
+        icon: FileText,
+      });
+    }
+
+    if (candidate.interviewSchedule?.date) {
+      actions.push({
+        title: "Prepare for interview",
+        description: `Interview scheduled for ${candidate.interviewSchedule.date}. Review your notifications.`,
+        link: "/candidate/notifications",
+        icon: CheckCircle2,
+      });
+    }
+
+    if (actions.length === 0) {
+      actions.push({
+        title: "No immediate actions",
+        description: "Your application is up to date. You can review your profile or notifications anytime.",
+        link: "/candidate/profile",
+        icon: CheckCircle2,
+      });
+    }
+
+    return actions;
+  }, [candidate, stage1Submitted, stage2Submitted]);
+
+  const primaryAction = canApply
+    ? {
+        label: "Apply Now",
+        onClick: () => navigate("/apply"),
+        icon: Briefcase,
+      }
+    : stage2Submitted
+      ? {
+          label: "View Profile",
+          onClick: () => navigate("/candidate/profile"),
+          icon: CheckCircle2,
+        }
+      : {
+          label: "Continue Stage 2",
+          onClick: () => navigate("/candidate/stage2"),
+          icon: Sparkles,
+        };
 
   if (loading) {
-    return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" /></div>;
-  }
-
-  if (!candidate) {
     return (
-      <div className="space-y-6">
-        <PageHeader title="Candidate Dashboard" subtitle="Track your hiring journey and complete your profile in one place." />
-        <div className="dashboard-panel">
-          <p className="text-lg font-semibold text-[#24190f]">Stage 1 application not submitted yet</p>
-          <p className="mt-2 text-sm text-[#6f5a43]">Complete your Stage 1 application to unlock the full premium candidate portal experience.</p>
-          {error ? <div className="mt-4"><InlineStatusMessage type="error" message={`Unable to load your application. ${error}`} /></div> : null}
-          <Button className="mt-5 rounded-[18px]" onClick={() => navigate("/apply")}>Complete Stage 1</Button>
-        </div>
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[rgba(var(--portal-primary-rgb),0.18)] border-t-[var(--portal-primary-solid)]" />
       </div>
     );
   }
 
-  const calendarEvents: PortalCalendarEvent[] = [];
-
-  if (candidate.interviewSchedule?.date) {
-    calendarEvents.push({
-      id: "interview",
-      title: "Interview schedule",
-      date: format(parseISO(candidate.interviewSchedule.date), "yyyy-MM-dd"),
-      type: "meeting",
-      time: candidate.interviewSchedule.time || undefined,
-      note: candidate.interviewSchedule.meetingLink ? "Meeting link has been shared in your application timeline." : "Interview details will continue to update here.",
-    });
-  }
-
-  if ((candidate.stageCompleted || 0) < 1) {
-    calendarEvents.push({
-      id: "stage-1",
-      title: "Complete Stage 1",
-      date: format(addDays(today, 2), "yyyy-MM-dd"),
-      type: "reminder",
-      note: "Finish your first application step to unlock the rest of the portal.",
-    });
-  }
-
-  if ((candidate.stageCompleted || 0) === 1 && !candidate.stage2SubmittedAt) {
-    calendarEvents.push({
-      id: "stage-2",
-      title: "Complete Stage 2 profile",
-      date: format(addDays(today, 3), "yyyy-MM-dd"),
-      type: "reminder",
-      note: "Add deeper profile details and supporting information for the review team.",
-    });
-  }
-
-  calendarEvents.push({
-    id: "documents",
-    title: "Document readiness check",
-    date: format(addDays(today, 5), "yyyy-MM-dd"),
-    type: "meeting",
-    time: "02:00 PM",
-    note: uploadedFiles.length ? "Your uploaded files are already visible in the portal." : "Prepare and upload key documents to strengthen readiness.",
-  });
-
-  calendarEvents.push({
-    id: "portal-update",
-    title: "Application status refresh",
-    date: format(addDays(today, 7), "yyyy-MM-dd"),
-    type: "birthday",
-    note: "The candidate portal keeps the next milestone visible as soon as it changes.",
-  });
+  const PrimaryActionIcon = primaryAction.icon;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <PageHeader
-        title={`Welcome, ${candidate.fullName}`}
-        subtitle="A premium candidate dashboard that keeps your progress, next steps, and interview readiness calm, clear, and beautifully organized."
-        action={
-          <div className="flex gap-2">
-            {(candidate.stageCompleted || 0) < 1 ? <Button onClick={() => navigate("/apply")} className="gap-2 rounded-[18px]">Complete Stage 1 <ArrowRight className="h-4 w-4" /></Button> : null}
-            {(candidate.stageCompleted || 0) === 1 && !candidate.stage2SubmittedAt ? <Button onClick={() => navigate("/candidate/stage2")} className="gap-2 rounded-[18px]">Complete Stage 2 <ArrowRight className="h-4 w-4" /></Button> : null}
-          </div>
-        }
+        title={`Welcome, ${displayName}`}
+        subtitle={canApply ? "Start your application and keep your candidate profile moving forward." : "Your candidate dashboard is active. Review your progress and next steps here."}
+        action={(
+          <Button className="gap-2" onClick={primaryAction.onClick}>
+            <PrimaryActionIcon className="h-4 w-4 [stroke-width:2.35]" />
+            {primaryAction.label}
+          </Button>
+        )}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px]">
-        <div className="dashboard-panel relative overflow-hidden p-7">
-          <div className="pointer-events-none absolute -right-10 top-0 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(205,178,123,0.24),transparent_70%)] blur-3xl" />
-          <div className="pointer-events-none absolute left-0 bottom-0 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(255,248,235,0.95),transparent_68%)] blur-2xl" />
-          <div className="relative">
-            <div className="inline-flex items-center rounded-full border border-[#e0cfb3] bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9a7747]">
-              Candidate Journey
+      {error ? <InlineStatusMessage type="error" message={error} className="page-shell" /> : null}
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_340px]">
+        <div className="space-y-6">
+          <section className="page-shell">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="portal-kicker">Candidate Overview</div>
+                <h2 className="portal-heading mt-5 text-3xl font-cursive font-normal leading-tight tracking-normal sm:text-5xl">
+                  {canApply ? "Your application journey starts here." : "Everything you need is organized in one calm workspace."}
+                </h2>
+                <p className="portal-copy mt-4 max-w-2xl text-sm leading-7 sm:text-base">
+                  Track your application status, profile readiness, HR review progress, and the next best action without opening multiple pages.
+                </p>
+              </div>
+
+              <div className="dashboard-subtle-card max-w-sm flex-1">
+                <div className="flex items-center gap-4">
+                  <div className="portal-accent-icon flex h-14 w-14 items-center justify-center rounded-2xl">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="dashboard-label">Application Summary</p>
+                    <p className="portal-heading mt-2 text-3xl font-semibold premium-number">{profileCompletion}%</p>
+                    <p className="portal-muted mt-2 text-sm">{nextStep}</p>
+                  </div>
+                </div>
+                <div className="portal-progress-track mt-5 h-2.5 rounded-full">
+                  <div className="portal-progress-fill h-full rounded-full transition-all duration-500" style={{ width: `${profileCompletion}%` }} />
+                </div>
+              </div>
             </div>
-            <h2 className="mt-4 max-w-3xl text-[34px] font-semibold leading-tight tracking-[-0.04em] text-[#24190f]">
-              A polished application space that makes every next step feel guided and achievable.
-            </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f5a43]">
-              From profile completion to interviews and document readiness, the candidate experience stays supportive, elegant, and product-grade.
-            </p>
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {[
-                { label: "Current stage", value: applicationMeta.currentStage, note: applicationMeta.nextStep, icon: CheckCircle2 },
-                { label: "Completion", value: `${profileCompletion}%`, note: "Profile and document readiness score.", icon: FileText },
-                { label: "Unread alerts", value: `${notifications.filter((item) => !item.read).length}`, note: "Fresh status changes and portal updates.", icon: Bell },
-              ].map((item) => (
-                <div key={item.label} className="dashboard-subtle-card">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="dashboard-label">{item.label}</p>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[16px] bg-[#1f2638] text-[#f3dcc0]">
-                      <item.icon className="h-4 w-4" />
+              <div className="dashboard-subtle-card">
+                <p className="dashboard-label">Current Status</p>
+                <p className="portal-heading mt-3 text-xl font-semibold">{currentStatus}</p>
+                <p className="portal-muted mt-2 text-sm">{stage1Submitted ? "Your initial application has been captured." : "Your application is not submitted yet."}</p>
+              </div>
+              <div className="dashboard-subtle-card">
+                <p className="dashboard-label">Next Step</p>
+                <p className="portal-heading mt-3 text-xl font-semibold">{nextStep}</p>
+                <p className="portal-muted mt-2 text-sm">{stage2Submitted ? "Your file is waiting for HR evaluation." : "Complete the next milestone to keep the process moving."}</p>
+              </div>
+              <div className="dashboard-subtle-card">
+                <p className="dashboard-label">Portal Readiness</p>
+                <p className="portal-heading mt-3 text-xl font-semibold">{stage1Submitted ? "Stage 1 locked" : "Ready to apply"}</p>
+                <p className="portal-muted mt-2 text-sm">
+                  {stage1Submitted ? "Once the form is submitted, the Stage 1 application form will not reopen." : "You can still submit your first-stage application."}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="dashboard-panel">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="portal-heading text-2xl font-semibold">Upcoming actions</h2>
+                <p className="portal-copy mt-2 text-sm leading-6">The most relevant actions are surfaced here so you always know what to do next.</p>
+              </div>
+              <div className="portal-kicker">{upcomingActions.length} active</div>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {upcomingActions.map((action) => {
+                const ActionIcon = action.icon;
+                return (
+                  <div key={action.title} className="dashboard-subtle-card">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-4">
+                        <div className="portal-accent-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl">
+                          <ActionIcon className="h-4.5 w-4.5" />
+                        </div>
+                        <div>
+                          <p className="portal-heading text-base font-semibold">{action.title}</p>
+                          <p className="portal-copy mt-1 text-sm leading-6">{action.description}</p>
+                        </div>
+                      </div>
+                      <Button size="sm" variant={action.link === "/candidate/profile" ? "outline" : "default"} onClick={() => navigate(action.link)}>
+                        Open
+                      </Button>
                     </div>
                   </div>
-                  <p className="mt-3 text-[28px] font-semibold leading-none text-[#24190f]">{item.value}</p>
-                  <p className="mt-2 text-sm leading-6 text-[#7a664e]">{item.note}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </div>
+          </section>
         </div>
 
-        <PortalProfileCard
-          name={candidate.fullName}
-          roleLabel="Candidate Portal"
-          subtitle="This portal is designed to make your hiring path feel transparent and supportive, with every document, stage, and update presented in one cohesive system."
-          meta={[
-            { label: "Portal step", value: getCandidatePortalStepLabel(portalStep), icon: CalendarClock },
-            { label: "Uploaded files", value: `${uploadedFiles.length} documents`, icon: FolderOpen },
-            { label: "Profile access", value: "Open candidate profile", icon: UserCircle2 },
-          ]}
-        />
+        <div className="space-y-6">
+          <section className="dashboard-panel">
+            <h2 className="portal-heading text-2xl font-semibold">Quick stats</h2>
+            <div className="mt-5 grid gap-4">
+              <div className="dashboard-subtle-card">
+                <p className="dashboard-label">Notifications</p>
+                <p className="portal-heading mt-3 text-3xl font-semibold premium-number">{notifications.length}</p>
+              </div>
+              <div className="dashboard-subtle-card">
+                <p className="dashboard-label">Stage 1 Submitted</p>
+                <p className="portal-heading mt-3 text-2xl font-semibold">{stage1Submitted ? "Yes" : "No"}</p>
+              </div>
+              <div className="dashboard-subtle-card">
+                <p className="dashboard-label">Stage 2 Submitted</p>
+                <p className="portal-heading mt-3 text-2xl font-semibold">{stage2Submitted ? "Yes" : "No"}</p>
+              </div>
+              <div className="dashboard-subtle-card">
+                <p className="dashboard-label">Video Introduction</p>
+                <p className="portal-heading mt-3 text-2xl font-semibold">{candidate?.videoIntroduction?.url ? "Uploaded" : "Pending"}</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="dashboard-panel">
+            <div className="flex items-start gap-4">
+              <div className="portal-accent-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl">
+                <LifeBuoy className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <h2 className="portal-heading text-2xl font-semibold">Support</h2>
+                <p className="portal-copy mt-2 text-sm leading-6">If you need help with your application, contact HR on the official support email below.</p>
+                <p className="mt-4 text-base font-semibold text-[var(--portal-primary-solid)] dark:text-[var(--portal-primary-dark)]">{supportEmail}</p>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Current Status" value={candidate.status} change={applicationMeta.currentStage} changeType="neutral" icon={CheckCircle2} color="primary" />
-        <StatCard title="Current Step" value={getCandidatePortalStepLabel(portalStep)} change={applicationMeta.nextStep} changeType="neutral" icon={CalendarClock} color="warning" />
-        <StatCard title="Profile Completion" value={`${profileCompletion}%`} change="Profile and document readiness" changeType="positive" icon={FileText} color="success" onClick={() => navigate("/candidate/profile")} />
-        <StatCard title="Notifications" value={notifications.length} change={`${notifications.filter((item) => !item.read).length} unread`} changeType="neutral" icon={Bell} color="info" onClick={() => navigate("/candidate/notifications")} />
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <CircularStatsWidget
-          label="Application Readiness"
-          value={profileCompletion}
-          subtitle="A clean readiness score that tells you how close your profile is to feeling complete and review-ready."
-          breakdown={[
-            { label: "Current stage", value: applicationMeta.currentStage },
-            { label: "Unread alerts", value: `${notifications.filter((item) => !item.read).length}` },
-            { label: "Files uploaded", value: `${uploadedFiles.length}` },
-          ]}
-        />
-
-        <TaskProgressList
-          title="Candidate To-Do Flow"
-          subtitle="A premium checklist view focused on the few actions that actually move your application forward."
-          tasks={[
-            {
-              title: "Profile completion",
-              description: "Complete every essential candidate field and keep your profile polished.",
-              progress: profileCompletion,
-              icon: FileText,
-            },
-            {
-              title: "Document readiness",
-              description: "Keep supporting files uploaded and available for recruiter review.",
-              progress: Math.min(100, uploadedFiles.length * 25),
-              icon: FolderOpen,
-            },
-            {
-              title: "Interview preparation",
-              description: candidate.interviewSchedule?.date ? "Your interview has been scheduled, so preparation should now feel focused." : "No interview yet, but you can still keep your materials ready.",
-              progress: candidate.interviewSchedule?.date ? 84 : 36,
-              icon: CalendarClock,
-            },
-          ]}
-        />
-      </div>
-
-      <PortalCalendarCard
-        title="Candidate Calendar"
-        subtitle="Your next milestones, document checkpoints, and interview moments live in the same calm calendar system used across the entire HR product."
-        events={calendarEvents}
-      />
-
-      {error ? <InlineStatusMessage type="error" message={error} /> : null}
     </div>
   );
 };

@@ -23,7 +23,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles, access
           ? "/candidate/dashboard"
           : "/admin/dashboard";
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
+      </div>
+    );
+  }
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (user?.role === "employee" && user.status !== "active_employee") {
     if (location.pathname !== "/joining-form") {

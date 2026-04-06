@@ -193,15 +193,6 @@ export const runPayroll = async (req, res) => {
     }
 
     const monthlyAttendance = attendanceByEmployeeId.get(employeeKey) || [];
-    if (!monthlyAttendance.length) {
-      skipped.push({
-        employeeId: employee.employeeId,
-        employeeName: getEmployeeDisplayName(employee),
-        reason: "Attendance records not available for this month.",
-      });
-      continue;
-    }
-
     payrollDocuments.push(
       calculatePayrollRecord({
         employee,

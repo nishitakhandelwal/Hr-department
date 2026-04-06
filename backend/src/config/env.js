@@ -57,7 +57,17 @@ export const env = {
       process.env.SMTP_FROM ||
       process.env.EMAIL_FROM ||
       "no-reply@hrharmonyhub.com",
-    senderName: process.env.BREVO_SENDER_NAME || "HR Harmony Hub",
+    senderName: process.env.BREVO_SENDER_NAME || "Arihant Dream Infra Project Ltd.",
+  },
+  company: {
+    name: process.env.COMPANY_NAME || "Arihant Dream Infra Project Ltd.",
+    logoUrl: process.env.COMPANY_LOGO_URL || "",
+    supportEmail:
+      process.env.COMPANY_SUPPORT_EMAIL ||
+      process.env.BREVO_SENDER_EMAIL ||
+      process.env.SMTP_FROM ||
+      process.env.EMAIL_FROM ||
+      "no-reply@hrharmonyhub.com",
   },
   otp: {
     ttlMinutes: Number(process.env.OTP_TTL_MINUTES || 5),

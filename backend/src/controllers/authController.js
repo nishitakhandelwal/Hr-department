@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { User } from "../models/User.js";
 import { UserActivity } from "../models/UserActivity.js";
-import { sendBrevoEmail, sendBrevoOtpEmail } from "../services/brevoEmailService.js";
+import { sendBrevoOtpEmail } from "../services/brevoEmailService.js";
 import { ensureEmployeeProfileForUser } from "../services/employeeProfileService.js";
 import { getSystemSettings, resolveRoleKeyForUser } from "../services/systemSettingsService.js";
 import { generateSecureToken, hashSha256 } from "../utils/token.js";
@@ -144,8 +144,8 @@ const issueEmailVerificationOtp = async (user, { resend = false } = {}) => {
     to: user.email,
     otp: code,
     expiresInMinutes: otpConfig.ttlMinutes,
-    subject: "HR Harmony Hub - Verify your email",
-    heading: "HR Harmony Hub Email Verification",
+    subject: "Arihant Dream Infra Project Ltd. - Verify your email",
+    heading: "Arihant Dream Infra Project Ltd. Email Verification",
     purpose: "verification code",
   });
 
@@ -363,11 +363,14 @@ export const login = async (req, res) => {
       user.twoFactorCodeExpiresAt = new Date(Date.now() + TWO_FACTOR_TTL_MINUTES * 60 * 1000);
       await user.save();
 
-      await sendBrevoEmail({
-  to: user.email,
-  subject: "HR Harmony Hub - Login verification code",
-  html: `<p>Your verification code is <strong>${code}</strong></p>`
-});
+      await sendBrevoOtpEmail({
+        to: user.email,
+        otp: code,
+        expiresInMinutes: TWO_FACTOR_TTL_MINUTES,
+        subject: "Arihant Dream Infra Project Ltd. - Login Verification Code",
+        heading: "Login Verification Code",
+        purpose: "verification code",
+      });
 
       return res.status(202).json({
         success: true,
@@ -654,24 +657,17 @@ export const resendRegistrationOtp = async (req, res) => {
 export const requestPasswordReset = async (req, res) => {
   const normalizedEmail = normalizeEmail(req.body?.email);
   const user = await User.findOne({ email: normalizedEmail });
-  const otpConfig = getOtpConfig();
-  const safeMessage = "If the email exists, a password reset OTP has been sent.";
 
   if (!user) {
-    return res.json({
-      success: true,
-      message: safeMessage,
-      data: {
-        email: normalizedEmail,
-        expiresInSeconds: otpConfig.ttlMinutes * 60,
-        resendCooldownSeconds: otpConfig.resendCooldownSeconds,
-      },
+    return res.status(404).json({
+      success: false,
+      message: "No account found with this email address.",
     });
   }
 
   try {
     const otpPayload = await issuePasswordResetOtp(user, { resend: Boolean(req.body?.resend) });
-    return res.json({ success: true, message: safeMessage, data: otpPayload });
+    return res.json({ success: true, message: "Password reset OTP sent successfully.", data: otpPayload });
   } catch (error) {
     console.error("[authController] Password reset OTP failed", {
       email: user.email,

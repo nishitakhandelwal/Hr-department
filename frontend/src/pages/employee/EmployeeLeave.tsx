@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { DataTable, StatusBadge } from "@/components/DataTable";
 import { Button } from "@/components/ui/button";
@@ -40,12 +40,14 @@ const EmployeeLeave: React.FC = () => {
   const { toast } = useToast();
   const [leaves, setLeaves] = useState<LeaveEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [applyOpen, setApplyOpen] = useState(false);
   const [form, setForm] = useState({ type: "Vacation", from: "", to: "", days: 1, reason: "" });
 
-  const loadLeaves = async () => {
+  const loadLeaves = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    setErrorMessage("");
     try {
       const leaveRows = await apiService.list<LeaveApiEntry>("leave");
       const mine = leaveRows.map((entry) => {
@@ -62,17 +64,21 @@ const EmployeeLeave: React.FC = () => {
       });
       setLeaves(mine);
     } catch (error) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to load leave data", variant: "destructive" });
+      const message = error instanceof Error ? error.message : "Failed to load leave data";
+      setErrorMessage(message);
+      toast({ title: "Error", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast, user]);
 
   useEffect(() => {
     void loadLeaves();
-  }, [user?.id]);
+  }, [loadLeaves]);
 
   const usedDays = useMemo(() => leaves.reduce((sum, row) => sum + row.days, 0), [leaves]);
+  const pendingRequests = useMemo(() => leaves.filter((row) => row.status.toLowerCase() === "pending").length, [leaves]);
+  const approvedRequests = useMemo(() => leaves.filter((row) => row.status.toLowerCase() === "approved").length, [leaves]);
 
   const handleApply = async () => {
     if (!form.from.trim() || !form.to.trim()) {
@@ -104,10 +110,11 @@ const EmployeeLeave: React.FC = () => {
         action={<Button onClick={() => setApplyOpen(true)} className="gradient-primary text-primary-foreground gap-2"><Plus className="w-4 h-4" />Apply Leave</Button>}
       />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title="Total Leave" value="20 days" change="Annual quota" icon={CalendarDays} color="primary" />
-        <StatCard title="Used" value={`${usedDays} days`} change="This year" icon={CalendarDays} color="warning" delay={1} />
-        <StatCard title="Remaining" value={`${Math.max(20 - usedDays, 0)} days`} change="Available" icon={CalendarDays} color="success" delay={2} />
+        <StatCard title="Approved Requests" value={approvedRequests} change="Approved by admin" icon={CalendarDays} color="primary" />
+        <StatCard title="Used" value={`${usedDays} days`} change="Across submitted requests" icon={CalendarDays} color="warning" delay={1} />
+        <StatCard title="Pending" value={pendingRequests} change="Awaiting action" icon={CalendarDays} color="success" delay={2} />
       </div>
+      {errorMessage ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{errorMessage}</div> : null}
       {loading ? (
         <div className="text-sm text-muted-foreground">Loading leave data...</div>
       ) : (

@@ -19,17 +19,17 @@ const PipelineStageBoard: React.FC<PipelineStageBoardProps> = ({ currentStep, st
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[28px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.82))] p-6 shadow-card backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(10,14,28,0.96),rgba(15,20,37,0.94))]",
+        "relative overflow-hidden rounded-[28px] border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#2A211B)] p-6 shadow-card backdrop-blur-xl",
         className
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.12),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(34,197,94,0.10),transparent_30%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.18),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(56,189,248,0.08),transparent_34%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(230,199,163,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(166,124,82,0.12),transparent_30%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(230,199,163,0.22),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(166,124,82,0.12),transparent_34%)]" />
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">Candidate Pipeline</p>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">A clear, step-by-step view of the hiring journey.</p>
+          <p className="text-sm font-semibold text-[#F5F5F5]">Candidate Pipeline</p>
+          <p className="mt-1 text-sm text-[#A1A1AA]">A clear, step-by-step view of the hiring journey.</p>
         </div>
-        <div className="w-fit rounded-full border border-primary/15 bg-[linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))] px-3 py-1 text-xs font-semibold text-primary shadow-soft dark:border-primary/25 dark:bg-[linear-gradient(135deg,rgba(99,102,241,0.18),rgba(56,189,248,0.12))]">
+        <div className="w-fit rounded-full border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#2A211B)] px-3 py-1 text-xs font-semibold text-[#E6C7A3] shadow-soft">
           Step {Math.min(currentStep, steps.length)} of {steps.length}
         </div>
       </div>
@@ -46,9 +46,9 @@ const PipelineStageBoard: React.FC<PipelineStageBoardProps> = ({ currentStep, st
                     transition={{ duration: 0.22 }}
                     className={cn(
                       "mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border transition-all duration-200",
-                      state === "done" && "border-primary/20 bg-[linear-gradient(135deg,#6366F1_0%,#8B5CF6_100%)] text-white shadow-[0_16px_34px_rgba(99,102,241,0.32)]",
-                      state === "active" && "border-primary/30 bg-[linear-gradient(135deg,rgba(99,102,241,0.18),rgba(56,189,248,0.12))] text-primary shadow-[0_12px_28px_rgba(99,102,241,0.18)] dark:shadow-[0_16px_32px_rgba(79,70,229,0.28)]",
-                      state === "upcoming" && "border-border bg-slate-50/90 text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-slate-500"
+                      state === "done" && "border-[#2A2623] bg-[linear-gradient(135deg,#A67C52_0%,#E6C7A3_100%)] text-[#1A1816] shadow-[0_16px_34px_rgba(166,124,82,0.4)]",
+                      state === "active" && "border-[#2A2623] bg-[rgba(230,199,163,0.2)] text-[#E6C7A3] shadow-[0_12px_28px_rgba(166,124,82,0.4)]",
+                      state === "upcoming" && "border-[#2A2623] bg-[rgba(35,32,29,0.72)] text-[#A1A1AA]"
                     )}
                   >
                     {state === "done" ? (
@@ -60,14 +60,14 @@ const PipelineStageBoard: React.FC<PipelineStageBoardProps> = ({ currentStep, st
                     )}
                   </motion.div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{step.title}</p>
-                    {step.description ? <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{step.description}</p> : null}
+                    <p className="text-sm font-semibold text-[#F5F5F5]">{step.title}</p>
+                    {step.description ? <p className="mt-1 text-xs leading-5 text-[#A1A1AA]">{step.description}</p> : null}
                   </div>
                 </div>
               </div>
               {index < steps.length - 1 ? (
-                <div className="mt-6 h-px w-12 rounded-full bg-border dark:bg-white/10">
-                  <div className={cn("h-full rounded-full", index + 1 < currentStep ? "bg-[linear-gradient(90deg,#6366F1_0%,#8B5CF6_100%)]" : "bg-border dark:bg-white/10")} />
+                <div className="mt-6 h-px w-12 rounded-full bg-[#2A2623]">
+                  <div className={cn("h-full rounded-full", index + 1 < currentStep ? "bg-[linear-gradient(135deg,#A67C52_0%,#E6C7A3_100%)]" : "bg-[#2A2623]")} />
                 </div>
               ) : null}
             </React.Fragment>

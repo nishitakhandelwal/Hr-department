@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { DataTable, StatusBadge } from "@/components/DataTable";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ const AdminLeave: React.FC = () => {
   const [appliedFilters, setAppliedFilters] = useState({ search: "", status: "", type: "", fromDate: "" });
   const { toast } = useToast();
 
-  const loadLeaves = async () => {
+  const loadLeaves = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiService.list<LeaveApiRow>("leave");
@@ -78,11 +78,11 @@ const AdminLeave: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   React.useEffect(() => {
     void loadLeaves();
-  }, []);
+  }, [loadLeaves]);
 
   const filtered = leaves.filter((leave) => {
     const term = appliedFilters.search.toLowerCase();

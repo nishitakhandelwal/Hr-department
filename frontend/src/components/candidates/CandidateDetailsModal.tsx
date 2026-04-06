@@ -400,6 +400,8 @@ const CandidateDetailsModal: React.FC<CandidateDetailsModalProps> = ({
                 <div className="space-y-4">
                   <video
                     controls
+                    preload="metadata"
+                    crossOrigin="anonymous"
                     className="w-full rounded-xl border border-border bg-black"
                     src={candidate.videoIntroduction.url}
                   >

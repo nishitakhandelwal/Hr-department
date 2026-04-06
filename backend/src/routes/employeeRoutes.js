@@ -3,6 +3,7 @@ import { param } from "express-validator";
 import {
   createEmployee,
   deleteEmployee,
+  getEmployeeDashboardSummary,
   getEmployees,
   getMyEmployeeProfile,
   updateEmployee,
@@ -16,6 +17,7 @@ const router = Router();
 router.use(protect);
 
 router.get("/me", authorize("admin", "employee"), asyncHandler(getMyEmployeeProfile));
+router.get("/dashboard-summary", authorize("employee"), asyncHandler(getEmployeeDashboardSummary));
 router.use(authorize("admin"), authorizeModule("employees"));
 
 router.get("/", asyncHandler(getEmployees));

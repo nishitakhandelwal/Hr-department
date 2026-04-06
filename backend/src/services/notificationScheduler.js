@@ -5,6 +5,7 @@ import { Holiday } from "../models/Holiday.js";
 import { User } from "../models/User.js";
 import { sendEmail } from "./emailService.js";
 import { format, addDays, startOfDay } from "date-fns";
+import { buildMessageEmailLayout } from "../layouts/email/index.js";
 
 let scheduledJob = null;
 
@@ -88,16 +89,14 @@ async function createNotification(userId, title, message, type = "event") {
  */
 async function sendEmailNotification(userEmail, subject, message) {
   try {
-    const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2>${subject}</h2>
-        <p>${message}</p>
-        <hr>
-        <p><small>This is an automated notification from HR Harmony Hub</small></p>
-      </div>
-    `;
+    const notificationEmail = buildMessageEmailLayout({
+      subject,
+      title: subject,
+      message,
+      eyebrow: "Automated notification",
+    });
 
-    await sendEmail(userEmail, subject, html);
+    await sendEmail(userEmail, notificationEmail.subject, notificationEmail.html);
     return true;
   } catch (error) {
     console.error("Error sending email notification:", error);
@@ -188,7 +187,7 @@ async function processEventNotifications() {
 
           await sendEmailNotification(
             user.email,
-            "Tomorrow's Schedule - HR Harmony Hub",
+            "Tomorrow's Schedule - Arihant Dream Infra Project Ltd.",
             `<p>Here's what's coming up tomorrow:</p><pre>${summary}</pre>`
           );
         }

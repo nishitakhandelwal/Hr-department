@@ -86,7 +86,7 @@ const DEFAULT_ROLE_PERMISSIONS = {
 const DEFAULT_SETTINGS = {
   key: SETTINGS_KEY,
   company: {
-    companyName: "HR Harmony Hub",
+    companyName: "Arihant Dream Infra Project Ltd.",
     companyLogoUrl: "",
     address: "",
     contactEmail: "",

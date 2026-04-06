@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Clock, FileClock, LogIn, LogOut } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -64,6 +64,7 @@ const EmployeeAttendance: React.FC = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [checkedIn, setCheckedIn] = useState(false);
   const [openCorrectionModal, setOpenCorrectionModal] = useState(false);
   const [attendanceRows, setAttendanceRows] = useState<AttendanceTableRow[]>([]);
@@ -75,10 +76,11 @@ const EmployeeAttendance: React.FC = () => {
     reason: "",
   });
 
-  const loadAttendance = async () => {
+  const loadAttendance = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
+    setErrorMessage("");
     try {
       const [attendance, correctionRequests] = await Promise.all([
         apiService.list<AttendanceRecord>("attendance"),
@@ -113,19 +115,21 @@ const EmployeeAttendance: React.FC = () => {
       const latestToday = attendance.find((entry) => new Date(entry.date).toDateString() === today.toDateString());
       setCheckedIn(Boolean(latestToday?.checkIn && !latestToday?.checkOut));
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load attendance";
+      setErrorMessage(message);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load attendance",
+        description: message,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast, user]);
 
   useEffect(() => {
     void loadAttendance();
-  }, [user?.id]);
+  }, [loadAttendance]);
 
   const handleToggle = async () => {
     const now = new Date();
@@ -268,6 +272,12 @@ const EmployeeAttendance: React.FC = () => {
         <StatCard title="Pending Requests" value={pendingRequests} change="Awaiting approval" icon={FileClock} color="warning" delay={1} />
         <StatCard title="Avg. Hours" value={avgHours} change="Per recorded day" icon={Clock} color="primary" delay={2} />
       </div>
+
+      {errorMessage ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {errorMessage}
+        </div>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <section className="space-y-4 rounded-[28px] border bg-white p-5 shadow-card sm:p-6">

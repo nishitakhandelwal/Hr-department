@@ -590,7 +590,7 @@ For issues or questions:
 
 ## 📄 License
 
-Same as HR Harmony Hub project
+Same as Arihant Dream Infra Project Ltd. project
 
 ---
 

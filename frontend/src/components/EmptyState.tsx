@@ -18,7 +18,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   action,
 }) => {
   return (
-    <div className="flex min-h-[220px] flex-col items-center justify-center rounded-[24px] border border-dashed border-border bg-white/75 px-6 py-10 text-center shadow-card dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(10,14,28,0.92),rgba(15,20,37,0.9))]">
+    <div className="flex min-h-[220px] flex-col items-center justify-center rounded-[24px] border border-dashed border-border bg-white/75 px-6 py-10 text-center shadow-card dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)]">
       <div className="gradient-primary-soft flex h-16 w-16 items-center justify-center rounded-2xl border border-white/80 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
         <Icon className="h-8 w-8 text-primary [stroke-width:2.5]" />
       </div>

@@ -2,7 +2,7 @@
 
 ## 🎯 What Was Built
 
-A fully-functional, production-ready Smart Workforce Calendar system for the HR Harmony Hub SaaS platform with:
+A fully-functional, production-ready Smart Workforce Calendar system for the Arihant Dream Infra Project Ltd. SaaS platform with:
 
 ### ✨ Core Features Implemented
 

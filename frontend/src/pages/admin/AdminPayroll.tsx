@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import {
   CheckCircle2,
@@ -92,7 +92,7 @@ const toolbarButtonClass =
   "h-9 rounded-lg px-4 py-2 text-sm font-medium shadow-none transition-colors";
 
 const fieldClassName =
-  "mt-2 h-10 rounded-lg border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-none focus-visible:border-[#4f46e5] focus-visible:ring-[#4f46e5]/20";
+  "mt-2 h-10 rounded-lg border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-3 text-sm text-[#F5F5F5] shadow-none focus-visible:border-[#A67C52] focus-visible:ring-[rgba(230,199,163,0.2)]";
 
 const payrollModeOptions: Array<{ label: string; value: PayrollSettings["workingDaysMode"] }> = [
   { label: "Weekdays", value: "weekdays" },
@@ -111,14 +111,14 @@ const StatCard = ({
   hint: string;
   icon: React.ComponentType<{ className?: string }>;
 }) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  <div className="rounded-2xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-5 shadow-[0_18px_40px_rgba(166,124,82,0.18)]">
     <div className="flex items-start justify-between gap-4">
       <div>
-        <p className="text-sm font-medium text-slate-500">{title}</p>
-        <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
-        <p className="mt-1 text-sm text-slate-500">{hint}</p>
+        <p className="text-sm font-medium text-[#A1A1AA]">{title}</p>
+        <p className="mt-2 text-2xl font-semibold tracking-tight text-[#F5F5F5]">{value}</p>
+        <p className="mt-1 text-sm text-[#A1A1AA]">{hint}</p>
       </div>
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(230,199,163,0.14)] bg-[rgba(230,199,163,0.12)] text-[#E6C7A3]">
         <Icon className="h-5 w-5" />
       </div>
     </div>
@@ -147,7 +147,7 @@ const AdminPayroll: React.FC = () => {
   const [fallbackPayrollRecord, setFallbackPayrollRecord] = useState<PayrollRecord | null>(null);
   const fallbackPayslipRef = React.useRef<HTMLDivElement>(null);
 
-  const loadPayroll = async (monthValue = selectedMonth) => {
+  const loadPayroll = useCallback(async (monthValue = selectedMonth) => {
     const { month, year } = parseMonthValue(monthValue);
     setPageLoading(true);
     try {
@@ -167,9 +167,9 @@ const AdminPayroll: React.FC = () => {
     } finally {
       setPageLoading(false);
     }
-  };
+  }, [selectedMonth, toast]);
 
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     try {
       const config = await apiService.getPayrollConfig();
       setPayrollConfig(config);
@@ -180,15 +180,15 @@ const AdminPayroll: React.FC = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
   React.useEffect(() => {
     void loadConfig();
-  }, []);
+  }, [loadConfig]);
 
   React.useEffect(() => {
     void loadPayroll(selectedMonth);
-  }, [selectedMonth]);
+  }, [loadPayroll, selectedMonth]);
 
   const payrollRows: PayrollRow[] = useMemo(
     () =>
@@ -308,7 +308,6 @@ const AdminPayroll: React.FC = () => {
           description: `${record.employeeName}'s payslip was downloaded using the server fallback.`,
         });
       } catch (fallbackError) {
-        console.error("Failed to download salary slip", error, fallbackError);
         toast({
           title: "Download failed",
           description:
@@ -334,11 +333,11 @@ const AdminPayroll: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-2">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-6 shadow-[0_20px_50px_rgba(166,124,82,0.16)]">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-950">Payroll</h1>
-            <p className="max-w-2xl text-sm leading-6 text-slate-500">
+            <h1 className="text-3xl font-semibold tracking-tight text-[#F5F5F5]">Payroll</h1>
+            <p className="max-w-2xl text-sm leading-6 text-[#A1A1AA]">
               Review payroll month by month, manage payslip actions, and keep the workspace focused on the register instead of side panels.
             </p>
           </div>
@@ -348,18 +347,18 @@ const AdminPayroll: React.FC = () => {
               type="month"
               value={selectedMonth}
               onChange={(event) => setSelectedMonth(event.target.value)}
-              className="h-9 w-full rounded-lg border-slate-200 bg-white px-3.5 text-sm shadow-none md:w-[190px] md:shrink-0"
+              className="h-9 w-full rounded-lg border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-3.5 text-sm text-[#F5F5F5] shadow-[0_10px_24px_rgba(166,124,82,0.18)] md:w-[190px] md:shrink-0"
             />
             <Button
               variant="outline"
-              className={`${toolbarButtonClass} border-slate-200 bg-[#f3f4f6] text-[#111827] hover:border-slate-200 hover:bg-slate-200 hover:text-[#111827] md:shrink-0`}
+              className={`${toolbarButtonClass} border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3] md:shrink-0`}
               onClick={() => setFiltersOpen(true)}
             >
               <Filter className="h-4 w-4" />
               Filter
             </Button>
             <Button
-              className={`${toolbarButtonClass} bg-[#4f46e5] text-white hover:bg-[#4338ca] md:shrink-0`}
+              className={`${toolbarButtonClass} border border-[rgba(166,124,82,0.24)] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] text-[#1A1816] shadow-[0_14px_32px_rgba(166,124,82,0.24)] hover:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] hover:shadow-[0_18px_36px_rgba(166,124,82,0.32)] md:shrink-0`}
               onClick={() => setRunDialogOpen(true)}
             >
               <PlayCircle className="h-4 w-4" />
@@ -371,7 +370,7 @@ const AdminPayroll: React.FC = () => {
               fallbackRows={payrollRows}
               columns={payrollExportColumns}
               filters={{ ...appliedFilters, month: selectedMonth }}
-              className={`${toolbarButtonClass} border-slate-200 bg-[#f3f4f6] text-[#111827] hover:border-slate-200 hover:bg-slate-200 hover:text-[#111827] md:shrink-0`}
+              className={`${toolbarButtonClass} border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3] md:shrink-0`}
               loading={pageLoading}
               emptyMessage="No data to export"
               preferServerExport={false}
@@ -380,16 +379,16 @@ const AdminPayroll: React.FC = () => {
         </div>
       </section>
 
-      <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen} className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen} className="rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] shadow-[0_20px_50px_rgba(166,124,82,0.16)]">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>
-            <p className="text-base font-semibold text-slate-900">Payroll Rules</p>
-            <p className="mt-1 text-sm text-slate-500">Collapsed by default to keep the register clean. Expand only when you need to update company rules.</p>
+            <p className="text-base font-semibold text-[#F5F5F5]">Payroll Rules</p>
+            <p className="mt-1 text-sm text-[#A1A1AA]">Collapsed by default to keep the register clean. Expand only when you need to update company rules.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
-              className={`${toolbarButtonClass} border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900`}
+              className={`${toolbarButtonClass} border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]`}
               onClick={() => void handleSaveConfig()}
               disabled={configSaving}
             >
@@ -399,7 +398,7 @@ const AdminPayroll: React.FC = () => {
             <CollapsibleTrigger asChild>
               <Button
                 variant="outline"
-                className={`${toolbarButtonClass} border-slate-200 bg-[#f3f4f6] text-[#111827] hover:border-slate-200 hover:bg-slate-200 hover:text-[#111827]`}
+                className={`${toolbarButtonClass} border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]`}
               >
                 <Settings2 className="h-4 w-4" />
                 {settingsOpen ? "Hide Settings" : "Show Settings"}
@@ -409,10 +408,10 @@ const AdminPayroll: React.FC = () => {
           </div>
         </div>
 
-        <CollapsibleContent className="border-t border-slate-200 px-5 pb-5 pt-5 sm:px-6 sm:pb-6">
+        <CollapsibleContent className="border-t border-[#2A2623] px-5 pb-5 pt-5 sm:px-6 sm:pb-6">
           <div className="grid gap-4 xl:grid-cols-3">
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-              <h2 className="text-sm font-semibold text-slate-900">Working Days</h2>
+            <section className="rounded-2xl border border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)] p-5">
+              <h2 className="text-sm font-semibold text-[#F5F5F5]">Working Days</h2>
               <div className="mt-4 space-y-4">
                 <div>
                   <Label htmlFor="workingDaysMode">Working Days Mode</Label>
@@ -458,10 +457,10 @@ const AdminPayroll: React.FC = () => {
                     className={fieldClassName}
                   />
                 </div>
-                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <div className="flex items-center justify-between rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.72)] px-4 py-3">
                   <div>
-                    <p className="text-sm font-medium text-slate-900">Include Paid Leave</p>
-                    <p className="text-xs text-slate-500">Leaves count toward earned wages</p>
+                    <p className="text-sm font-medium text-[#F5F5F5]">Include Paid Leave</p>
+                    <p className="text-xs text-[#A1A1AA]">Leaves count toward earned wages</p>
                   </div>
                   <Switch
                     checked={payrollConfig.includePaidLeaveInWages}
@@ -471,8 +470,8 @@ const AdminPayroll: React.FC = () => {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-              <h2 className="text-sm font-semibold text-slate-900">Penalties And Overtime</h2>
+            <section className="rounded-2xl border border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)] p-5">
+              <h2 className="text-sm font-semibold text-[#F5F5F5]">Penalties And Overtime</h2>
               <div className="mt-4 space-y-4">
                 <div>
                   <Label htmlFor="latePenaltyAmount">Late Penalty Amount</Label>
@@ -511,12 +510,12 @@ const AdminPayroll: React.FC = () => {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-              <h2 className="text-sm font-semibold text-slate-900">Statutory Deductions</h2>
+            <section className="rounded-2xl border border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)] p-5">
+              <h2 className="text-sm font-semibold text-[#F5F5F5]">Statutory Deductions</h2>
               <div className="mt-4 space-y-4">
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.72)] p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-slate-900">Provident Fund</p>
+                    <p className="text-sm font-medium text-[#F5F5F5]">Provident Fund</p>
                     <Switch
                       checked={payrollConfig.pf.enabled}
                       onCheckedChange={(checked) => setPayrollConfig((prev) => ({ ...prev, pf: { ...prev.pf, enabled: checked } }))}
@@ -550,9 +549,9 @@ const AdminPayroll: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.72)] p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-slate-900">Employee State Insurance</p>
+                    <p className="text-sm font-medium text-[#F5F5F5]">Employee State Insurance</p>
                     <Switch
                       checked={payrollConfig.esi.enabled}
                       onCheckedChange={(checked) => setPayrollConfig((prev) => ({ ...prev, esi: { ...prev.esi, enabled: checked } }))}
@@ -597,27 +596,27 @@ const AdminPayroll: React.FC = () => {
         <StatCard title="Pending" value={summary?.pendingEmployees || 0} hint="Employees waiting" icon={Clock3} />
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <section className="rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] shadow-[0_20px_50px_rgba(166,124,82,0.16)]">
+        <div className="flex flex-col gap-3 border-b border-[#2A2623] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Payroll Register</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <h2 className="text-lg font-semibold text-[#F5F5F5]">Payroll Register</h2>
+            <p className="mt-1 text-sm text-[#A1A1AA]">
               Use Generate, View, and Download actions in sequence without crowding the main workspace.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+          <div className="flex flex-wrap gap-2 text-xs text-[#A1A1AA]">
             {appliedFilters.search ? (
-              <span className="rounded-full bg-slate-100 px-3 py-1.5">Search: {appliedFilters.search}</span>
+              <span className="rounded-full border border-[#2A2623] bg-[rgba(230,199,163,0.12)] px-3 py-1.5 text-[#E6C7A3]">Search: {appliedFilters.search}</span>
             ) : null}
             {appliedFilters.status ? (
-              <span className="rounded-full bg-slate-100 px-3 py-1.5">Status: {appliedFilters.status}</span>
+              <span className="rounded-full border border-[#2A2623] bg-[rgba(230,199,163,0.12)] px-3 py-1.5 text-[#E6C7A3]">Status: {appliedFilters.status}</span>
             ) : null}
           </div>
         </div>
 
         <div className="p-5 sm:p-6">
           {pageLoading ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-sm text-slate-500">
+            <div className="rounded-2xl border border-dashed border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)] px-6 py-10 text-sm text-[#A1A1AA]">
               Loading payroll records...
             </div>
           ) : (
@@ -661,12 +660,12 @@ const AdminPayroll: React.FC = () => {
             <DialogClose asChild>
               <Button
                 variant="outline"
-                className={`${toolbarButtonClass} border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900`}
+              className={`${toolbarButtonClass} border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]`}
               >
                 Cancel
               </Button>
             </DialogClose>
-            <Button className={`${toolbarButtonClass} bg-[#4f46e5] text-white hover:bg-[#4338ca]`} onClick={() => void handleRunPayroll()} disabled={loading}>
+            <Button className={`${toolbarButtonClass} border border-[rgba(166,124,82,0.24)] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] text-[#1A1816] shadow-[0_14px_32px_rgba(166,124,82,0.24)] hover:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] hover:shadow-[0_18px_36px_rgba(166,124,82,0.32)]`} onClick={() => void handleRunPayroll()} disabled={loading}>
               {loading ? "Processing..." : "Confirm And Process"}
             </Button>
           </DialogFooter>

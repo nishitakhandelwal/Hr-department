@@ -20,7 +20,7 @@ const RecruiterDashboard: React.FC = () => {
         toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to load recruiter dashboard", variant: "destructive" });
       }
     })();
-  }, []);
+  }, [toast]);
 
   const total = rows.length;
   const shortlisted = useMemo(() => rows.filter((r) => r.status === "Under Review" || r.status === "Interview Scheduled").length, [rows]);

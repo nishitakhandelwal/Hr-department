@@ -273,7 +273,7 @@ const CandidateJoiningForm: React.FC = () => {
           setLoading(false);
       }
     })();
-  }, [isEmployeeActivation, toast, user?.email, user?.name, user?.phone, user?.phoneNumber]);
+  }, [isEmployeeActivation, toast, user]);
 
   useEffect(() => {
     const nextPreview: Record<string, string> = {};

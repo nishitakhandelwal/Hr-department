@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, MoreHorizontal } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ const AdminInternships: React.FC = () => {
   const [decisionEndDate, setDecisionEndDate] = useState("");
   const [decisionSaving, setDecisionSaving] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const [candidateRows, internshipRows] = await Promise.all([
         apiService.list<CandidateRecord>("candidates"),
@@ -68,11 +68,11 @@ const AdminInternships: React.FC = () => {
     } catch (error) {
       toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to load internships", variant: "destructive" });
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   const assign = async () => {
     if (!candidateId || !startDate || !endDate) {

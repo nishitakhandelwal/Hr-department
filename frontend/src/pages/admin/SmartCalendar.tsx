@@ -30,18 +30,18 @@ import { apiService, type CalendarEvent, type CalendarMonth, type UpcomingEvents
 
 const EVENT_COLOR_CLASSES = {
   holiday: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  meeting: "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300",
-  birthday: "border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+  meeting: "border-[#2A2623] bg-[rgba(230,199,163,0.2)] text-[#E6C7A3] dark:text-[#E6C7A3]",
+  birthday: "border-[#2A2623] bg-[rgba(230,199,163,0.2)] text-[#E6C7A3] dark:text-[#E6C7A3]",
   reminder: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
 } as const;
 
 const DARK_PANEL =
-  "border-white/10 bg-[linear-gradient(180deg,rgba(9,13,28,0.96),rgba(14,19,36,0.94))] shadow-[0_22px_60px_rgba(2,6,23,0.45)]";
+  "border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#2A211B)] shadow-[0_22px_60px_rgba(166,124,82,0.4)]";
 
 const EVENT_DOT_CLASSES = {
   holiday: "bg-emerald-500",
-  meeting: "bg-blue-500",
-  birthday: "bg-violet-500",
+  meeting: "bg-[#A67C52]",
+  birthday: "bg-[#E6C7A3]",
   reminder: "bg-amber-500",
 } as const;
 
@@ -97,12 +97,16 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
         const result = await apiService.getSupportedCalendarCountries();
         setSupportedCountries(result.countries);
       } catch (error) {
-        console.error("Failed to load countries:", error);
+        toast({
+          title: "Countries unavailable",
+          description: error instanceof Error ? error.message : "Failed to load supported countries.",
+          variant: "destructive",
+        });
       }
     };
 
     void loadCountries();
-  }, []);
+  }, [toast]);
 
   const loadSelectedDateEvents = useCallback(
     async (dateKey: string) => {
@@ -200,10 +204,14 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
       try {
         await loadSelectedDateEvents(nextDateKey);
       } catch (error) {
-        console.error("Failed to load date events:", error);
+        toast({
+          title: "Date events unavailable",
+          description: error instanceof Error ? error.message : "Failed to load events for this date.",
+          variant: "destructive",
+        });
       }
     },
-    [loadSelectedDateEvents, visibleMonth]
+    [loadSelectedDateEvents, toast, visibleMonth]
   );
 
   const handleTodayClick = useCallback(async () => {
@@ -213,9 +221,13 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
     try {
       await loadSelectedDateEvents(toDateKey(today));
     } catch (error) {
-      console.error("Failed to load today's events:", error);
+      toast({
+        title: "Today events unavailable",
+        description: error instanceof Error ? error.message : "Failed to load today's events.",
+        variant: "destructive",
+      });
     }
-  }, [loadSelectedDateEvents, today]);
+  }, [loadSelectedDateEvents, toast, today]);
 
   const handleAddEvent = async () => {
     if (!newEventForm.title.trim()) {
@@ -391,7 +403,7 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
                       "relative min-h-[112px] rounded-[20px] border p-3 text-left transition-all duration-300",
                       !isCurrentMonth && "border-white/8 bg-white/[0.03] text-muted-foreground dark:text-slate-500",
                       isCurrentMonth && "border-border bg-background/70 hover:bg-accent/50 dark:border-white/8 dark:bg-white/[0.035] dark:hover:bg-white/[0.08]",
-                      isTodayDate && "border-primary bg-primary/5 shadow-[0_0_0_1px_rgba(99,102,241,0.18),0_12px_30px_rgba(79,70,229,0.15)] dark:bg-primary/10 dark:shadow-[0_0_0_1px_rgba(129,140,248,0.35),0_16px_34px_rgba(99,102,241,0.22)]",
+                      isTodayDate && "border-primary bg-primary/5 shadow-[0_0_0_1px_rgba(230,199,163,0.2),0_12px_30px_rgba(166,124,82,0.4)] dark:bg-primary/10 dark:shadow-[0_0_0_1px_rgba(230,199,163,0.2),0_16px_34px_rgba(166,124,82,0.4)]",
                       isSelectedDate && "border-primary bg-primary/10 dark:bg-primary/12"
                     )}
                   >
@@ -409,7 +421,7 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
                         <div
                           key={event._id}
                           className={cn(
-                            "flex items-center gap-2 rounded-xl border px-2 py-1 text-xs font-medium shadow-[0_10px_22px_rgba(15,23,42,0.10)] dark:shadow-none",
+                            "flex items-center gap-2 rounded-xl border px-2 py-1 text-xs font-medium shadow-[0_10px_22px_rgba(166,124,82,0.18)] dark:shadow-none",
                             EVENT_COLOR_CLASSES[event.type]
                           )}
                         >
@@ -489,7 +501,7 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
             )}
           >
             <div className="mb-4 flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-primary [stroke-width:2.5] drop-shadow-[0_0_14px_rgba(99,102,241,0.45)]" />
+              <CalendarDays className="h-5 w-5 text-primary [stroke-width:2.5] drop-shadow-[0_0_14px_rgba(166,124,82,0.4)]" />
               <h3 className="text-lg font-semibold text-foreground">Upcoming Events</h3>
             </div>
 

@@ -14,7 +14,7 @@ export default function Users() {
       const data = await fetchUsers(appliedFilters);
       setUsers(data);
     } catch (err) {
-      console.error("Error fetching users", err);
+      setUsers([]);
     }
   };
 
@@ -43,7 +43,7 @@ export default function Users() {
 
         <button
           onClick={() => setOpen(true)}
-          className="px-4 py-2 rounded-md text-white bg-gradient-to-r from-indigo-500 to-purple-500"
+          className="px-4 py-2 rounded-md border border-[#2A2623] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] text-[#1A1816] shadow-[0_12px_30px_rgba(166,124,82,0.4)] transition hover:shadow-[0_16px_36px_rgba(166,124,82,0.4)]"
         >
           Filter
         </button>
@@ -52,8 +52,8 @@ export default function Users() {
       {/* Table */}
       <UserTable
         users={users}
-        onEdit={(u) => console.log("Edit:", u)}
-        onDelete={(id) => console.log("Delete:", id)}
+        onEdit={() => {}}
+        onDelete={() => {}}
       />
 
       {/* Drawer */}

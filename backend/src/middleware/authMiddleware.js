@@ -5,20 +5,39 @@ import { asyncHandler } from "./asyncHandler.js";
 import { normalizePermissions } from "../utils/permissions.js";
 import { getSystemSettings, resolveRoleKeyForUser } from "../services/systemSettingsService.js";
 
+const getCookieValue = (cookieHeader, key) => {
+  const cookies = String(cookieHeader || "")
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  for (const cookie of cookies) {
+    const [name, ...rest] = cookie.split("=");
+    if (name === key) {
+      return decodeURIComponent(rest.join("="));
+    }
+  }
+
+  return "";
+};
+
 export const protect = asyncHandler(async (req, res, next) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const headerToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : "";
+  const cookieToken = getCookieValue(req.headers.cookie, "hr_auth_token");
+  const token = headerToken || cookieToken;
+
+  if (!token) {
     console.warn("[auth.protect] Missing or invalid authorization header", {
       method: req.method,
       path: req.originalUrl,
       hasHeader: Boolean(authHeader),
+      hasCookieToken: Boolean(cookieToken),
     });
     const error = new Error("Unauthorized: Missing token");
     error.statusCode = 401;
     throw error;
   }
-
-  const token = authHeader.split(" ")[1];
   let payload;
   try {
     payload = jwt.verify(token, env.jwtSecret);

@@ -277,10 +277,14 @@ const CandidateProfile: React.FC = () => {
       setVideoSuccess("Video introduction uploaded successfully.");
       toast({ title: "Upload complete", description: "Your video introduction has been submitted." });
       setVideoFile(null);
-      if (videoPreviewUrl) {
-        URL.revokeObjectURL(videoPreviewUrl);
+
+      const remoteVideoUrl = updated.videoIntroduction?.url;
+      if (remoteVideoUrl) {
+        if (videoPreviewUrl && videoPreviewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(videoPreviewUrl);
+        }
+        setVideoPreviewUrl(remoteVideoUrl);
       }
-      setVideoPreviewUrl("");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to upload video.";
       setVideoError(message);
@@ -342,33 +346,16 @@ const CandidateProfile: React.FC = () => {
         title="My Profile"
         subtitle="Edit your candidate details and add a short video introduction for the hiring team."
         action={
-          editing ? (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setEditing(false);
-                  setForm(createForm(candidate));
-                }}
-              >
-                <X className="mr-2 h-4 w-4" />
-                Cancel
-              </Button>
-              <Button onClick={() => void handleSave()} disabled={saving}>
-                <Save className="mr-2 h-4 w-4" />
-                {saving ? "Saving..." : "Save"}
-              </Button>
-            </div>
-          ) : (
+          !editing ? (
             <Button onClick={() => setEditing(true)}>
               <Edit2 className="mr-2 h-4 w-4" />
               Edit Profile
             </Button>
-          )
+          ) : null
         }
       />
 
-      <Card className="border-slate-200 shadow-sm">
+      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
         <CardHeader>
           <CardTitle>Profile Image</CardTitle>
         </CardHeader>
@@ -379,45 +366,56 @@ const CandidateProfile: React.FC = () => {
             className="h-24 w-24"
             fallbackClassName="text-2xl"
           />
-          <ProfileImageManager
-            name={user?.name || "Candidate"}
-            imageUrl={profileImageUrl}
-            onUpload={async (file) => {
-              setUploadingPhoto(true);
-              try {
-                const updatedUser = await apiService.updateMyProfilePhoto(file);
-                console.log("Uploaded URL:", updatedUser.profileImage || updatedUser.profilePhotoUrl || "");
-                console.log("Saved user:", updatedUser);
-                await refreshProfile();
-              } finally {
-                setUploadingPhoto(false);
-              }
-            }}
-            onRemove={async () => {
-              setUploadingPhoto(true);
-              try {
-                const updatedUser = await apiService.removeMyProfilePhoto();
-                console.log("Saved user:", updatedUser);
-                await refreshProfile();
-              } finally {
-                setUploadingPhoto(false);
-              }
-            }}
+            <ProfileImageManager
+              name={user?.name || "Candidate"}
+              imageUrl={profileImageUrl}
+              onUpload={async (file) => {
+                setUploadingPhoto(true);
+                try {
+                  await apiService.updateMyProfilePhoto(file);
+                  await refreshProfile();
+                  toast({ title: "Profile image updated" });
+                } catch (error) {
+                  toast({
+                    title: "Profile image upload failed",
+                    description: error instanceof Error ? error.message : "Unable to update profile image.",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setUploadingPhoto(false);
+                }
+              }}
+              onRemove={async () => {
+                setUploadingPhoto(true);
+                try {
+                  await apiService.removeMyProfilePhoto();
+                  await refreshProfile();
+                  toast({ title: "Profile image removed" });
+                } catch (error) {
+                  toast({
+                    title: "Profile image removal failed",
+                    description: error instanceof Error ? error.message : "Unable to remove profile image.",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setUploadingPhoto(false);
+                }
+              }}
             disabled={uploadingPhoto}
           />
         </CardContent>
       </Card>
 
-      <Card className="border-slate-200 shadow-sm">
+      <Card className="border-[var(--portal-surface-border)] shadow-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Video className="h-5 w-5 text-slate-700" />
+            <Video className="h-5 w-5 text-[var(--portal-primary-dark)]" />
             Video Introduction
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="space-y-4 rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] p-4">
               <Tabs value={videoMode} onValueChange={(value) => setVideoMode(value as "record" | "upload")}>
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="record">Record with Webcam</TabsTrigger>
@@ -425,7 +423,7 @@ const CandidateProfile: React.FC = () => {
                 </TabsList>
 
                 <TabsContent value="record" className="space-y-4">
-                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-black">
+                  <div className="overflow-hidden rounded-2xl border border-[var(--portal-surface-border)] bg-black">
                     <video ref={liveVideoRef} autoPlay muted playsInline className="aspect-video w-full object-cover" />
                   </div>
                   <div className="flex flex-wrap gap-3">
@@ -438,13 +436,13 @@ const CandidateProfile: React.FC = () => {
                       Stop Recording
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="portal-muted text-xs">
                     Record a short introduction. Supported output formats are MP4, WEBM, and MOV up to 50 MB.
                   </p>
                 </TabsContent>
 
                 <TabsContent value="upload" className="space-y-4">
-                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6">
+                  <div className="rounded-2xl border border-dashed border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg)] p-6">
                     <div className="space-y-2">
                       <Label htmlFor="candidate-video-upload">Choose a video file</Label>
                       <Input
@@ -454,7 +452,7 @@ const CandidateProfile: React.FC = () => {
                         onChange={handleVideoFileChange}
                         disabled={uploadingVideo}
                       />
-                      <p className="text-xs text-muted-foreground">
+                      <p className="portal-muted text-xs">
                         Use MP4, WEBM, or MOV. Maximum file size is {MAX_VIDEO_SIZE_MB} MB.
                       </p>
                     </div>
@@ -465,8 +463,8 @@ const CandidateProfile: React.FC = () => {
               {uploadProgress > 0 && uploadingVideo ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Upload progress</span>
-                    <span className="font-medium">{uploadProgress}%</span>
+                    <span className="portal-muted">Upload progress</span>
+                    <span className="portal-heading font-medium">{uploadProgress}%</span>
                   </div>
                   <Progress value={uploadProgress} className="h-2.5" />
                 </div>
@@ -487,11 +485,11 @@ const CandidateProfile: React.FC = () => {
               ) : null}
             </div>
 
-            <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="space-y-4 rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg)] p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Preview before submission</h3>
-                  <p className="text-xs text-muted-foreground">Review your selected video before sending it to HR.</p>
+                  <h3 className="portal-heading text-sm font-semibold">Preview before submission</h3>
+                  <p className="portal-muted text-xs">Review your selected video before sending it to HR.</p>
                 </div>
                 {videoFile ? (
                   <Button type="button" variant="ghost" size="sm" onClick={clearVideoSelection}>
@@ -502,10 +500,22 @@ const CandidateProfile: React.FC = () => {
 
               {videoPreviewUrl ? (
                 <div className="space-y-3">
-                  <video controls className="aspect-video w-full rounded-2xl border border-slate-200 bg-black" src={videoPreviewUrl}>
+                  <video
+                    controls
+                    preload="metadata"
+                    crossOrigin="anonymous"
+                    className="aspect-video w-full rounded-2xl border border-[var(--portal-surface-border)] bg-black"
+                    src={videoPreviewUrl}
+                    onError={() => setVideoError("Unable to preview the selected video. Please open it in a new tab.")}
+                  >
                     Your browser does not support video playback.
                   </video>
-                  <div className="grid gap-2 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => window.open(videoPreviewUrl, "_blank") }>
+                      Open in new tab
+                    </Button>
+                  </div>
+                  <div className="portal-muted grid gap-2 text-xs">
                     <p>Name: {videoFile?.name || "-"}</p>
                     <p>Format: {videoFile?.type || "-"}</p>
                     <p>Size: {videoFile ? `${(videoFile.size / (1024 * 1024)).toFixed(1)} MB` : "-"}</p>
@@ -519,12 +529,20 @@ const CandidateProfile: React.FC = () => {
                 <div className="space-y-3">
                   <video
                     controls
-                    className="aspect-video w-full rounded-2xl border border-slate-200 bg-black"
+                    preload="metadata"
+                    crossOrigin="anonymous"
+                    className="aspect-video w-full rounded-2xl border border-[var(--portal-surface-border)] bg-black"
                     src={candidate.videoIntroduction.url}
+                    onError={() => setVideoError("Unable to load the uploaded video. Please try opening it in a new tab.")}
                   >
                     Your browser does not support video playback.
                   </video>
-                  <div className="grid gap-2 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => window.open(candidate.videoIntroduction.url, "_blank") }>
+                      Open in new tab
+                    </Button>
+                  </div>
+                  <div className="portal-muted grid gap-2 text-xs">
                     <p>Latest submission: {candidate.videoIntroduction.originalName || "Video introduction"}</p>
                     <p>
                       Uploaded on:{" "}
@@ -536,7 +554,7 @@ const CandidateProfile: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-sm text-muted-foreground">
+                <div className="portal-muted flex aspect-video items-center justify-center rounded-2xl border border-dashed border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] text-sm">
                   Record or upload a video to preview it here.
                 </div>
               )}
@@ -545,8 +563,8 @@ const CandidateProfile: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>Stage 1 Details</CardTitle></CardHeader>
+      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
+        <CardHeader><CardTitle className="font-cursive text-2xl tracking-wide text-[#F5F5F5]">Stage 1 Details</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5"><Label>Full Name</Label><Input disabled={!editing} value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} /></div>
           <div className="space-y-1.5"><Label>Email</Label><Input disabled value={candidate?.email || ""} /></div>
@@ -564,11 +582,11 @@ const CandidateProfile: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>Qualification Details</CardTitle></CardHeader>
+      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
+        <CardHeader><CardTitle className="font-cursive text-2xl tracking-wide text-[#F5F5F5]">Qualification Details</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {(form.stage1.qualificationDetails?.qualifications || [emptyQualification]).map((item, index) => (
-            <div key={`qualification-${index}`} className="grid gap-3 rounded-xl border border-border/80 p-4 md:grid-cols-4">
+            <div key={`qualification-${index}`} className="grid gap-3 rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.48)] p-4 md:grid-cols-4">
               <Input disabled={!editing} placeholder="Degree" value={item.degree || ""} onChange={(e) => updateQualification(index, "degree", e.target.value)} />
               <Input disabled={!editing} placeholder="Institute" value={item.institute || ""} onChange={(e) => updateQualification(index, "institute", e.target.value)} />
               <Input disabled={!editing} placeholder="Year" value={item.year || ""} onChange={(e) => updateQualification(index, "year", e.target.value)} />
@@ -582,11 +600,20 @@ const CandidateProfile: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>Stage 2 Details</CardTitle></CardHeader>
+      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
+        <CardHeader><CardTitle className="font-cursive text-2xl tracking-wide text-[#F5F5F5]">Stage 2 Details</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5"><Label>Notice Period</Label><Input disabled={!editing} value={form.stage2Details.noticePeriod || ""} onChange={(e) => setForm((prev) => ({ ...prev, stage2Details: { ...prev.stage2Details, noticePeriod: e.target.value } }))} /></div>
-          <div className="space-y-1.5"><Label>Expected Salary</Label><Input disabled={!editing} type="number" value={form.stage2Details.expectedSalary || 0} onChange={(e) => setForm((prev) => ({ ...prev, stage2Details: { ...prev.stage2Details, expectedSalary: Number(e.target.value || 0) } }))} /></div>
+          <div className="space-y-1.5"><Label>Expected Salary</Label><Input disabled={!editing} type="number" inputMode="numeric" value={form.stage2Details.expectedSalary ?? ""} onChange={(e) => {
+            const value = e.target.value;
+            setForm((prev) => ({
+              ...prev,
+              stage2Details: {
+                ...prev.stage2Details,
+                expectedSalary: value === "" ? undefined : Number(value),
+              },
+            }));
+          }} /></div>
           <div className="space-y-1.5 md:col-span-2"><Label>Experience Details</Label><Textarea disabled={!editing} rows={3} value={form.stage2Details.experienceDetails || ""} onChange={(e) => setForm((prev) => ({ ...prev, stage2Details: { ...prev.stage2Details, experienceDetails: e.target.value } }))} /></div>
           <div className="space-y-1.5"><Label>Communication</Label><Input disabled={!editing} value={form.stage2Details.managementAssessment?.communication || ""} onChange={(e) => setForm((prev) => ({ ...prev, stage2Details: { ...prev.stage2Details, managementAssessment: { ...prev.stage2Details.managementAssessment, communication: e.target.value } } }))} /></div>
           <div className="space-y-1.5"><Label>Technical Skill</Label><Input disabled={!editing} value={form.stage2Details.managementAssessment?.technicalSkill || ""} onChange={(e) => setForm((prev) => ({ ...prev, stage2Details: { ...prev.stage2Details, managementAssessment: { ...prev.stage2Details.managementAssessment, technicalSkill: e.target.value } } }))} /></div>
@@ -596,11 +623,11 @@ const CandidateProfile: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>References</CardTitle></CardHeader>
+      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
+        <CardHeader><CardTitle className="font-cursive text-2xl tracking-wide text-[#F5F5F5]">References</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {(form.stage2Details.references || [emptyReference]).map((item, index) => (
-            <div key={`reference-${index}`} className="grid gap-3 rounded-xl border border-border/80 p-4 md:grid-cols-5">
+            <div key={`reference-${index}`} className="grid gap-3 rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.48)] p-4 md:grid-cols-5">
               <Input disabled={!editing} placeholder="Name" value={item.name || ""} onChange={(e) => updateReference(index, "name", e.target.value)} />
               <Input disabled={!editing} placeholder="Relationship" value={item.relationship || ""} onChange={(e) => updateReference(index, "relationship", e.target.value)} />
               <Input disabled={!editing} placeholder="Company" value={item.company || ""} onChange={(e) => updateReference(index, "company", e.target.value)} />
@@ -615,11 +642,11 @@ const CandidateProfile: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>Employment History</CardTitle></CardHeader>
+      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
+        <CardHeader><CardTitle className="font-cursive text-2xl tracking-wide text-[#F5F5F5]">Employment History</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {(form.stage2Details.employmentHistory || [emptyEmployment]).map((item, index) => (
-            <div key={`employment-${index}`} className="grid gap-3 rounded-xl border border-border/80 p-4 md:grid-cols-5">
+            <div key={`employment-${index}`} className="grid gap-3 rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.48)] p-4 md:grid-cols-5">
               <Input disabled={!editing} placeholder="Company" value={item.company || ""} onChange={(e) => updateEmployment(index, "company", e.target.value)} />
               <Input disabled={!editing} placeholder="Designation" value={item.designation || ""} onChange={(e) => updateEmployment(index, "designation", e.target.value)} />
               <DatePicker disabled={!editing} value={item.from || ""} onChange={(e) => updateEmployment(index, "from", e.target.value)} />
@@ -633,6 +660,22 @@ const CandidateProfile: React.FC = () => {
           {editing ? <Button type="button" variant="outline" onClick={() => setForm((prev) => ({ ...prev, stage2Details: { ...prev.stage2Details, employmentHistory: [...(prev.stage2Details.employmentHistory || []), emptyEmployment] } }))}><Plus className="mr-2 h-4 w-4" />Add Employment</Button> : null}
         </CardContent>
       </Card>
+
+      {editing ? (
+        <div className="flex flex-col gap-3 rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-6 shadow-[0_18px_40px_rgba(166,124,82,0.16)] md:flex-row md:justify-end">
+          <Button variant="outline" onClick={() => {
+            setEditing(false);
+            setForm(createForm(candidate));
+          }}>
+            <X className="mr-2 h-4 w-4" />
+            Cancel
+          </Button>
+          <Button onClick={() => void handleSave()} disabled={saving}>
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? "Saving..." : "Save"}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 };

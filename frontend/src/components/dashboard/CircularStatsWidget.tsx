@@ -26,7 +26,7 @@ const CircularStatsWidget: React.FC<CircularStatsWidgetProps> = ({ label, value,
       <div className="mt-4 flex items-center justify-center">
         <div className="relative flex h-40 w-40 items-center justify-center">
           <svg className="h-40 w-40 -rotate-90" viewBox="0 0 140 140" aria-hidden="true">
-            <circle cx="70" cy="70" r={radius} fill="none" stroke="rgba(203,185,156,0.35)" strokeWidth="12" />
+            <circle cx="70" cy="70" r={radius} fill="none" stroke="rgba(var(--portal-primary-rgb),0.14)" strokeWidth="12" />
             <motion.circle
               cx="70"
               cy="70"
@@ -42,29 +42,29 @@ const CircularStatsWidget: React.FC<CircularStatsWidgetProps> = ({ label, value,
             />
             <defs>
               <linearGradient id="premium-ring" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#b18443" />
-                <stop offset="55%" stopColor="#d5b27a" />
-                <stop offset="100%" stopColor="#f1ddba" />
+                <stop offset="0%" stopColor="var(--portal-primary-dark)" />
+                <stop offset="55%" stopColor="var(--portal-primary-solid)" />
+                <stop offset="100%" stopColor="rgba(var(--portal-primary-rgb),0.38)" />
               </linearGradient>
             </defs>
           </svg>
           <div className="absolute text-center">
-            <p className="text-[34px] font-semibold leading-none text-[#23180e]">
+            <p className="portal-heading text-[34px] font-semibold leading-none">
               {normalized}
-              <span className="ml-1 text-lg text-[#9a7747]">{suffix}</span>
+              <span className="ml-1 text-lg text-primary">{suffix}</span>
             </p>
-            <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[#8b7151]">score</p>
+            <p className="portal-muted mt-2 text-xs uppercase tracking-[0.18em]">score</p>
           </div>
         </div>
       </div>
 
-      <p className="mt-4 text-center text-sm leading-6 text-[#6f5a43]">{subtitle}</p>
+      <p className="portal-copy mt-4 text-center text-sm leading-6">{subtitle}</p>
 
       <div className="mt-5 space-y-3">
         {breakdown.map((item) => (
           <div key={item.label} className="dashboard-subtle-card flex items-center justify-between">
-            <span className="text-sm text-[#7b6852]">{item.label}</span>
-            <span className="text-sm font-semibold text-[#23180e]">{item.value}</span>
+            <span className="portal-muted text-sm">{item.label}</span>
+            <span className="portal-heading text-sm font-semibold">{item.value}</span>
           </div>
         ))}
       </div>

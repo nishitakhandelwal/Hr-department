@@ -12,15 +12,23 @@ interface AuthShellProps {
   children: React.ReactNode;
 }
 
+const normalizeCompanyName = (value?: string | null) => {
+  const trimmedValue = value?.trim();
+  if (!trimmedValue || trimmedValue.toLowerCase() === "hr harmony hub") {
+    return "Arihant Dream Infra Project Ltd.";
+  }
+  return trimmedValue;
+};
+
 export const AuthShell: React.FC<AuthShellProps> = ({ title, subtitle, badge, footer, children }) => {
   const { publicSettings } = useSystemSettings();
   const companyLogo = resolveCompanyLogoUrl(publicSettings?.company?.companyLogoUrl);
-  const companyName = publicSettings?.company?.companyName || "Arihant Dream Infra Project Ltd.";
+  const companyName = normalizeCompanyName(publicSettings?.company?.companyName);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8 sm:px-6 lg:px-8">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.14),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.1),transparent_26%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.16),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.08),transparent_22%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(230,199,163,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(166,124,82,0.12),transparent_26%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(230,199,163,0.2),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(166,124,82,0.14),transparent_22%)]" />
         <div className="w-full max-w-[1100px]">
           <div className="grid items-center gap-10 lg:grid-cols-[1fr_460px] lg:gap-16">
             <div className="hidden lg:block">
@@ -47,7 +55,7 @@ export const AuthShell: React.FC<AuthShellProps> = ({ title, subtitle, badge, fo
             </div>
 
             <div className="relative w-full max-w-md justify-self-center">
-              <div className="relative rounded-[32px] border border-border bg-card p-6 text-card-foreground shadow-[0_20px_60px_rgba(15,23,42,0.08)] dark:shadow-[0_24px_70px_rgba(2,6,23,0.42)] sm:p-8">
+              <div className="relative rounded-[32px] border border-border bg-card p-6 text-card-foreground shadow-[0_20px_60px_rgba(166,124,82,0.16)] dark:shadow-[0_24px_70px_rgba(166,124,82,0.4)] sm:p-8">
                 <div className="mb-6 flex items-center gap-3 rounded-2xl border border-border bg-muted/45 px-4 py-3 shadow-sm lg:hidden">
                   <ImageWithFallback src={companyLogo} alt="Company logo" className="h-10 w-10 rounded-xl object-cover" />
                   <div>

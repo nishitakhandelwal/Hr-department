@@ -1,4 +1,8 @@
 import bcrypt from "bcryptjs";
+import { Candidate } from "../models/Candidate.js";
+import { Employee } from "../models/Employee.js";
+import { Leave } from "../models/Leave.js";
+import { Payroll } from "../models/Payroll.js";
 import { User } from "../models/User.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { UserActivity } from "../models/UserActivity.js";
@@ -7,6 +11,8 @@ import { createDefaultPermissions, normalizePermissions } from "../utils/permiss
 import { createAuditLogIfEnabled, maybeSendEmailBySettings } from "../services/runtimeBehaviorService.js";
 import { buildUploadsPublicPath } from "../utils/uploadUrls.js";
 import { clearUserProfileImage, setUserProfileImage } from "../services/profileImageService.js";
+import { buildInvitationEmailLayout } from "../layouts/email/index.js";
+import { deleteUserCompletely } from "../services/userDeletionService.js";
 
 const ACCESS_ROLES = ["super_admin", "admin", "hr_manager", "recruiter", "employee", "candidate"];
 const ACCOUNT_STATUSES = ["active", "disabled", "pending"];
@@ -313,20 +319,19 @@ export const inviteUser = async (req, res) => {
   });
 
   const loginUrl = `${req.protocol}://${req.get("host").replace(":5000", ":8080")}/login`;
+  const invitationEmail = buildInvitationEmailLayout({
+    name: toString(name),
+    role: ROLE_LABELS[accessRole] || accessRole,
+    email: normalizedEmail,
+    temporaryPassword,
+    loginUrl,
+  });
   const emailResult = await maybeSendEmailBySettings(() =>
     sendEmail({
       to: normalizedEmail,
-      subject: "HR Harmony Hub - Login Invitation",
-      html: `
-      <p>Hello ${toString(name)},</p>
-      <p>You have been invited to HR Harmony Hub.</p>
-      <p><strong>Role:</strong> ${ROLE_LABELS[accessRole] || accessRole}</p>
-      <p><strong>Email:</strong> ${normalizedEmail}</p>
-      <p><strong>Temporary Password:</strong> ${temporaryPassword}</p>
-      <p>Please login and reset your password immediately.</p>
-      <p><a href="${loginUrl}">${loginUrl}</a></p>
-    `,
-      text: `You have been invited to HR Harmony Hub. Role: ${ROLE_LABELS[accessRole] || accessRole}. Email: ${normalizedEmail}. Temporary Password: ${temporaryPassword}. Login: ${loginUrl}`,
+      subject: invitationEmail.subject,
+      html: invitationEmail.html,
+      text: invitationEmail.text,
     })
   );
 
@@ -528,22 +533,78 @@ export const updateUserPermissions = async (req, res) => {
 };
 
 export const deleteUser = async (req, res) => {
-  const user = await User.findByIdAndDelete(req.params.id).select("-password");
-  if (!user) {
-    const error = new Error("User not found");
-    error.statusCode = 404;
-    throw error;
-  }
+  const result = await deleteUserCompletely(req.params.id);
+  const user = result.user;
 
   await logAudit({
     actor: req.user,
     action: "USER_DELETED",
     targetType: "User",
     targetId: user._id,
-    metadata: { email: user.email },
+    metadata: { email: user.email, deletionSummary: result.summary },
   });
 
-  res.json({ success: true, message: "User deleted", data: user });
+  res.json({ success: true, message: "User deleted", data: { user, deletionSummary: result.summary } });
+};
+
+export const getAdminDashboardSummary = async (_req, res) => {
+  const [employees, candidates, leaves, payroll] = await Promise.all([
+    Employee.find().populate("userId", "name department").sort({ createdAt: -1 }).limit(500),
+    Candidate.find().sort({ createdAt: -1 }).limit(500),
+    Leave.find({ status: "pending" })
+      .populate({ path: "employeeId", populate: { path: "userId", select: "name" } })
+      .sort({ createdAt: -1 })
+      .limit(20),
+    Payroll.find().sort({ year: -1, monthNumber: -1, createdAt: -1 }).limit(100),
+  ]);
+
+  const activeEmployeesCount = employees.filter((employee) => ["active", "active_employee"].includes(employee.status)).length;
+  const applicationsUnderReview = candidates.filter(
+    (candidate) => candidate.status === "Under Review" || candidate.status === "Interview Scheduled",
+  ).length;
+  const pendingHrReviews = candidates.filter(
+    (candidate) => Number(candidate.stageCompleted || 0) >= 2 && !candidate.adminReview?.reviewedAt,
+  ).length;
+  const totalPayrollValue = payroll.reduce((sum, row) => sum + Number(row.netSalary || 0), 0);
+  const departmentsCovered = new Set(
+    employees.map((employee) => employee.userId?.department || employee.department).filter(Boolean),
+  ).size;
+
+  const interviewEvents = candidates
+    .filter((candidate) => candidate.interviewSchedule?.date)
+    .slice(0, 10)
+    .map((candidate) => ({
+      id: `candidate-${candidate._id}`,
+      title: `${candidate.fullName || "Candidate"} interview`,
+      date: candidate.interviewSchedule?.date,
+      type: "meeting",
+      time: candidate.interviewSchedule?.time || "",
+      note: candidate.positionApplied || candidate.status,
+    }));
+
+  const leaveEvents = leaves.map((leave) => ({
+    id: `leave-${leave._id}`,
+    title: `${leave.employeeId?.userId?.name || "Employee"} leave starts`,
+    date: leave.fromDate,
+    type: "holiday",
+    note: leave.leaveType ? `${leave.leaveType} request awaiting approval.` : "Pending leave request.",
+  }));
+
+  return res.json({
+    success: true,
+    message: "Fetched admin dashboard summary",
+    data: {
+      activeEmployeesCount,
+      applicationsUnderReview,
+      pendingHrReviews,
+      pendingLeavesCount: leaves.length,
+      totalPayrollValue,
+      departmentsCovered,
+      totalCandidates: candidates.length,
+      totalEmployees: employees.length,
+      events: [...leaveEvents, ...interviewEvents].slice(0, 12),
+    },
+  });
 };
 
 export const updateUserProfileImage = async (req, res) => {

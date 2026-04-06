@@ -12,7 +12,7 @@ const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableE
 Table.displayName = "Table";
 
 const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
-  ({ className, ...props }, ref) => <thead ref={ref} className={cn("[&_tr]:border-b [&_tr]:border-border/80 [&_tr]:bg-[linear-gradient(180deg,rgba(99,102,241,0.08),rgba(255,255,255,0.82))]", className)} {...props} />,
+  ({ className, ...props }, ref) => <thead ref={ref} className={cn("[&_tr]:border-b [&_tr]:border-border/80 [&_tr]:bg-[linear-gradient(180deg,rgba(230,199,163,0.12),rgba(255,255,255,0.82))]", className)} {...props} />,
 );
 TableHeader.displayName = "TableHeader";
 
@@ -34,7 +34,7 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
   ({ className, ...props }, ref) => (
     <tr
       ref={ref}
-      className={cn("border-b border-border/70 transition-all duration-200 data-[state=selected]:bg-primary/8 hover:bg-[linear-gradient(90deg,rgba(99,102,241,0.06),rgba(34,197,94,0.04))]", className)}
+      className={cn("border-b border-border/70 transition-all duration-200 data-[state=selected]:bg-primary/8 hover:bg-[linear-gradient(90deg,rgba(230,199,163,0.14),rgba(166,124,82,0.08))]", className)}
       {...props}
     />
   ),

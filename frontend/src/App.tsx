@@ -1,7 +1,7 @@
 import React from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { SystemSettingsProvider, useSystemSettings } from "@/context/SystemSettingsContext";
 import { CandidatePortalProvider } from "@/context/CandidatePortalContext";
@@ -47,10 +47,26 @@ import CandidateJoiningForm from "./pages/candidate/CandidateJoiningForm";
 
 const queryClient = new QueryClient();
 
+const CandidatePortalShell = () => (
+  <ProtectedRoute roles={["candidate"]}>
+    <CandidatePortalProvider>
+      <AppLayout>
+        <Outlet />
+      </AppLayout>
+    </CandidatePortalProvider>
+  </ProtectedRoute>
+);
+
 const AppRoutes = () => {
   const { isAuthenticated, user, loading } = useAuth();
   const { publicSettings } = useSystemSettings();
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
+      </div>
+    );
+  }
   const adminDefaultPage = publicSettings?.preferences?.defaultDashboardPage || "/admin/dashboard";
   const homeRoute =
     user?.accessRole === "hr_manager"
@@ -63,17 +79,8 @@ const AppRoutes = () => {
       ? "/candidate/dashboard"
       : adminDefaultPage;
 
-  const candidatePortal = (element: React.ReactNode) => (
-    <ProtectedRoute roles={["candidate"]}>
-      <CandidatePortalProvider>
-        <AppLayout>{element}</AppLayout>
-      </CandidatePortalProvider>
-    </ProtectedRoute>
-  );
-
   return (
     <Routes>
-      <Route path="/apply" element={candidatePortal(<CandidateApply />)} />
       <Route path="/login" element={isAuthenticated ? <Navigate to={homeRoute} replace /> : <Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
@@ -143,15 +150,18 @@ const AppRoutes = () => {
       <Route path="/employee/letters" element={<ProtectedRoute roles={["employee"]}><AppLayout><EmployeeLetters /></AppLayout></ProtectedRoute>} />
 
       {/* Candidate routes */}
-      <Route path="/candidate" element={<Navigate to="/candidate/dashboard" replace />} />
-      <Route path="/candidate/dashboard" element={candidatePortal(<CandidateDashboard />)} />
-      <Route path="/candidate/profile" element={candidatePortal(<CandidateProfile />)} />
-      <Route path="/candidate/applications" element={candidatePortal(<CandidateApplications />)} />
-      <Route path="/candidate/status" element={candidatePortal(<CandidateStatusPage />)} />
-      <Route path="/candidate/documents" element={candidatePortal(<CandidateDocuments />)} />
-      <Route path="/candidate/notifications" element={candidatePortal(<CandidateNotifications />)} />
-      <Route path="/candidate/stage2" element={candidatePortal(<CandidateStage2 />)} />
-      <Route path="/candidate/joining-form" element={candidatePortal(<CandidateJoiningForm />)} />
+      <Route element={<CandidatePortalShell />}>
+        <Route path="/apply" element={<CandidateApply />} />
+        <Route path="/candidate" element={<Navigate to="/candidate/dashboard" replace />} />
+        <Route path="/candidate/dashboard" element={<CandidateDashboard />} />
+        <Route path="/candidate/profile" element={<CandidateProfile />} />
+        <Route path="/candidate/applications" element={<CandidateApplications />} />
+        <Route path="/candidate/status" element={<CandidateStatusPage />} />
+        <Route path="/candidate/documents" element={<CandidateDocuments />} />
+        <Route path="/candidate/notifications" element={<CandidateNotifications />} />
+        <Route path="/candidate/stage2" element={<CandidateStage2 />} />
+        <Route path="/candidate/joining-form" element={<CandidateJoiningForm />} />
+      </Route>
 
       <Route path="*" element={<NotFound />} />
     </Routes>

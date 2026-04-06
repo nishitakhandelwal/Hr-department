@@ -17,6 +17,7 @@ export default {
       fontFamily: {
         sans: ["Plus Jakarta Sans", "ui-sans-serif", "sans-serif"],
         display: ["Plus Jakarta Sans", "ui-sans-serif", "sans-serif"],
+        cursive: ["Brush Script MT", "Lucida Calligraphy", "cursive"],
       },
       colors: {
         border: "hsl(var(--border))",

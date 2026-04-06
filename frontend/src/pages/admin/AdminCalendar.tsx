@@ -38,8 +38,8 @@ export const AdminCalendar = () => {
 
   const FILTER_TYPES = [
     { id: "holiday", label: "Holiday", dotColor: "bg-emerald-500" },
-    { id: "birthday", label: "Birthday", dotColor: "bg-violet-500" },
-    { id: "meeting", label: "Meeting", dotColor: "bg-sky-500" },
+    { id: "birthday", label: "Birthday", dotColor: "bg-[#E6C7A3]" },
+    { id: "meeting", label: "Meeting", dotColor: "bg-[#A67C52]" },
     { id: "reminder", label: "Reminder", dotColor: "bg-amber-500" },
   ];
 

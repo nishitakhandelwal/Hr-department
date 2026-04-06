@@ -3,26 +3,36 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { FileText } from "lucide-react";
 import { motion } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
 import { lettersApi, LetterItem } from "@/services/hrApi";
 import { formatDate } from "@/lib/date";
 import { downloadPdfBlob } from "@/utils/downloadPdf";
 
 const EmployeeLetters: React.FC = () => {
+  const { toast } = useToast();
   const [myLetters, setMyLetters] = useState<LetterItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadLetters = async () => {
       try {
+        setLoading(true);
+        setErrorMessage("");
         const response = await lettersApi.getMyLetters();
         setMyLetters(response);
       } catch (error) {
-        console.error(error instanceof Error ? error.message : "Error loading letters", error);
+        const message = error instanceof Error ? error.message : "Unable to load letters.";
+        setErrorMessage(message);
+        toast({ title: "Letters unavailable", description: message, variant: "destructive" });
+      } finally {
+        setLoading(false);
       }
     };
 
     void loadLetters();
-  }, []);
+  }, [toast]);
 
   const downloadLetter = async (id: string) => {
     try {
@@ -32,7 +42,11 @@ const EmployeeLetters: React.FC = () => {
 
       downloadPdfBlob(response.data, "letter.pdf");
     } catch (error) {
-      console.error("Error downloading letter", error);
+      toast({
+        title: "Download failed",
+        description: error instanceof Error ? error.message : "Unable to download letter.",
+        variant: "destructive",
+      });
     } finally {
       setDownloadingId(null);
     }
@@ -45,7 +59,11 @@ const EmployeeLetters: React.FC = () => {
       <div className="mt-6">
         <h2 className="text-xl font-semibold mb-4">My Letters</h2>
 
-        {myLetters.length === 0 ? (
+        {errorMessage ? <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{errorMessage}</p> : null}
+
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading letters...</p>
+        ) : myLetters.length === 0 ? (
           <p>No letters available.</p>
         ) : (
           <ul className="space-y-4">

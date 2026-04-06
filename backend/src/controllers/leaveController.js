@@ -57,15 +57,12 @@ export const updateLeave = async (req, res) => {
     throw error;
   }
 
-  if (req.user?.role === "employee") {
-    const employee = await ensureEmployeeProfileForUser(req.user);
-    if (!employee || String(leave.employeeId) !== String(employee._id)) {
-      return res.status(403).json({ success: false, message: "Forbidden", data: null });
-    }
-  }
-
   const payload = { ...(req.body || {}) };
   delete payload.employeeId;
+  delete payload.reason;
+  delete payload.leaveType;
+  delete payload.fromDate;
+  delete payload.toDate;
   Object.assign(leave, payload);
   await leave.save();
   return res.json({ success: true, message: "Updated successfully", data: leave });

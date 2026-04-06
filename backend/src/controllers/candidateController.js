@@ -23,6 +23,7 @@ import {
   validateUploadedFileAgainstSettings,
 } from "../services/runtimeBehaviorService.js";
 import { uploadsDir } from "../utils/paths.js";
+import { secureUploadUrls } from "../utils/uploadAccess.js";
 
 const STATUS_TRANSITIONS = {
   Draft: ["Applied"],
@@ -56,6 +57,12 @@ const LEGACY_STATUS_MAP = {
 
 const toString = (value) => String(value ?? "").trim();
 const toLowerEmail = (value) => String(value ?? "").toLowerCase().trim();
+const buildArchivedCandidateEmail = (candidate) => {
+  const originalEmail = toLowerEmail(candidate?.email);
+  if (!originalEmail) return `archived+${String(candidate?._id || Date.now())}@candidate.local`;
+  const [localPart = "archived", domainPart = "candidate.local"] = originalEmail.split("@");
+  return `archived+${String(candidate?._id || Date.now())}-${localPart}@${domainPart || "candidate.local"}`;
+};
 
 const normalizeAccommodation = (personalDetails = {}) =>
   toString(personalDetails.presentResidentialAccommodation || personalDetails.domicile);
@@ -119,6 +126,8 @@ const mapVideoFile = (req, file, source = "uploaded") => {
     uploadedAt: new Date(),
   };
 };
+
+const serializeCandidateForResponse = (req, user, candidate) => secureUploadUrls(candidate, req, user);
 
 const LETTERS_FOLDER = path.join(uploadsDir, "letters");
 if (!fs.existsSync(LETTERS_FOLDER)) {
@@ -265,23 +274,8 @@ const enrichCandidate = (candidate) => {
 
 const findCandidateForUser = async (user) => {
   const userId = user?._id || null;
-  const email = toLowerEmail(user?.email);
-
-  let candidate = null;
-
-  if (userId) {
-    candidate = await Candidate.findOne({ userId });
-  }
-
-  if (!candidate && email) {
-    candidate = await Candidate.findOne({ email });
-    if (candidate && userId && String(candidate.userId || "") !== String(userId)) {
-      candidate.userId = userId;
-      await candidate.save();
-    }
-  }
-
-  return candidate;
+  if (!userId) return null;
+  return Candidate.findOne({ userId });
 };
 
 const ensureBaseTimeline = (candidate) => {
@@ -365,12 +359,12 @@ const ensureBaseTimeline = (candidate) => {
   }
 };
 
-export const getCandidates = async (_req, res) => {
+export const getCandidates = async (req, res) => {
   const rows = await Candidate.find().sort({ createdAt: -1 });
   const data = rows.map((row) => {
     const candidate = enrichCandidate(row);
     ensureBaseTimeline(candidate);
-    return candidate;
+    return serializeCandidateForResponse(req, req.user, candidate);
   });
   return res.json({ success: true, message: "Fetched candidates", data });
 };
@@ -393,14 +387,14 @@ export const getCandidateById = async (req, res) => {
       ipAddress: req.ip || "",
     });
   }
-  return res.json({ success: true, message: "Fetched candidate", data });
+  return res.json({ success: true, message: "Fetched candidate", data: serializeCandidateForResponse(req, req.user, data) });
 };
 
 export const getMyCandidateApplication = async (req, res) => {
   const row = await findCandidateForUser(req.user);
   const data = row ? enrichCandidate(row) : null;
   if (data) ensureBaseTimeline(data);
-  return res.json({ success: true, message: "Fetched my candidate application", data });
+  return res.json({ success: true, message: "Fetched my candidate application", data: serializeCandidateForResponse(req, req.user, data) });
 };
 
 export const createCandidate = async (req, res) => {
@@ -428,10 +422,24 @@ export const createCandidate = async (req, res) => {
   }
 
   const existing = candidateUserId
-    ? await Candidate.findOne({ $or: [{ userId: candidateUserId }, { email: candidateEmail }] })
+    ? await Candidate.findOne({ userId: candidateUserId })
     : await Candidate.findOne({ email: candidateEmail });
   if (existing && Number(existing.stageCompleted || 0) >= 1) {
     return res.status(409).json({ success: false, message: "Your application has already been submitted." });
+  }
+
+  if (candidateUserId) {
+    const staleEmailRecords = await Candidate.find({
+      email: candidateEmail,
+      userId: { $ne: candidateUserId },
+    });
+
+    for (const staleRecord of staleEmailRecords) {
+      // Fresh re-registration must not reconnect to old email-linked candidate data.
+      staleRecord.email = buildArchivedCandidateEmail(staleRecord);
+      staleRecord.userId = staleRecord.userId || null;
+      await staleRecord.save();
+    }
   }
 
   const submittedAt = new Date();
@@ -493,14 +501,14 @@ export const createCandidate = async (req, res) => {
 
   await sendCandidateWorkflowEmail({
     to: candidate.email,
-    subject: "Application received - HR Harmony Hub",
+    subject: "Application received - Arihant Dream Infra Project Ltd.",
     message: "Your application has been received successfully. We will review your profile and update you soon.",
   });
 
   return res.status(201).json({
     success: true,
     message: "Application submitted successfully",
-    data: candidate,
+    data: serializeCandidateForResponse(req, req.user, candidate),
   });
 };
 
@@ -609,7 +617,7 @@ export const submitCandidateStage2 = async (req, res) => {
     return res.json({
       success: true,
       message: "Stage 2 submitted successfully",
-      data: candidate,
+      data: serializeCandidateForResponse(req, req.user, candidate),
     });
   } catch (error) {
     return res.status(400).json({
@@ -719,7 +727,7 @@ export const updateMyCandidateProfile = async (req, res) => {
   };
 
   await candidate.save();
-  return res.json({ success: true, message: "Candidate profile updated", data: candidate });
+  return res.json({ success: true, message: "Candidate profile updated", data: serializeCandidateForResponse(req, req.user, candidate) });
 };
 
 export const updateMyCandidateDocuments = async (req, res) => {
@@ -768,7 +776,7 @@ export const updateMyCandidateDocuments = async (req, res) => {
   }
 
   await candidate.save();
-  return res.json({ success: true, message: "Candidate documents updated", data: candidate });
+  return res.json({ success: true, message: "Candidate documents updated", data: serializeCandidateForResponse(req, req.user, candidate) });
 };
 
 export const uploadCandidateVideo = async (req, res) => {
@@ -831,7 +839,7 @@ export const uploadCandidateVideo = async (req, res) => {
   return res.json({
     success: true,
     message: "Video introduction uploaded successfully.",
-    data: candidate,
+    data: serializeCandidateForResponse(req, req.user, candidate),
   });
 };
 
@@ -922,7 +930,7 @@ export const reviewCandidateByAdmin = async (req, res) => {
   if (normalizedStatus === "Selected") {
     await sendCandidateWorkflowEmail({
       to: candidate.email,
-      subject: "Candidate selected - HR Harmony Hub",
+      subject: "Candidate selected - Arihant Dream Infra Project Ltd.",
       message: "Congratulations. You have been selected. HR will share your next onboarding step shortly.",
     });
   }
@@ -936,7 +944,7 @@ export const reviewCandidateByAdmin = async (req, res) => {
     targetId: String(candidate._id),
     metadata: { status: candidate.status, via: "review" },
   });
-  return res.json({ success: true, message: "Candidate review updated", data: candidate });
+  return res.json({ success: true, message: "Candidate review updated", data: serializeCandidateForResponse(req, req.user, candidate) });
 };
 
 export const updateCandidateStatus = async (req, res) => {
@@ -965,7 +973,7 @@ export const updateCandidateStatus = async (req, res) => {
 
     await sendCandidateWorkflowEmail({
       to: candidate.email,
-      subject: "Interview scheduled - HR Harmony Hub",
+      subject: "Interview scheduled - Arihant Dream Infra Project Ltd.",
       message: "Your interview has been scheduled. Please log in to your candidate dashboard for updates.",
     });
   }
@@ -981,7 +989,7 @@ export const updateCandidateStatus = async (req, res) => {
 
     await sendCandidateWorkflowEmail({
       to: candidate.email,
-      subject: "Selection update - HR Harmony Hub",
+      subject: "Selection update - Arihant Dream Infra Project Ltd.",
       message: "Congratulations. You have been selected. The next onboarding step will be shared shortly.",
     });
   }
@@ -1005,7 +1013,7 @@ export const updateCandidateStatus = async (req, res) => {
     metadata: { status: candidate.status, via: "direct_update" },
   });
 
-  return res.json({ success: true, message: "Candidate status updated", data: candidate });
+  return res.json({ success: true, message: "Candidate status updated", data: serializeCandidateForResponse(req, req.user, candidate) });
 };
 
 export const assignInternshipToCandidate = async (req, res) => {
@@ -1067,11 +1075,15 @@ export const assignInternshipToCandidate = async (req, res) => {
 
   await sendCandidateWorkflowEmail({
     to: candidate.email,
-    subject: "Internship assigned - HR Harmony Hub",
+    subject: "Internship assigned - Arihant Dream Infra Project Ltd.",
     message: `Your internship has been assigned from ${start.toDateString()} to ${end.toDateString()}.`,
   });
 
-  return res.status(201).json({ success: true, message: "Internship assigned successfully", data: { candidate, internship } });
+  return res.status(201).json({
+    success: true,
+    message: "Internship assigned successfully",
+    data: { candidate: serializeCandidateForResponse(req, req.user, candidate), internship },
+  });
 };
 
 export const sendOfferLetterToCandidate = async (req, res) => {
@@ -1247,7 +1259,7 @@ export const sendOfferLetterToCandidate = async (req, res) => {
     return res.json({
       success: true,
       message: "Offer letter generated and emailed successfully.",
-      data: candidate,
+      data: serializeCandidateForResponse(req, req.user, candidate),
     });
   } catch (error) {
     if (pdfFile?.filePath && fs.existsSync(pdfFile.filePath)) {
@@ -1281,10 +1293,10 @@ export const sendJoiningFormToCandidate = async (req, res) => {
       $set: {
         status: "Requested",
         requestedAt: new Date(),
+        userId: candidate.userId ?? null,
       },
       $setOnInsert: {
         candidateId: candidate._id,
-        userId: req.user?._id ?? null,
       },
     },
     { upsert: true, new: true }
@@ -1322,7 +1334,7 @@ export const sendJoiningFormToCandidate = async (req, res) => {
       "You have successfully cleared the interview process. Please log in to your portal and complete your joining form to proceed with onboarding.",
   });
 
-  return res.json({ success: true, message: "Joining form sent successfully", data: candidate });
+  return res.json({ success: true, message: "Joining form sent successfully", data: serializeCandidateForResponse(req, req.user, candidate) });
 };
 
 export const convertCandidateToEmployee = async (req, res) => {
@@ -1343,7 +1355,7 @@ export const convertCandidateToEmployee = async (req, res) => {
     message: result.alreadyExists ? "Candidate already converted to employee." : "Candidate moved to employee successfully.",
     data: {
       employee: result.employee,
-      candidate: result.candidate,
+      candidate: serializeCandidateForResponse(req, req.user, result.candidate),
     },
   });
 };
@@ -1381,7 +1393,7 @@ export const acceptOffer = async (req, res) => {
     message: result.alreadyExists ? "Employee already exists for this candidate." : "Candidate moved to employee successfully.",
     data: {
       employee: result.employee,
-      candidate: result.candidate,
+      candidate: serializeCandidateForResponse(req, req.user, result.candidate),
     },
   });
 };

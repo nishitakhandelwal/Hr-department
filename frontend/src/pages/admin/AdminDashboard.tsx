@@ -1,83 +1,57 @@
 import React from "react";
-import { addDays, format, startOfDay } from "date-fns";
-import { motion } from "framer-motion";
 import { ArrowRight, BriefcaseBusiness, Building2, CalendarDays, ClipboardCheck, ShieldCheck, UserCheck, Users, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
-import PortalProfileCard from "@/components/dashboard/PortalProfileCard";
 import CircularStatsWidget from "@/components/dashboard/CircularStatsWidget";
-import TaskProgressList from "@/components/dashboard/TaskProgressList";
 import PortalCalendarCard, { type PortalCalendarEvent } from "@/components/dashboard/PortalCalendarCard";
+import PortalDashboardSkeleton from "@/components/dashboard/PortalDashboardSkeleton";
+import { PortalDataTable, type PortalTableColumn } from "@/components/dashboard/PortalDataTable";
+import PortalHeroPanel from "@/components/dashboard/PortalHeroPanel";
+import PortalProfileCard from "@/components/dashboard/PortalProfileCard";
+import TaskProgressList from "@/components/dashboard/TaskProgressList";
+import { StatusBadge } from "@/components/DataTable";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { apiService } from "@/services/api";
+import { apiService, type EmployeeRecord } from "@/services/api";
 
-type DashboardEmployee = {
-  status?: string;
-  designation?: string;
-  userId?: {
-    name?: string;
-    department?: string;
-  };
-};
+type AdminDashboardSummary = Awaited<ReturnType<typeof apiService.getAdminDashboardSummary>>;
 
-type DashboardCandidate = {
-  status?: string;
-  stageCompleted?: number;
-  adminReview?: {
-    reviewedAt?: string;
-  };
-};
-
-type DashboardLeave = {
-  status?: string;
-  leaveType?: string;
-  fromDate?: string;
-  toDate?: string;
-  employeeId?: {
-    userId?: {
-      name?: string;
-    };
-  };
-};
-
-type DashboardPayroll = {
-  month?: string;
-  netSalary?: number;
-};
-
-const cardMotion = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-};
+const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = React.useState(false);
-  const [employees, setEmployees] = React.useState<DashboardEmployee[]>([]);
-  const [candidates, setCandidates] = React.useState<DashboardCandidate[]>([]);
-  const [leaves, setLeaves] = React.useState<DashboardLeave[]>([]);
-  const [payroll, setPayroll] = React.useState<DashboardPayroll[]>([]);
+  const [summary, setSummary] = React.useState<AdminDashboardSummary>({
+    activeEmployeesCount: 0,
+    applicationsUnderReview: 0,
+    pendingHrReviews: 0,
+    pendingLeavesCount: 0,
+    totalPayrollValue: 0,
+    departmentsCovered: 0,
+    totalCandidates: 0,
+    totalEmployees: 0,
+    events: [],
+  });
+  const [employees, setEmployees] = React.useState<EmployeeRecord[]>([]);
 
   React.useEffect(() => {
     void (async () => {
       setLoading(true);
       try {
-        const [employeeRows, candidateRows, leaveRows, payrollRows] = await Promise.all([
-          apiService.list<DashboardEmployee>("employees"),
-          apiService.list<DashboardCandidate>("candidates"),
-          apiService.list<DashboardLeave>("leave"),
-          apiService.list<DashboardPayroll>("payroll"),
+        const [dashboardSummary, employeeRows] = await Promise.all([
+          apiService.getAdminDashboardSummary(),
+          apiService.list<EmployeeRecord>("employees"),
         ]);
-        setEmployees(employeeRows);
-        setCandidates(candidateRows);
-        setLeaves(leaveRows);
-        setPayroll(payrollRows);
+
+        React.startTransition(() => {
+          setSummary(dashboardSummary);
+          setEmployees(employeeRows);
+        });
       } catch (error) {
         toast({
           title: "Error",
@@ -90,129 +64,120 @@ const AdminDashboard: React.FC = () => {
     })();
   }, [toast]);
 
-  const today = React.useMemo(() => startOfDay(new Date()), []);
-  const activeEmployeesCount = React.useMemo(() => employees.filter((employee) => employee.status === "active").length, [employees]);
-  const applicationsUnderReview = React.useMemo(
-    () => candidates.filter((candidate) => candidate.status === "Under Review" || candidate.status === "Interview Scheduled").length,
-    [candidates]
+  const workforceHealth = summary.totalEmployees
+    ? Math.round((summary.activeEmployeesCount / summary.totalEmployees) * 100)
+    : 0;
+
+  const calendarEvents = React.useMemo<PortalCalendarEvent[]>(
+    () =>
+      summary.events.map((event) => ({
+        id: event.id,
+        title: event.title,
+        date: event.date,
+        type: event.type,
+        time: event.time,
+        note: event.note,
+      })),
+    [summary.events]
   );
-  const pendingHrReviews = React.useMemo(
-    () => candidates.filter((candidate) => (candidate.stageCompleted || 0) >= 2 && !candidate.adminReview?.reviewedAt).length,
-    [candidates]
+
+  const employeeColumns = React.useMemo<PortalTableColumn<EmployeeRecord>[]>(
+    () => [
+      {
+        key: "employee",
+        header: "Employee",
+        render: (employee) => (
+          <div>
+            <p className="portal-heading font-semibold">{employee.fullName}</p>
+            <p className="portal-muted mt-1 text-xs">{employee.email}</p>
+          </div>
+        ),
+      },
+      {
+        key: "department",
+        header: "Department",
+        render: (employee) => (
+          <div>
+            <p className="portal-heading text-sm font-medium">{employee.department || "Unassigned"}</p>
+            <p className="portal-muted mt-1 text-xs">{employee.designation}</p>
+          </div>
+        ),
+      },
+      {
+        key: "salary",
+        header: "Compensation",
+        render: (employee) => (
+          <div>
+            <p className="portal-heading text-sm font-semibold">{currency.format(Number(employee.salary || 0))}</p>
+            <p className="portal-muted mt-1 text-xs">Employee ID {employee.employeeId}</p>
+          </div>
+        ),
+      },
+      {
+        key: "status",
+        header: "Status",
+        className: "text-right",
+        render: (employee) => <div className="flex justify-end"><StatusBadge status={employee.status || "inactive"} /></div>,
+      },
+    ],
+    []
   );
-  const pendingLeaves = React.useMemo(() => leaves.filter((row) => row.status === "pending"), [leaves]);
-  const totalPayrollValue = React.useMemo(() => payroll.reduce((sum, item) => sum + Number(item.netSalary || 0), 0), [payroll]);
-  const departmentsCovered = React.useMemo(
-    () => new Set(employees.map((employee) => employee.userId?.department).filter(Boolean)).size,
-    [employees]
-  );
 
-  const workforceHealth = employees.length ? Math.round((activeEmployeesCount / employees.length) * 100) : 0;
+  const employeeRows = React.useMemo(() => employees.slice(0, 12), [employees]);
 
-  const calendarEvents = React.useMemo<PortalCalendarEvent[]>(() => {
-    const items: PortalCalendarEvent[] = pendingLeaves.slice(0, 4).map((leave, index) => ({
-      id: `leave-${index}`,
-      title: `${leave.employeeId?.userId?.name || "Employee"} leave starts`,
-      date: leave.fromDate || format(addDays(today, index + 1), "yyyy-MM-dd"),
-      type: "holiday",
-      note: leave.leaveType ? `${leave.leaveType} request awaiting approval.` : "Pending leave request.",
-    }));
-
-    if (applicationsUnderReview > 0) {
-      items.push({
-        id: "review-queue",
-        title: "Recruitment review block",
-        date: format(addDays(today, 1), "yyyy-MM-dd"),
-        type: "meeting",
-        time: "10:30 AM",
-        note: `${applicationsUnderReview} applications need recruiter/admin action.`,
-      });
-    }
-
-    if (pendingHrReviews > 0) {
-      items.push({
-        id: "hr-review",
-        title: "HR evaluation follow-up",
-        date: format(addDays(today, 3), "yyyy-MM-dd"),
-        type: "reminder",
-        note: `${pendingHrReviews} candidate profiles are still pending HR review.`,
-      });
-    }
-
-    items.push({
-      id: "payroll-close",
-      title: "Payroll closure checkpoint",
-      date: format(addDays(today, 5), "yyyy-MM-dd"),
-      type: "meeting",
-      time: "04:00 PM",
-      note: "Validate salary processing, approvals, and department escalations.",
-    });
-
-    return items;
-  }, [applicationsUnderReview, pendingHrReviews, pendingLeaves, today]);
+  if (loading && summary.totalEmployees === 0 && employees.length === 0) {
+    return <PortalDashboardSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Admin Dashboard"
-        subtitle="An elegant control surface for hiring, people operations, and workforce planning across the full HR ecosystem."
-        action={
+        title={`Welcome, ${user?.name?.split(" ")[0] || "Admin"}`}
+        subtitle="Here is your premium admin workspace for hiring, workforce health, payroll visibility, and people operations across the organization."
+        action={(
           <Button onClick={() => navigate("/admin/users")} className="gap-2 rounded-[18px]">
             User Management
             <ArrowRight className="h-4 w-4" />
           </Button>
-        }
+        )}
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px]">
-        <motion.section
-          {...cardMotion}
-          transition={{ duration: 0.45 }}
-          className="dashboard-panel relative overflow-hidden p-7"
-        >
-          <div className="pointer-events-none absolute -right-16 -top-10 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(205,178,123,0.26),transparent_70%)] blur-3xl" />
-          <div className="pointer-events-none absolute bottom-0 left-0 h-32 w-32 rounded-full bg-[radial-gradient(circle,rgba(255,248,235,0.95),transparent_70%)] blur-2xl" />
-          <div className="relative">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#e0cfb3] bg-white/75 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9a7747]">
-              Executive Command
-            </div>
-            <h2 className="mt-4 max-w-3xl text-[34px] font-semibold leading-tight tracking-[-0.04em] text-[#24190f]">
-              Premium workforce oversight with the right level of clarity, warmth, and focus.
-            </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f5a43]">
-              Keep recruiting momentum, employee readiness, and operations aligned in one product-grade dashboard built for confident daily decisions.
-            </p>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {[
-                { label: "Active workforce", value: String(activeEmployeesCount), note: "People currently serving across departments.", icon: Users },
-                { label: "Candidates moving", value: String(applicationsUnderReview), note: "Applications in review and interview stages.", icon: BriefcaseBusiness },
-                { label: "Payroll volume", value: `Rs. ${Math.round(totalPayrollValue).toLocaleString("en-IN")}`, note: "Net salary flowing through current payroll cycles.", icon: Wallet },
-              ].map((item) => (
-                <div key={item.label} className="dashboard-subtle-card">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="dashboard-label">{item.label}</p>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[16px] bg-[#1f2638] text-[#f3dcc0]">
-                      <item.icon className="h-4 w-4" />
-                    </div>
-                  </div>
-                  <p className="mt-3 text-[30px] font-semibold leading-none text-[#24190f]">{item.value}</p>
-                  <p className="mt-2 text-sm leading-6 text-[#7a664e]">{item.note}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.section>
+        <PortalHeroPanel
+          eyebrow="Executive Command"
+          title="See the full HR system in one calm, high-signal workspace."
+          description="From hiring flow to active workforce coverage, the dashboard keeps the admin portal readable, responsive, and ready for daily decisions without drowning the team in noise."
+          highlights={[
+            {
+              label: "Active workforce",
+              value: String(summary.activeEmployeesCount),
+              note: `${summary.totalEmployees} total employee records currently managed.`,
+              icon: Users,
+            },
+            {
+              label: "Hiring in motion",
+              value: String(summary.applicationsUnderReview),
+              note: `${summary.pendingHrReviews} profiles still waiting on HR review.`,
+              icon: BriefcaseBusiness,
+            },
+            {
+              label: "Payroll volume",
+              value: currency.format(Math.round(summary.totalPayrollValue)),
+              note: `${summary.pendingLeavesCount} leave approvals still need attention.`,
+              icon: Wallet,
+            },
+          ]}
+        />
 
         <PortalProfileCard
           name={user?.name || "Admin"}
           roleLabel="System Administrator"
-          subtitle="You are holding the highest-level operational view across the HR stack, with people data, reviews, and approvals all flowing through this workspace."
+          subtitle="You are looking at the highest-level people operations view, where workforce readiness, candidate momentum, and policy approvals all meet in one product-grade interface."
           imageUrl={user?.profileImage || user?.profilePhotoUrl || ""}
           meta={[
-            { label: "Departments", value: `${departmentsCovered} active teams`, icon: Building2 },
-            { label: "Pending leaves", value: `${pendingLeaves.length} approvals`, icon: CalendarDays },
-            { label: "HR review queue", value: `${pendingHrReviews} profiles`, icon: ClipboardCheck },
+            { label: "Departments", value: `${summary.departmentsCovered} active teams`, icon: Building2 },
+            { label: "Pending leaves", value: `${summary.pendingLeavesCount} approvals`, icon: CalendarDays },
+            { label: "Review queue", value: `${summary.pendingHrReviews} candidate profiles`, icon: ClipboardCheck },
           ]}
         />
       </div>
@@ -220,7 +185,7 @@ const AdminDashboard: React.FC = () => {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total Candidates"
-          value={candidates.length}
+          value={summary.totalCandidates}
           change="Pipeline population"
           changeType="positive"
           icon={UserCheck}
@@ -230,8 +195,8 @@ const AdminDashboard: React.FC = () => {
         />
         <StatCard
           title="Active Employees"
-          value={activeEmployeesCount}
-          change={`${employees.length} total people records`}
+          value={summary.activeEmployeesCount}
+          change={`${summary.totalEmployees} total people records`}
           changeType="positive"
           icon={Users}
           color="primary"
@@ -240,8 +205,8 @@ const AdminDashboard: React.FC = () => {
         />
         <StatCard
           title="Pending HR Reviews"
-          value={pendingHrReviews}
-          change="Needs evaluation actions"
+          value={summary.pendingHrReviews}
+          change="Needs evaluation action"
           changeType="neutral"
           icon={ClipboardCheck}
           color="warning"
@@ -250,7 +215,7 @@ const AdminDashboard: React.FC = () => {
         />
         <StatCard
           title="People Ops Queue"
-          value={pendingLeaves.length}
+          value={summary.pendingLeavesCount}
           change="Leave approvals in motion"
           changeType="neutral"
           icon={ShieldCheck}
@@ -264,49 +229,58 @@ const AdminDashboard: React.FC = () => {
         <CircularStatsWidget
           label="Workforce Health"
           value={workforceHealth}
-          subtitle="A compact readiness score blending employee activity, team coverage, and approval load."
+          subtitle="A lightweight readiness score built from active employee coverage, department spread, and unresolved approval load."
           breakdown={[
-            { label: "Active employees", value: `${activeEmployeesCount}/${employees.length || 0}` },
-            { label: "Departments covered", value: `${departmentsCovered}` },
-            { label: "Pending approvals", value: `${pendingLeaves.length}` },
+            { label: "Active employees", value: `${summary.activeEmployeesCount}/${summary.totalEmployees || 0}` },
+            { label: "Departments covered", value: `${summary.departmentsCovered}` },
+            { label: "Pending approvals", value: `${summary.pendingLeavesCount}` },
           ]}
         />
 
         <TaskProgressList
           title="Admin Priority Stack"
-          subtitle="The most important actions for this portal, expressed as clean progress blocks instead of noisy analytics."
+          subtitle="The most important actions for this portal, expressed as clear progress blocks instead of noisy analytics."
           tasks={[
             {
               title: "Leave approvals",
-              description: `${pendingLeaves.length} requests are waiting for action from the admin queue.`,
-              progress: Math.min(100, pendingLeaves.length === 0 ? 100 : 100 - pendingLeaves.length * 12),
+              description: `${summary.pendingLeavesCount} requests are waiting for admin action.`,
+              progress: Math.min(100, summary.pendingLeavesCount === 0 ? 100 : 100 - summary.pendingLeavesCount * 12),
               icon: CalendarDays,
             },
             {
               title: "HR evaluations",
-              description: `${pendingHrReviews} candidates still need final review and decisions.`,
-              progress: Math.min(100, pendingHrReviews === 0 ? 100 : 100 - pendingHrReviews * 14),
+              description: `${summary.pendingHrReviews} candidates still need a final review cycle.`,
+              progress: Math.min(100, summary.pendingHrReviews === 0 ? 100 : 100 - summary.pendingHrReviews * 14),
               icon: ClipboardCheck,
             },
             {
               title: "Hiring throughput",
-              description: `${applicationsUnderReview} applicants are moving through the active recruitment stream.`,
-              progress: Math.min(100, applicationsUnderReview * 18),
+              description: `${summary.applicationsUnderReview} applicants are moving through the active recruitment stream.`,
+              progress: Math.min(100, summary.applicationsUnderReview * 18),
               icon: BriefcaseBusiness,
             },
           ]}
         />
       </div>
 
-      <PortalCalendarCard
-        title="Executive Calendar"
-        subtitle="Shared events, approvals, and workforce moments are organized into a calm monthly calendar built to keep the admin view clear and actionable."
-        events={calendarEvents}
+      <PortalDataTable
+        title="Employee Roster"
+        subtitle="A dynamic employee table ready for pagination, quick scanning, and navigation into the full employee management module."
+        columns={employeeColumns}
+        rows={employeeRows}
+        loading={loading}
+        pageSize={6}
+        emptyTitle="No employees available"
+        emptyDescription="Employee records will appear here as soon as the admin workspace has active people data."
+        getRowKey={(employee) => employee._id}
+        onRowClick={() => navigate("/admin/employees")}
       />
 
-      {loading ? (
-        <div className="dashboard-subtle-card text-sm text-[#7a664e]">Refreshing dashboard data...</div>
-      ) : null}
+      <PortalCalendarCard
+        title="Executive Calendar"
+        subtitle="Shared events, approvals, and workforce milestones are organized into a clean monthly calendar so the admin view stays actionable."
+        events={calendarEvents}
+      />
     </div>
   );
 };

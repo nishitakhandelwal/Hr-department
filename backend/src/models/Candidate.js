@@ -92,7 +92,7 @@ const candidateSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     fullName: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    email: { type: String, required: true, lowercase: true, trim: true, index: true },
     phone: { type: String, trim: true, default: "" },
     profileImage: { type: String, trim: true, default: "" },
     positionApplied: { type: String, trim: true, default: "" },
@@ -217,3 +217,21 @@ candidateSchema.pre("findOneAndUpdate", function updateHook(next) {
 
 export const Candidate = mongoose.model("Candidate", candidateSchema);
 export const CandidateStatuses = candidateStatuses;
+
+// Cleanup legacy unique email index so fresh re-registration can create a new candidate record.
+Candidate.on("index", async () => {
+  try {
+    await Candidate.collection.dropIndex("email_1");
+  } catch (error) {
+    const message = String(error?.message || "");
+    const codeName = String(error?.codeName || "");
+    const ignorable =
+      error?.code === 27 ||
+      codeName === "IndexNotFound" ||
+      message.includes("index not found") ||
+      message.includes("Operation interrupted because client was closed");
+    if (!ignorable) {
+      console.warn("[Candidate] Failed dropping legacy email index", { message });
+    }
+  }
+});

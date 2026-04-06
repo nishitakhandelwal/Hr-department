@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FileText, Trash2, Upload } from "lucide-react";
+import { ExternalLink, FileText, Trash2, Upload, Video } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,22 +16,56 @@ const CandidateDocuments: React.FC = () => {
   const { candidate, setCandidate } = useCandidatePortal();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const [openingFileUrl, setOpeningFileUrl] = useState("");
   const [selectedFileToRemove, setSelectedFileToRemove] = useState<number | null>(null);
 
   const existingFiles = useMemo(() => {
-    const list = candidate?.documents?.uploadedFiles || [];
-    const legacy = [
-      candidate?.documents?.resume?.url
-        ? { url: candidate.documents.resume.url, originalName: candidate.documents.resume.originalName || "Resume" }
+    const items = [
+      candidate?.documents?.resume?.url || candidate?.resumeUrl
+        ? {
+            category: "Resume",
+            url: candidate?.documents?.resume?.url || candidate?.resumeUrl,
+            originalName: candidate?.documents?.resume?.originalName || candidate?.resumeFileName || "Resume",
+            uploadedAt: candidate?.documents?.resume?.uploadedAt || candidate?.stage2SubmittedAt || candidate?.submittedAt || null,
+            kind: "file" as const,
+          }
         : null,
       candidate?.documents?.certificates?.url
-        ? { url: candidate.documents.certificates.url, originalName: candidate.documents.certificates.originalName || "Certificates" }
+        ? {
+            category: "Certificates",
+            url: candidate.documents.certificates.url,
+            originalName: candidate.documents.certificates.originalName || "Certificates",
+            uploadedAt: candidate.documents.certificates.uploadedAt || null,
+            kind: "file" as const,
+          }
         : null,
-    ].filter(Boolean) as Array<{ url?: string; originalName?: string }>;
+      ...(candidate?.documents?.uploadedFiles || []).map((file, index) => ({
+        category: `Document ${index + 1}`,
+        url: file.url,
+        originalName: file.originalName || `Supporting file ${index + 1}`,
+        uploadedAt: file.uploadedAt || null,
+        kind: "file" as const,
+      })),
+      candidate?.videoIntroduction?.url
+        ? {
+            category: "Video Introduction",
+            url: candidate.videoIntroduction.url,
+            originalName: candidate.videoIntroduction.originalName || "Video introduction",
+            uploadedAt: candidate.videoIntroduction.uploadedAt || null,
+            kind: "video" as const,
+          }
+        : null,
+    ].filter(Boolean) as Array<{
+      category: string;
+      url?: string;
+      originalName?: string;
+      uploadedAt?: string | null;
+      kind: "file" | "video";
+    }>;
 
     const seen = new Set<string>();
-    return [...legacy, ...list].filter((item) => {
-      const key = `${item.url || ""}-${item.originalName || ""}`;
+    return items.filter((item) => {
+      const key = `${item.category}-${item.url || ""}-${item.originalName || ""}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -85,11 +119,29 @@ const CandidateDocuments: React.FC = () => {
     }
   };
 
+  const handleOpenFile = async (fileUrl: string) => {
+    setOpeningFileUrl(fileUrl);
+    try {
+      const blob = await apiService.downloadProtectedFile(fileUrl);
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (error) {
+      toast({
+        title: "Open failed",
+        description: error instanceof Error ? error.message : "Unable to open this file right now.",
+        variant: "destructive",
+      });
+    } finally {
+      setOpeningFileUrl("");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Documents"
-        subtitle="Upload multiple files, review them before submitting, and keep all your uploaded documents in one place."
+        subtitle="Upload multiple files, review them before submitting, and see every document or video you have already uploaded in one place."
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -135,22 +187,34 @@ const CandidateDocuments: React.FC = () => {
             {existingFiles.length ? (
               existingFiles.map((file, index) => (
                 <div key={`${file.url || "file"}-${index}`} className="rounded-xl border border-border/80 p-4">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <FileText className="h-4 w-4 text-primary" />
-                    {file.originalName || `File ${index + 1}`}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        {file.kind === "video" ? <Video className="h-4 w-4 text-primary" /> : <FileText className="h-4 w-4 text-primary" />}
+                        {file.originalName || `File ${index + 1}`}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{file.category}</p>
+                      {file.uploadedAt ? (
+                        <p className="mt-1 text-xs text-muted-foreground">Uploaded: {new Date(file.uploadedAt).toLocaleString()}</p>
+                      ) : null}
+                    </div>
+                    {file.url ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="inline-flex items-center gap-1 text-sm text-primary"
+                        onClick={() => void handleOpenFile(file.url || "")}
+                        disabled={openingFileUrl === file.url}
+                      >
+                        {openingFileUrl === file.url ? "Opening..." : "Open"}
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : null}
                   </div>
-                  {file.url ? (
-                    <a
-                      href={file.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 inline-block text-sm text-primary underline"
-                    >
-                      View File
-                    </a>
-                  ) : (
+                  {!file.url ? (
                     <p className="mt-2 text-sm text-muted-foreground">File URL unavailable.</p>
-                  )}
+                  ) : null}
                 </div>
               ))
             ) : (

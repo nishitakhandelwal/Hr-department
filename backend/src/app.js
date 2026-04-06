@@ -23,6 +23,7 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 import eventRoutes from "./routes/eventRoutes.js";
 import holidayRoutes from "./routes/holidayRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
+import fileRoutes from "./routes/fileRoutes.js";
 import { uploadCandidateVideo as uploadCandidateVideoController } from "./controllers/candidateController.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
 import { authorize, protect } from "./middleware/authMiddleware.js";
@@ -30,6 +31,7 @@ import { sendEmail } from "./services/emailService.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { uploadCandidateVideo as uploadCandidateVideoFile } from "./middleware/uploadMiddleware.js";
 import { uploadsDir } from "./utils/paths.js";
+import path from "path";
 
 const app = express();
 
@@ -77,7 +79,8 @@ app.post(
   asyncHandler(uploadCandidateVideoController)
 );
 
-app.use("/uploads", express.static(uploadsDir));
+app.use("/uploads/profile", express.static(path.join(uploadsDir, "profile")));
+app.use("/uploads/settings", express.static(path.join(uploadsDir, "settings")));
 
 app.get("/test", (_req, res) => {
   res.send("Backend working");
@@ -90,51 +93,52 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.get("/api/test-email", async (req, res) => {
-  const to = String(req.query.to || env.smtp.user || process.env.EMAIL_USER || "").trim();
-  if (!to) {
-    return res.status(400).json({
-      success: false,
-      message: "Missing recipient email. Provide ?to=... or configure EMAIL_USER.",
-    });
-  }
+if (env.nodeEnv !== "production") {
+  app.get("/api/test-email", protect, authorize("admin"), async (req, res) => {
+    const to = String(req.query.to || env.smtp.user || process.env.EMAIL_USER || "").trim();
+    if (!to) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing recipient email. Provide ?to=... or configure EMAIL_USER.",
+      });
+    }
 
-  const subject = "HR Harmony Hub - Test Email";
-  const html = `
-    <h2>HR Harmony Hub Email Test</h2>
-    <p>This is a test email from <strong>/api/test-email</strong>.</p>
-    <p>Sent at: ${new Date().toISOString()}</p>
-  `;
+    const subject = "Arihant Dream Infra Project Ltd. - Test Email";
+    const html = `
+      <h2>Arihant Dream Infra Project Ltd. Email Test</h2>
+      <p>This is a test email from <strong>/api/test-email</strong>.</p>
+      <p>Sent at: ${new Date().toISOString()}</p>
+    `;
 
-  const result = await sendEmail(to, subject, html);
-  if (!result.success) {
-    return res.status(500).json({
-      success: false,
-      message: "Test email failed to send.",
+    const result = await sendEmail(to, subject, html);
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Test email failed to send.",
+        data: result,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Test email sent successfully to ${to}.`,
       data: result,
     });
-  }
-
-  return res.json({
-    success: true,
-    message: `Test email sent successfully to ${to}.`,
-    data: result,
   });
-});
+}
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/admin/users", userRoutes);
-app.use("/api/employees", employeeRoutes);
-app.use("/api/candidates", candidateRoutes);
+app.use("/api/employee", employeeRoutes);
+app.use("/api/candidate", candidateRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/leave", leaveRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/offboarding", offboardingRoutes);
 app.use("/api/letters", letterRoutes);
-app.use("/api/export", exportRoutes);
 app.use("/api/exports", exportRoutes);
+app.use("/api/files", fileRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/holidays", holidayRoutes);

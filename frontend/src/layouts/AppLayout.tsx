@@ -6,9 +6,9 @@ import {
   CalendarDays,
   ClipboardCheck,
   Clock,
-  DollarSign,
   FileText,
   FolderOpen,
+  IndianRupee,
   Layers3,
   LayoutDashboard,
   LogOut,
@@ -55,7 +55,7 @@ const adminNav: NavItem[] = [
   { label: "Employees", path: "/admin/employees", icon: Users, moduleKey: "employees" },
   { label: "Attendance", path: "/admin/attendance", icon: Clock, moduleKey: "attendance" },
   { label: "Leave", path: "/admin/leave", icon: CalendarDays, moduleKey: "candidates" },
-  { label: "Payroll", path: "/admin/payroll", icon: DollarSign, moduleKey: "payroll" },
+  { label: "Payroll", path: "/admin/payroll", icon: IndianRupee, moduleKey: "payroll" },
   { label: "Letters", path: "/admin/letters", icon: FileText, moduleKey: "letters" },
   { label: "Departments", path: "/admin/departments", icon: Building2, moduleKey: "departments" },
   { label: "Offboarding", path: "/admin/offboarding", icon: Briefcase },
@@ -68,7 +68,7 @@ const employeeNav: NavItem[] = [
   { label: "Profile", path: "/employee/profile", icon: UserCircle },
   { label: "Attendance", path: "/employee/attendance", icon: Clock },
   { label: "Leave", path: "/employee/leave", icon: CalendarDays },
-  { label: "Payroll", path: "/employee/payroll", icon: DollarSign },
+  { label: "Payroll", path: "/employee/payroll", icon: IndianRupee },
   { label: "Letters", path: "/employee/letters", icon: FileText },
 ];
 
@@ -118,11 +118,23 @@ const formatTimeAgo = (isoDate: string) => {
   return `${days} day${days > 1 ? "s" : ""} ago`;
 };
 
+const normalizeCompanyName = (value?: string | null) => {
+  const trimmedValue = value?.trim();
+  if (!trimmedValue) return "Arihant Dream Infra Project Ltd.";
+
+  const normalized = trimmedValue.toLowerCase();
+  if (normalized.includes("hr harmony")) {
+    return "Arihant Dream Infra Project Ltd.";
+  }
+
+  return trimmedValue;
+};
+
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
   const { publicSettings, theme, toggleTheme } = useSystemSettings();
   const companyLogo = resolveCompanyLogoUrl(publicSettings?.company?.companyLogoUrl);
-  const companyName = publicSettings?.company?.companyName || "Arihant Dream Infra Project Ltd.";
+  const companyName = normalizeCompanyName(publicSettings?.company?.companyName);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -135,17 +147,17 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   const isRecruiter = user?.accessRole === "recruiter";
   const isCandidate = user?.role === "candidate";
   const isPendingEmployee = user?.role === "employee" && user?.status !== "active_employee";
+  const portalThemeClass = isAdmin || isHr || isRecruiter ? "portal-theme-admin" : isCandidate ? "portal-theme-candidate" : "portal-theme-employee";
   const rawNavItems = isAdmin ? adminNav : isHr ? hrNav : isRecruiter ? recruiterNav : isCandidate ? candidateNav : isPendingEmployee ? pendingEmployeeNav : employeeNav;
   const navItems = rawNavItems.filter((item) => !item.moduleKey || user?.permissions?.modules?.[item.moduleKey] !== false);
   const isSidebarOpen = isMobile || isSidebarExpanded;
   const sidebarWidthClass = isSidebarOpen ? "w-64" : "w-16";
-  const sidebarShellClass =
-    "border-white/8 bg-[linear-gradient(180deg,rgba(18,21,31,0.98),rgba(28,32,44,0.98))] text-white shadow-[24px_0_90px_rgba(18,15,10,0.28)] backdrop-blur-2xl";
+  const sidebarShellClass = "sidebar-premium backdrop-blur-2xl";
   const sidebarBorderClass = "border-white/8";
-  const sidebarMutedTextClass = "text-slate-400";
-  const sidebarItemClass = "text-slate-300 hover:bg-white/[0.05] hover:text-white";
-  const sidebarIconBubbleClass = "bg-white/[0.04] group-hover:bg-white/[0.1]";
-  const sidebarLogoutClass = "text-red-300 hover:bg-red-500/20 hover:text-red-100";
+  const sidebarMutedTextClass = "text-[var(--portal-sidebar-muted-text)]";
+  const sidebarItemClass = "text-[var(--portal-sidebar-text)] hover:bg-[var(--portal-sidebar-item-hover)] hover:text-[var(--portal-sidebar-text)]";
+  const sidebarIconBubbleClass = "bg-[var(--portal-sidebar-icon-bubble)] group-hover:bg-[var(--portal-sidebar-icon-bubble-hover)]";
+  const sidebarLogoutClass = "border border-[#7f1d1d]/16 bg-transparent text-[#7f1d1d] shadow-none hover:-translate-y-0.5 hover:border-[#7f1d1d]/26 hover:bg-[linear-gradient(135deg,rgba(127,29,29,0.96),rgba(136,19,55,0.9))] hover:text-[#fff1f2] hover:shadow-[0_20px_36px_rgba(127,29,29,0.22)] dark:border-[#fecdd3]/12 dark:text-[#f8c7cf] dark:hover:text-white";
 
   const clearCollapseTimeout = () => {
     if (collapseTimeoutRef.current !== null) {
@@ -209,12 +221,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const displayName = user?.name || user?.email || "";
-  const initials = displayName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const portalLabel = isAdmin ? "Admin" : isHr ? "HR" : isRecruiter ? "Recruiter" : isCandidate ? "Candidate" : "Employee";
 
   const handleLogout = async () => {
     await logout();
@@ -246,29 +253,40 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   };
 
   return (
-    <div className="premium-shell flex min-h-screen bg-background text-foreground transition-colors duration-300">
+    <div className={`${portalThemeClass} premium-shell flex min-h-screen bg-background text-foreground transition-colors duration-300`}>
+      <div aria-hidden="true" className="shell-noise" />
       <aside
         className={`fixed left-0 top-0 z-50 flex h-screen ${sidebarWidthClass} flex-col overflow-y-auto border-r transition-all duration-300 ease-in-out ${sidebarShellClass}`}
         onMouseEnter={handleSidebarMouseEnter}
         onMouseLeave={handleSidebarMouseLeave}
       >
+        <div aria-hidden="true" className="sidebar-rail-highlight" />
         <div className={`border-b px-4 py-5 ${sidebarBorderClass}`}>
           {!isSidebarOpen ? (
             <div className="flex justify-center">
-              <ImageWithFallback src={companyLogo} alt="Company Logo" className="h-11 w-11 rounded-2xl border border-white/10 bg-white/95 p-1.5 object-cover shadow-[0_0_30px_rgba(129,140,248,0.2)]" />
+              <ImageWithFallback src={companyLogo} alt="Company Logo" className="h-11 w-11 object-contain" />
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/95 p-2.5 shadow-[0_0_35px_rgba(129,140,248,0.18)]">
-                <ImageWithFallback src={companyLogo} alt="Company Logo" className="h-10 w-10 rounded-xl object-cover" />
-              </div>
+              <ImageWithFallback src={companyLogo} alt="Company Logo" className="h-12 w-12 object-contain" />
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{companyName}</p>
-                <p className={`mt-1 text-xs uppercase tracking-[0.18em] ${sidebarMutedTextClass}`}>Premium HR Suite</p>
+                <p className="truncate text-sm font-semibold text-[var(--portal-sidebar-text)]">{companyName}</p>
+                <p className={`mt-1 text-xs uppercase tracking-[0.18em] ${sidebarMutedTextClass}`}>HR Department</p>
               </div>
             </div>
           )}
         </div>
+
+        {isSidebarOpen ? (
+          <div className="px-3 pt-4">
+            <div className="rounded-[22px] border border-[var(--portal-sidebar-border)] bg-[var(--portal-sidebar-icon-bubble)] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--portal-sidebar-muted-text)]">{portalLabel} portal</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--portal-sidebar-text)]">
+                Premium HRMS workspace with live modules, approvals, and activity.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         <nav className="flex-1 space-y-2 px-3 py-5">
           {navItems.map((item) => (
@@ -283,7 +301,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               className={({ isActive }) =>
                 `group flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-medium transition-all duration-300 ease-in-out ${
                   isActive
-                    ? "border border-white/12 bg-[linear-gradient(135deg,rgba(129,140,248,0.9),rgba(168,85,247,0.82),rgba(56,189,248,0.76))] text-[hsl(var(--sidebar-primary-foreground))] shadow-[0_18px_40px_rgba(99,102,241,0.34)]"
+                    ? "nav-pill-active border border-white/12 bg-[linear-gradient(135deg,var(--portal-primary-solid),var(--portal-primary-dark))] text-[hsl(var(--sidebar-primary-foreground))]"
                     : sidebarItemClass
                 } ${!isSidebarOpen ? "justify-center" : ""}`
               }
@@ -293,7 +311,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                   !isSidebarOpen ? "" : sidebarIconBubbleClass
                 }`}
               >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <item.icon className="h-5 w-5 flex-shrink-0 [stroke-width:2.35]" />
               </div>
               {isSidebarOpen ? <span className="truncate">{item.label}</span> : null}
             </NavLink>
@@ -307,7 +325,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               !isSidebarOpen ? "justify-center" : ""
             }`}
           >
-            <LogOut className="h-5 w-5" />
+            <LogOut className="h-5 w-5 [stroke-width:2.35]" />
             {isSidebarOpen ? <span>Logout</span> : null}
           </button>
         </div>
@@ -317,11 +335,16 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="relative z-[1] px-4 py-4 lg:px-6 transition-colors duration-300">
-          <div className="glass-panel flex items-center justify-end gap-4 rounded-[24px] px-4 py-3.5 transition-colors duration-300">
-            <div className="flex items-center gap-3">
+          <div className="shell-section px-1.5 py-1.5">
+            <div className="glass-panel flex items-center justify-between gap-4 rounded-[24px] px-4 py-3.5 transition-colors duration-300">
+              <div className="hidden min-w-0 lg:block">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] portal-muted">{portalLabel} workspace</p>
+                <p className="portal-heading mt-1 truncate text-sm font-semibold">{companyName}</p>
+              </div>
+              <div className="flex items-center gap-3">
               <button
                 onClick={toggleTheme}
-                className="rounded-2xl border border-[#deceb5] bg-white/70 p-3 text-[#7c6850] shadow-soft backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:bg-white hover:text-[#2f2215]"
+                className="rounded-2xl border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-3 text-[var(--portal-primary-text)] shadow-soft backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(var(--portal-primary-rgb),0.32)] hover:text-[var(--portal-primary-dark)]"
                 aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
               >
                 {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -329,8 +352,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="relative rounded-2xl border border-[#deceb5] bg-white/70 p-3 shadow-soft backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:bg-white">
-                    <Bell className="h-5 w-5 text-[#7c6850]" />
+                  <button className="relative rounded-2xl border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-3 text-[var(--portal-primary-text)] shadow-soft backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(var(--portal-primary-rgb),0.32)] hover:text-[var(--portal-primary-dark)]">
+                    <Bell className="h-5 w-5" />
                     {unreadCount > 0 ? (
                       <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
                         {unreadCount}
@@ -338,36 +361,36 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                     ) : null}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-96 rounded-[24px] border border-[#deceb5] bg-[linear-gradient(180deg,rgba(255,251,244,0.98),rgba(247,240,228,0.96))] p-0 shadow-card backdrop-blur-xl transition-colors duration-300">
-                  <div className="flex items-center justify-between border-b border-[#e7dac6] px-4 py-4">
+                <PopoverContent align="end" className="w-96 rounded-[24px] border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-0 shadow-card backdrop-blur-xl transition-colors duration-300">
+                  <div className="flex items-center justify-between border-b border-[var(--portal-surface-border)] px-4 py-4">
                     <div>
-                      <h4 className="text-sm font-semibold text-[#24190f]">Notifications</h4>
-                      <p className="text-xs text-[#7c6850]">Recent alerts and updates</p>
+                      <h4 className="portal-heading text-sm font-semibold">Notifications</h4>
+                      <p className="portal-muted text-xs">Recent alerts and updates</p>
                     </div>
                     {unreadCount > 0 ? <Button variant="ghost" size="sm" onClick={markAllRead}>Mark all read</Button> : null}
                   </div>
 
                   <div className="max-h-80 overflow-y-auto p-2">
                     {notificationsLoading ? (
-                      <div className="px-3 py-4 text-sm text-[#7c6850]">Loading notifications...</div>
+                      <div className="portal-muted px-3 py-4 text-sm">Loading notifications...</div>
                     ) : notifications.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-[#ddceb5] bg-white/60 px-4 py-8 text-center text-sm text-[#7c6850]">
+                      <div className="portal-muted rounded-2xl border border-dashed border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] px-4 py-8 text-center text-sm">
                         No notifications yet.
                       </div>
                     ) : notifications.map((notification) => (
                       <div
                         key={notification._id}
                         onClick={() => void handleNotificationClick(notification)}
-                        className={`cursor-pointer rounded-2xl border px-4 py-3 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white ${
-                          !notification.read ? "border-[#deceb5] bg-white/70 shadow-soft" : "border-transparent"
+                        className={`cursor-pointer rounded-2xl border px-4 py-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(var(--portal-primary-rgb),0.24)] hover:bg-[var(--portal-subtle-surface)] ${
+                          !notification.read ? "border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] shadow-soft" : "border-transparent"
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${!notification.read ? "bg-primary" : "bg-[#cdb89a]"}`} />
+                          <div className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${!notification.read ? "bg-primary" : "bg-slate-300"}`} />
                           <div>
-                            <p className="text-sm font-semibold text-[#24190f]">{notification.title}</p>
-                            <p className="mt-1 text-xs leading-5 text-[#6f5a43]">{notification.message}</p>
-                            <p className="mt-2 text-xs font-medium text-[#8d785f]">{formatTimeAgo(notification.createdAt)}</p>
+                            <p className="portal-heading text-sm font-semibold">{notification.title}</p>
+                            <p className="portal-copy mt-1 text-xs leading-5">{notification.message}</p>
+                            <p className="portal-muted mt-2 text-xs font-medium">{formatTimeAgo(notification.createdAt)}</p>
                           </div>
                         </div>
                       </div>
@@ -377,15 +400,16 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               </Popover>
 
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center gap-3 rounded-2xl border border-[#deceb5] bg-white/70 px-2 py-2 shadow-soft backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:bg-white">
+                <DropdownMenuTrigger className="flex items-center gap-3 rounded-2xl border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] px-2 py-2 shadow-soft backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(var(--portal-primary-rgb),0.32)]">
                   <ProfileAvatar name={displayName} imageUrl={user?.profileImage || user?.profilePhotoUrl || ""} className="h-10 w-10" fallbackClassName="text-xs" />
                   <div className="hidden text-left md:block">
-                    <p className="text-sm font-semibold leading-none text-[#24190f]">{displayName}</p>
-                    <p className="mt-1 text-xs capitalize text-[#7c6850]">{user?.role}</p>
+                    <p className="portal-heading text-sm font-semibold leading-none">{displayName}</p>
+                    <p className="portal-muted mt-1 text-xs capitalize">{user?.role}</p>
                   </div>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52 rounded-2xl border border-[#deceb5] bg-[linear-gradient(180deg,rgba(255,251,244,0.98),rgba(247,240,228,0.96))] shadow-card backdrop-blur-xl transition-colors duration-300">
+                <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-1.5 shadow-card backdrop-blur-xl transition-colors duration-300">
                   <DropdownMenuItem
+                    className="rounded-xl px-3 py-2.5 portal-heading focus:bg-[var(--portal-subtle-surface)] focus:text-[var(--portal-heading-color)]"
                     onClick={() =>
                       navigate(
                         isAdmin
@@ -404,14 +428,15 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                   >
                     {isPendingEmployee ? "Joining Form" : "Profile"}
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                  <DropdownMenuSeparator className="mx-1 my-1 bg-[var(--portal-surface-border)]" />
+                  <DropdownMenuItem onClick={handleLogout} className="rounded-xl px-3 py-2.5 text-destructive focus:bg-[rgba(239,68,68,0.12)] focus:text-destructive">
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+          </div>
           </div>
         </header>
 

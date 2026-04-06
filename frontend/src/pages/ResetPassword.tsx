@@ -15,6 +15,7 @@ type ResetLocationState = {
   email?: string;
   expiresInSeconds?: number;
   resendCooldownSeconds?: number;
+  otpRequested?: boolean;
 };
 
 const formatCountdown = (seconds: number) => {
@@ -44,6 +45,7 @@ const ResetPassword: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [inlineError, setInlineError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const hasOtpRequestContext = Boolean(token || state.otpRequested || state.expiresInSeconds || state.resendCooldownSeconds);
 
   useEffect(() => {
     if (expiresIn <= 0) return undefined;
@@ -158,6 +160,13 @@ const ResetPassword: React.FC = () => {
       }
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
+        {otpMode && !hasOtpRequestContext ? (
+          <InlineStatusMessage
+            type="error"
+            message="Request a password reset OTP first. If the email is valid, you will be taken to this screen automatically."
+          />
+        ) : null}
+
         {otpMode ? (
           <>
             <div className="space-y-2">
@@ -248,7 +257,11 @@ const ResetPassword: React.FC = () => {
           </div>
         </div>
 
-        <Button type="submit" className="w-full" disabled={loading || Boolean(successMessage) || (otpMode && (!email || otp.length !== 6))}>
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={loading || Boolean(successMessage) || (otpMode && (!hasOtpRequestContext || !email || otp.length !== 6))}
+        >
           {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Updating...</> : "Reset Password"}
         </Button>
 
@@ -257,7 +270,7 @@ const ResetPassword: React.FC = () => {
             type="button"
             variant="outline"
             className="w-full"
-            disabled={loading || resendCooldown > 0 || !email || Boolean(successMessage)}
+            disabled={loading || resendCooldown > 0 || !email || Boolean(successMessage) || !hasOtpRequestContext}
             onClick={() => void handleResend()}
           >
             <RotateCcw className="h-4 w-4" />

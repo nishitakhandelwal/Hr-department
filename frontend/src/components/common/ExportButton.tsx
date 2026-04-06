@@ -72,10 +72,7 @@ export function ExportButton<T>({
   const shouldUseServerExport = preferServerExport && serverExportModules.has(String(moduleName || "").toLowerCase());
 
   const handleExport = async (type: ExportFormat) => {
-    console.log("[Export] Starting export with type:", type, "moduleName:", moduleName);
-    
     if (loading) {
-      console.log("[Export] Export blocked - data still loading");
       toast({
         title: "Export unavailable",
         description: "Please wait until the data finishes loading.",
@@ -85,7 +82,6 @@ export function ExportButton<T>({
     }
 
     if (!resolvedExportSource.hasData) {
-      console.log("[Export] Export blocked - no data available");
       toast({
         title: "Export unavailable",
         description: emptyMessage,
@@ -96,9 +92,7 @@ export function ExportButton<T>({
 
     setExportingType(type);
     try {
-      console.log("[Export] Using server export:", shouldUseServerExport);
       if (!shouldUseServerExport) {
-        console.log("[Export] Using direct browser export");
         const fileName = await exportData(type, moduleName, filters, {
           rows: resolvedExportSource.rows,
           columns,
@@ -119,7 +113,6 @@ export function ExportButton<T>({
         sheetName,
       });
       
-      console.log("[Export] Making API request for type:", type, "with filters:", filters);
       const result = await apiService.exportModule({
         moduleName,
         type,
@@ -130,13 +123,10 @@ export function ExportButton<T>({
             sheetName: exportRequest.sheetName,
       });
       
-      console.log("[Export] Received blob:", result.blob?.size, "bytes, fileName:", result.fileName);
-      
       const fileName =
         result.fileName ||
         `${String(moduleName || "report").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.${type === "excel" ? "xlsx" : type}`;
-      
-      console.log("[Export] Triggering download for file:", fileName);
+
       forceBrowserDownload(result.blob, fileName);
       
       const formatLabel = type === "csv" ? "CSV" : type === "excel" ? "Excel" : "PDF";
@@ -147,7 +137,6 @@ export function ExportButton<T>({
           : `${formatLabel} export is downloading as ${fileName}.`,
       });
     } catch (error) {
-      console.error("[Export] Export failed with error:", error);
       toast({
         title: "Export failed",
         description: error instanceof Error ? error.message : "Unable to export data right now.",
@@ -171,13 +160,13 @@ export function ExportButton<T>({
           <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48 rounded-2xl border-slate-200 bg-white p-2 shadow-[0_18px_45px_rgba(15,23,42,0.12)]">
+      <DropdownMenuContent align="end" className="w-48 rounded-2xl border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-2 shadow-[0_18px_45px_rgba(166,124,82,0.22)]">
         {exportOptions.map((option) => {
           const Icon = option.icon;
           return (
             <DropdownMenuItem
               key={option.type}
-              className="rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 focus:bg-slate-100 focus:text-slate-950"
+              className="rounded-xl px-3 py-2.5 text-sm font-medium text-[#E6C7A3] focus:bg-[rgba(230,199,163,0.12)] focus:text-[#F5F5F5]"
               disabled={isDisabled}
               onClick={() => void handleExport(option.type)}
             >

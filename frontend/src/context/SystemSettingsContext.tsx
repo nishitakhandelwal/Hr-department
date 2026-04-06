@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { apiService, type PublicSettingsPayload } from "@/services/api";
 
@@ -22,6 +23,9 @@ const getStoredTheme = (): AppTheme | null => {
 };
 
 const getSystemTheme = (): AppTheme => {
+  if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    return "dark";
+  }
   return "light";
 };
 
@@ -90,7 +94,7 @@ export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = (
 
   useEffect(() => {
     void refreshPublicSettings();
-  }, []);
+  }, [refreshPublicSettings]);
 
   const value = useMemo(
     () => ({

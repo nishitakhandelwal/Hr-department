@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { format, addDays, startOfDay } from "date-fns";
 import { motion } from "framer-motion";
 import { AlertCircle, BellRing, Calendar, Loader2 } from "lucide-react";
@@ -15,14 +15,14 @@ const EVENT_META = {
   },
   birthday: {
     label: "Birthday",
-    dot: "bg-violet-500",
-    surface: "border-violet-500/20 bg-violet-500/10",
+    dot: "bg-[#E6C7A3]",
+    surface: "border-[#2A2623] bg-[rgba(230,199,163,0.2)]",
     icon: "🎂",
   },
   meeting: {
     label: "Meeting",
-    dot: "bg-sky-500",
-    surface: "border-sky-500/20 bg-sky-500/10",
+    dot: "bg-[#A67C52]",
+    surface: "border-[#2A2623] bg-[rgba(230,199,163,0.2)]",
     icon: "📅",
   },
   reminder: {
@@ -45,7 +45,7 @@ export const UpcomingAlertsPanel: React.FC<UpcomingAlertsPanelProps> = ({
   const { toast } = useToast();
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const today = startOfDay(new Date());
+  const today = useMemo(() => startOfDay(new Date()), []);
 
   useEffect(() => {
     const loadUpcomingEvents = async () => {
@@ -87,7 +87,7 @@ export const UpcomingAlertsPanel: React.FC<UpcomingAlertsPanelProps> = ({
     };
 
     loadUpcomingEvents();
-  }, [days, toast]);
+  }, [days, today, toast]);
 
   const groupedEvents = events.reduce(
     (acc, event) => {
@@ -108,7 +108,7 @@ export const UpcomingAlertsPanel: React.FC<UpcomingAlertsPanelProps> = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="overflow-hidden rounded-[30px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.82))] p-6 shadow-card backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(15,23,42,0.72))]"
+      className="overflow-hidden rounded-[30px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.82))] p-6 shadow-card backdrop-blur-xl dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)]"
     >
       {/* Header */}
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -236,9 +236,9 @@ export const UpcomingAlertsPanel: React.FC<UpcomingAlertsPanelProps> = ({
       )}
 
       {/* Footer info */}
-      <div className="mt-6 flex items-start gap-2.5 rounded-[16px] border border-blue-200/50 bg-blue-50/50 p-4 dark:border-blue-900/30 dark:bg-blue-900/10">
-        <AlertCircle className="h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
-        <p className="text-xs text-blue-700 dark:text-blue-300">
+      <div className="mt-6 flex items-start gap-2.5 rounded-[16px] border border-[#2A2623] bg-[rgba(230,199,163,0.2)] p-4 dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.2)]">
+        <AlertCircle className="h-4 w-4 flex-shrink-0 text-[#E6C7A3] dark:text-[#E6C7A3]" />
+        <p className="text-xs text-[#E6C7A3] dark:text-[#E6C7A3]">
           💌 Notifications are sent daily at 8 AM for events happening tomorrow. Make sure your email notifications are enabled in settings.
         </p>
       </div>

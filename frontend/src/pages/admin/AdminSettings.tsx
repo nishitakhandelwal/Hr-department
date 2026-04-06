@@ -259,8 +259,10 @@ const AdminSettings: React.FC = () => {
               <button
                 key={item.key}
                 onClick={() => setActiveSection(item.key)}
-                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                  activeSection === item.key ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition-all duration-200 ${
+                  activeSection === item.key
+                    ? "border-[rgba(166,124,82,0.22)] bg-[linear-gradient(135deg,rgba(230,199,163,0.24),rgba(166,124,82,0.12))] text-[#A67C52] shadow-[0_10px_24px_rgba(166,124,82,0.12)]"
+                    : "border-transparent text-foreground hover:border-[rgba(166,124,82,0.14)] hover:bg-[rgba(230,199,163,0.12)]"
                 }`}
               >
                 <item.icon className="h-4 w-4" />
@@ -295,33 +297,48 @@ const AdminSettings: React.FC = () => {
                   name={profile.name || "Admin"}
                   imageUrl={profile.profileImage || profile.profilePhotoUrl}
                   onUpload={async (file) => {
-                    const updated = await apiService.updateMyProfilePhoto(file);
-                    console.log("Uploaded URL:", updated.profileImage || updated.profilePhotoUrl || "");
-                    console.log("Saved user:", updated);
-                    const nextProfile = {
-                      name: updated.name || profile.name,
-                      email: updated.email || profile.email,
-                      phone: updated.phone || profile.phone,
-                      profilePhotoUrl: updated.profilePhotoUrl || "",
-                      profileImage: updated.profileImage || updated.profilePhotoUrl || "",
-                    };
-                    setProfile(nextProfile);
-                    setOriginalProfile(nextProfile);
-                    await refreshProfile();
+                    try {
+                      const updated = await apiService.updateMyProfilePhoto(file);
+                      const nextProfile = {
+                        name: updated.name || profile.name,
+                        email: updated.email || profile.email,
+                        phone: updated.phone || profile.phone,
+                        profilePhotoUrl: updated.profilePhotoUrl || "",
+                        profileImage: updated.profileImage || updated.profilePhotoUrl || "",
+                      };
+                      setProfile(nextProfile);
+                      setOriginalProfile(nextProfile);
+                      await refreshProfile();
+                      toast({ title: "Profile image updated" });
+                    } catch (error) {
+                      toast({
+                        title: "Profile image upload failed",
+                        description: error instanceof Error ? error.message : "Unable to update profile image.",
+                        variant: "destructive",
+                      });
+                    }
                   }}
                   onRemove={async () => {
-                    const updated = await apiService.removeMyProfilePhoto();
-                    console.log("Saved user:", updated);
-                    const nextProfile = {
-                      name: updated.name || profile.name,
-                      email: updated.email || profile.email,
-                      phone: updated.phone || profile.phone,
-                      profilePhotoUrl: updated.profilePhotoUrl || "",
-                      profileImage: updated.profileImage || updated.profilePhotoUrl || "",
-                    };
-                    setProfile(nextProfile);
-                    setOriginalProfile(nextProfile);
-                    await refreshProfile();
+                    try {
+                      const updated = await apiService.removeMyProfilePhoto();
+                      const nextProfile = {
+                        name: updated.name || profile.name,
+                        email: updated.email || profile.email,
+                        phone: updated.phone || profile.phone,
+                        profilePhotoUrl: updated.profilePhotoUrl || "",
+                        profileImage: updated.profileImage || updated.profilePhotoUrl || "",
+                      };
+                      setProfile(nextProfile);
+                      setOriginalProfile(nextProfile);
+                      await refreshProfile();
+                      toast({ title: "Profile image removed" });
+                    } catch (error) {
+                      toast({
+                        title: "Profile image removal failed",
+                        description: error instanceof Error ? error.message : "Unable to remove profile image.",
+                        variant: "destructive",
+                      });
+                    }
                   }}
                 />
 

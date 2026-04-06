@@ -17,20 +17,20 @@ const FILTER_TYPES = [
   {
     id: "birthday",
     label: "Birthday",
-    color: "violet",
-    bgGradient: "from-violet-50 to-violet-50/50",
-    borderColor: "border-violet-200/60",
-    textColor: "text-violet-700",
-    dotColor: "bg-violet-500",
+    color: "[#E6C7A3]",
+    bgGradient: "from-[#1A1816] to-[#2A211B]",
+    borderColor: "border-[#2A2623]",
+    textColor: "text-[#E6C7A3]",
+    dotColor: "bg-[#E6C7A3]",
   },
   {
     id: "meeting",
     label: "Meeting",
-    color: "sky",
-    bgGradient: "from-sky-50 to-sky-50/50",
-    borderColor: "border-sky-200/60",
-    textColor: "text-sky-700",
-    dotColor: "bg-sky-500",
+    color: "[#A67C52]",
+    bgGradient: "from-[#1A1816] to-[#2A211B]",
+    borderColor: "border-[#2A2623]",
+    textColor: "text-[#E6C7A3]",
+    dotColor: "bg-[#A67C52]",
   },
   {
     id: "reminder",
@@ -57,7 +57,7 @@ export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
   isAllActive,
 }) => {
   return (
-    <div className="overflow-hidden rounded-[28px] border border-white/70 bg-gradient-to-br from-white via-white to-white/85 p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/50 dark:via-slate-900/40 dark:to-slate-900/30">
+    <div className="overflow-hidden rounded-[28px] border border-white/70 bg-gradient-to-br from-white via-white to-white/85 p-5 shadow-soft dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)]">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">

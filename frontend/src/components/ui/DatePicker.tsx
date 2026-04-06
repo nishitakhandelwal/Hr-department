@@ -33,6 +33,8 @@ const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
         {...props}
         ref={inputRef}
         type="date"
+        inputMode="numeric"
+        pattern="\d{4}-\d{2}-\d{2}"
         value={typeof value === "string" ? normalizeDateValue(value) : value}
         onClick={(event) => {
           openNativePicker();

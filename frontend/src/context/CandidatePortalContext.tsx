@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { useNavigate } from "react-router-dom";
 
@@ -29,7 +30,7 @@ export const CandidatePortalProvider: React.FC<{ children: React.ReactNode }> = 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const refreshPortal = async () => {
+  const refreshPortal = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -48,7 +49,6 @@ export const CandidatePortalProvider: React.FC<{ children: React.ReactNode }> = 
         return;
       }
       const message = error instanceof Error ? error.message : "Unable to load your candidate portal.";
-      console.error("[CandidatePortal] Failed to refresh portal", error);
       setCandidate(null);
       setJoiningForm(null);
       setNotifications([]);
@@ -56,11 +56,11 @@ export const CandidatePortalProvider: React.FC<{ children: React.ReactNode }> = 
     } finally {
       setLoading(false);
     }
-  };
+  }, [logout, navigate]);
 
   useEffect(() => {
     void refreshPortal();
-  }, []);
+  }, [refreshPortal]);
 
   const value = useMemo(
     () => ({
@@ -75,7 +75,7 @@ export const CandidatePortalProvider: React.FC<{ children: React.ReactNode }> = 
       setCandidate,
       setJoiningForm,
     }),
-    [candidate, joiningForm, loading, notifications, error],
+    [candidate, joiningForm, loading, notifications, error, refreshPortal],
   );
 
   return <CandidatePortalContext.Provider value={value}>{children}</CandidatePortalContext.Provider>;

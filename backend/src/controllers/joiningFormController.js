@@ -10,10 +10,9 @@ import {
   sendCandidateWorkflowEmail,
 } from "../services/recruitmentWorkflowService.js";
 import { removeUploadedFileIfExists, validateUploadedFileAgainstSettings } from "../services/runtimeBehaviorService.js";
+import { secureUploadUrls } from "../utils/uploadAccess.js";
 
 const toString = (value) => String(value ?? "").trim();
-const toLowerEmail = (value) => String(value ?? "").toLowerCase().trim();
-
 const allowedMimeTypes = new Set([
   "application/pdf",
   "application/msword",
@@ -141,9 +140,11 @@ const buildJoiningFormPayload = ({ req, existing = null, fullNameFallback = "", 
   };
 };
 
+const serializeJoiningFormForResponse = (req, user, value) => secureUploadUrls(value, req, user);
+
 const getCandidateForRequest = async (req) => {
   if (req.user?.role === "candidate") {
-    return Candidate.findOne({ email: toLowerEmail(req.user?.email) });
+    return Candidate.findOne({ userId: req.user?._id });
   }
   return Candidate.findById(req.params.candidateId || req.body?.candidateId);
 };
@@ -166,17 +167,17 @@ const validateUploadedFiles = async (filesObj = {}) => {
 
 export const listJoiningForms = async (req, res) => {
   if (req.user?.role === "candidate") {
-    const candidate = await Candidate.findOne({ email: toLowerEmail(req.user?.email) });
+    const candidate = await Candidate.findOne({ userId: req.user?._id });
     if (!candidate) {
       return res.json({ success: true, message: "Fetched joining forms", data: [] });
     }
     const data = await JoiningForm.find({ candidateId: candidate._id }).sort({ createdAt: -1 });
-    return res.json({ success: true, message: "Fetched joining forms", data });
+    return res.json({ success: true, message: "Fetched joining forms", data: serializeJoiningFormForResponse(req, req.user, data) });
   }
 
   if (req.user?.role === "employee") {
     const data = await JoiningForm.find({ userId: req.user._id }).sort({ createdAt: -1 });
-    return res.json({ success: true, message: "Fetched joining forms", data });
+    return res.json({ success: true, message: "Fetched joining forms", data: serializeJoiningFormForResponse(req, req.user, data) });
   }
 
   const filter = {};
@@ -189,7 +190,7 @@ export const listJoiningForms = async (req, res) => {
     .populate("reviewedBy", "name email")
     .sort({ createdAt: -1 });
 
-  return res.json({ success: true, message: "Fetched joining forms", data });
+  return res.json({ success: true, message: "Fetched joining forms", data: serializeJoiningFormForResponse(req, req.user, data) });
 };
 
 export const getMyJoiningForm = async (req, res) => {
@@ -204,13 +205,6 @@ export const getMyJoiningForm = async (req, res) => {
       candidate = await Candidate.findById(employee.candidateId);
     }
 
-    if (!candidate) {
-      const employeeEmail = toLowerEmail(employee?.email || user?.email);
-      if (employeeEmail) {
-        candidate = await Candidate.findOne({ email: employeeEmail });
-      }
-    }
-
     if (!candidate && employee?._id) {
       candidate = await Candidate.findOne({ convertedEmployeeId: employee._id });
     }
@@ -223,24 +217,24 @@ export const getMyJoiningForm = async (req, res) => {
       success: true,
       message: "Fetched joining form",
       data: {
-        form: data,
+        form: serializeJoiningFormForResponse(req, req.user, data),
         prefillData: buildJoiningFormPrefillData({ form: data, candidate, user }),
       },
     });
   }
 
-  const candidate = await Candidate.findOne({ email: toLowerEmail(req.user?.email) });
+  const candidate = await Candidate.findOne({ userId: req.user?._id });
   if (!candidate) {
     return res.status(404).json({ success: false, message: "Candidate profile not found." });
   }
 
   const data = await JoiningForm.findOne({ candidateId: candidate._id });
-  const user = await User.findOne({ email: toLowerEmail(req.user?.email) }).select("name email phoneNumber role");
+  const user = await User.findById(req.user?._id).select("name email phoneNumber role");
   return res.json({
     success: true,
     message: "Fetched joining form",
     data: {
-      form: data,
+      form: serializeJoiningFormForResponse(req, req.user, data),
       prefillData: buildJoiningFormPrefillData({ form: data, candidate, user }),
     },
   });
@@ -256,15 +250,13 @@ export const sendJoiningForm = async (req, res) => {
     return res.status(400).json({ success: false, message: "Only selected/internship/offered candidates can receive joining form." });
   }
 
-  const candidateUser = await User.findOne({ email: toLowerEmail(candidate.email), role: "candidate" });
-
   const form = await JoiningForm.findOneAndUpdate(
     { candidateId: candidate._id },
     {
       $set: {
         status: "Requested",
         requestedAt: new Date(),
-        userId: candidateUser?._id ?? null,
+        userId: candidate.userId ?? null,
       },
       $setOnInsert: {
         candidateId: candidate._id,
@@ -305,7 +297,7 @@ export const sendJoiningForm = async (req, res) => {
       "You have successfully cleared the interview process. Please log in to your portal and complete your joining form to proceed with onboarding.",
   });
 
-  return res.json({ success: true, message: "Joining form request sent", data: form });
+  return res.json({ success: true, message: "Joining form request sent", data: serializeJoiningFormForResponse(req, req.user, form) });
 };
 
 export const submitMyJoiningForm = async (req, res) => {
@@ -352,10 +344,10 @@ export const submitMyJoiningForm = async (req, res) => {
     user.status = "active_employee";
     await user.save();
 
-    return res.json({ success: true, message: "Joining form submitted successfully", data });
+    return res.json({ success: true, message: "Joining form submitted successfully", data: serializeJoiningFormForResponse(req, req.user, data) });
   }
 
-  const candidate = await Candidate.findOne({ email: toLowerEmail(req.user?.email) });
+  const candidate = await Candidate.findOne({ userId: req.user?._id });
   if (!candidate) {
     return res.status(404).json({ success: false, message: "Candidate profile not found." });
   }
@@ -424,7 +416,7 @@ export const submitMyJoiningForm = async (req, res) => {
     notifyAdmins: true,
   });
 
-  return res.json({ success: true, message: "Joining form submitted successfully", data });
+  return res.json({ success: true, message: "Joining form submitted successfully", data: serializeJoiningFormForResponse(req, req.user, data) });
 };
 
 export const reviewJoiningForm = async (req, res) => {
@@ -470,7 +462,7 @@ export const reviewJoiningForm = async (req, res) => {
       return res.json({
         success: true,
         message: "Correction requested",
-        data: { joiningForm: data, employee, user },
+        data: { joiningForm: serializeJoiningFormForResponse(req, req.user, data), employee, user },
       });
     }
 
@@ -491,7 +483,7 @@ export const reviewJoiningForm = async (req, res) => {
       return res.json({
         success: true,
         message: "Joining form rejected",
-        data: { joiningForm: data, employee, user },
+        data: { joiningForm: serializeJoiningFormForResponse(req, req.user, data), employee, user },
       });
     }
 
@@ -511,7 +503,7 @@ export const reviewJoiningForm = async (req, res) => {
     return res.json({
       success: true,
       message: "Joining form approved.",
-      data: { joiningForm: data, employee, user },
+      data: { joiningForm: serializeJoiningFormForResponse(req, req.user, data), employee, user },
     });
   }
 
@@ -549,7 +541,7 @@ export const reviewJoiningForm = async (req, res) => {
       type: "candidate",
     });
 
-    return res.json({ success: true, message: "Correction requested", data });
+    return res.json({ success: true, message: "Correction requested", data: serializeJoiningFormForResponse(req, req.user, data) });
   }
 
   if (action === "reject") {
@@ -582,7 +574,7 @@ export const reviewJoiningForm = async (req, res) => {
       type: "candidate",
     });
 
-    return res.json({ success: true, message: "Joining form rejected", data });
+    return res.json({ success: true, message: "Joining form rejected", data: serializeJoiningFormForResponse(req, req.user, data) });
   }
 
   data.status = "Approved";
@@ -593,7 +585,7 @@ export const reviewJoiningForm = async (req, res) => {
 
   await sendCandidateWorkflowEmail({
     to: candidate.email,
-    subject: "Joining form approved - HR Harmony Hub",
+    subject: "Joining form approved - Arihant Dream Infra Project Ltd.",
     message: "Your joining form is approved. We are onboarding your employee profile now.",
   });
 
@@ -611,9 +603,9 @@ export const reviewJoiningForm = async (req, res) => {
     success: true,
     message: "Joining form approved and candidate converted to employee.",
     data: {
-      joiningForm: data,
+      joiningForm: serializeJoiningFormForResponse(req, req.user, data),
       employee: converted.employee,
-      candidate: converted.candidate,
+      candidate: secureUploadUrls(converted.candidate, req, req.user),
     },
   });
 };
@@ -625,7 +617,7 @@ export const getJoiningFormById = async (req, res) => {
   if (!data) {
     return res.status(404).json({ success: false, message: "Joining form not found" });
   }
-  return res.json({ success: true, message: "Fetched joining form", data });
+  return res.json({ success: true, message: "Fetched joining form", data: serializeJoiningFormForResponse(req, req.user, data) });
 };
 
 export const deleteJoiningForm = async (req, res) => {
@@ -633,5 +625,5 @@ export const deleteJoiningForm = async (req, res) => {
   if (!data) {
     return res.status(404).json({ success: false, message: "Joining form not found" });
   }
-  return res.json({ success: true, message: "Joining form deleted", data });
+  return res.json({ success: true, message: "Joining form deleted", data: serializeJoiningFormForResponse(req, req.user, data) });
 };

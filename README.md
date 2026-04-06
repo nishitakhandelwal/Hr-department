@@ -1,4 +1,4 @@
-# HR Harmony Hub
+# Arihant Dream Infra Project Ltd.
 
 Full-stack project restructured into:
 

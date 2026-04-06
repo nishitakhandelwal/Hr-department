@@ -19,8 +19,7 @@ import { Label } from "@/components/ui/label";
 import { downloadPdfBlob } from "@/utils/downloadPdf";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiService } from "@/services/api";
-
-const companyLogo = "/logo.png";
+import { useToast } from "@/hooks/use-toast";
 
 const letterColors = [
   "bg-primary/10 text-primary",
@@ -34,10 +33,12 @@ const letterColors = [
 ];
 
 const AdminLetters: React.FC = () => {
+  const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<CorporateLetterType>("Salary Approval Letter");
   const [formData, setFormData] = useState<CorporateLetterData>(defaultCorporateLetterData);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [companyLogo, setCompanyLogo] = useState("");
 
   React.useEffect(() => {
     void (async () => {
@@ -50,6 +51,7 @@ const AdminLetters: React.FC = () => {
           companyAddress: company.address || prev.companyAddress,
           companyContact: company.contactPhone || prev.companyContact,
         }));
+        setCompanyLogo(company.companyLogoUrl || "");
       } catch {
         // no-op fallback to template defaults
       }
@@ -58,7 +60,7 @@ const AdminLetters: React.FC = () => {
 
   const letterHtml = useMemo(
     () => buildCorporateLetterHtml(selectedType, formData, companyLogo),
-    [selectedType, formData],
+    [selectedType, formData, companyLogo],
   );
 
   const updateField = (key: keyof CorporateLetterData, value: string | boolean) => {
@@ -74,19 +76,23 @@ const AdminLetters: React.FC = () => {
       const filename = `${selectedType.replace(/\s+/g, "-").toLowerCase()}-${formData.employeeId || "employee"}.pdf`;
       downloadPdfBlob(pdfBlob, filename);
     } catch (error) {
-      console.error("PDF export error:", error);
+      toast({
+        title: "PDF export failed",
+        description: error instanceof Error ? error.message : "Unable to export PDF.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleSendLetter = async () => {
     const email = formData.employeeEmail.trim();
     if (!email) {
-      console.error("Employee email is required.");
+      toast({ title: "Validation error", description: "Employee email is required.", variant: "destructive" });
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      console.error("Please enter a valid employee email.");
+      toast({ title: "Validation error", description: "Please enter a valid employee email.", variant: "destructive" });
       return;
     }
 
@@ -104,7 +110,7 @@ const AdminLetters: React.FC = () => {
         : error instanceof Error
           ? error.message
           : "Failed to send letter. Please try again.";
-      console.error(message);
+      toast({ title: "Send failed", description: message, variant: "destructive" });
     } finally {
       setSendingEmail(false);
     }

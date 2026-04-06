@@ -9,6 +9,7 @@ import { Notification } from "../models/Notification.js";
 import { User } from "../models/User.js";
 import { sendEmail } from "./emailService.js";
 import { maybeSendEmailBySettings } from "./runtimeBehaviorService.js";
+import { buildMessageEmailLayout } from "../layouts/email/index.js";
 
 const toString = (value) => String(value ?? "").trim();
 const toLowerEmail = (value) => String(value ?? "").toLowerCase().trim();
@@ -119,9 +120,7 @@ export const createNotificationsForUsers = async ({ userIds, title, message, typ
 };
 
 export const getCandidateNotificationUserId = async (candidate) => {
-  if (!candidate?.email) return "";
-  const candidateUser = await User.findOne({ email: toLowerEmail(candidate.email), role: "candidate" }).select("_id").lean();
-  return toUserId(candidateUser?._id);
+  return toUserId(candidate?.userId);
 };
 
 export const createNotificationForCandidate = async ({ candidate, candidateUserId = "", title, message, type = "candidate" }) => {
@@ -152,12 +151,18 @@ export const sendCandidateWorkflowEmail = async ({ to, subject, message }) => {
     console.warn("[workflowEmail] Skipped email: missing recipient", { subject });
     return { success: false, skipped: true, message: "Missing candidate email." };
   }
+  const workflowEmail = buildMessageEmailLayout({
+    subject,
+    title: "Candidate Workflow Update",
+    message,
+    eyebrow: "Candidate communication",
+  });
   const result = await maybeSendEmailBySettings(() =>
     sendEmail({
       to,
-      subject,
-      html: `<p>${message}</p>`,
-      text: message,
+      subject: workflowEmail.subject,
+      html: workflowEmail.html,
+      text: workflowEmail.text,
     })
   );
   if (!result?.success) {
@@ -241,9 +246,13 @@ export const convertCandidateToEmployeeRecord = async ({
     }
 
     const candidateEmail = toLowerEmail(candidate.email);
-    const userQuery = User.findOne({ email: candidateEmail });
-    if (session) userQuery.session(session);
-    let user = await userQuery;
+    let user = null;
+
+    if (candidate.userId) {
+      const userQuery = User.findById(candidate.userId);
+      if (session) userQuery.session(session);
+      user = await userQuery;
+    }
 
     if (user && user.role === "admin") {
       const error = new Error("An admin account already exists with this candidate email.");
@@ -272,6 +281,7 @@ export const convertCandidateToEmployeeRecord = async ({
         session ? { session } : undefined
       );
       user = createdUsers[0];
+      candidate.userId = user._id;
     } else if (user.role !== "employee") {
       user.role = "employee";
       user.accessRole = "employee";
@@ -410,7 +420,7 @@ export const convertCandidateToEmployeeRecord = async ({
 
   await sendCandidateWorkflowEmail({
     to: result.candidate.email,
-    subject: "Welcome to HR Harmony Hub - Employee Onboarding",
+    subject: "Welcome to Arihant Dream Infra Project Ltd. - Employee Onboarding",
     message:
       "Your onboarding is complete and your profile has been converted to an employee account. Please log in to continue.",
   });

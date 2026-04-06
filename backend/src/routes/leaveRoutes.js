@@ -10,7 +10,7 @@ router.use(protect, authorize("admin", "employee"));
 
 router.get("/", asyncHandler(getLeave));
 router.post("/", asyncHandler(createLeave));
-router.put("/:id", [param("id").isMongoId().withMessage("Invalid id.")], validateRequest, asyncHandler(updateLeave));
+router.put("/:id", authorize("admin"), [param("id").isMongoId().withMessage("Invalid id.")], validateRequest, asyncHandler(updateLeave));
 router.delete("/:id", authorize("admin"), [param("id").isMongoId().withMessage("Invalid id.")], validateRequest, asyncHandler(deleteLeave));
 
 export default router;

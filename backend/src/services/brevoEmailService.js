@@ -1,5 +1,6 @@
 import SibApiV3Sdk from "sib-api-v3-sdk";
 import { env } from "../config/env.js";
+import { buildOtpEmailLayout } from "../layouts/email/index.js";
 
 let transactionalEmailApi = null;
 
@@ -108,24 +109,23 @@ export const sendBrevoOtpEmail = async ({
   to,
   otp,
   expiresInMinutes = 5,
-  subject = "Your Login OTP",
-  heading = "HR Harmony Hub Login Verification",
-  purpose = "OTP",
+  subject,
+  heading = "Login Verification Code",
+  purpose = "verification code",
 }) => {
+  const layout = buildOtpEmailLayout({
+    otp,
+    expiresInMinutes,
+    heading,
+    purpose,
+  });
+
   try {
     return await sendBrevoEmail({
       to,
-      subject,
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
-          <h2>${heading}</h2>
-          <p>Your ${purpose} is:</p>
-          <h1 style="letter-spacing: 6px;">${otp}</h1>
-          <p>This OTP expires in ${expiresInMinutes} minutes.</p>
-          <p>If you did not request this, ignore this email.</p>
-        </div>
-      `,
-      text: `Your ${purpose} is ${otp}. It expires in ${expiresInMinutes} minutes.`,
+      subject: subject || layout.subject,
+      html: layout.html,
+      text: layout.text,
     });
   } catch (error) {
     return {

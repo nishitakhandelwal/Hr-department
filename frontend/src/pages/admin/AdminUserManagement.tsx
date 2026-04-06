@@ -132,7 +132,7 @@ const AdminUserManagement: React.FC = () => {
   React.useEffect(() => {
     const value = (selectedPermissions.pageAccess || []).join(", ");
     setPageAccessInput(value);
-  }, [selectedUserId, selectedUser?._id]);
+  }, [selectedPermissions.pageAccess]);
 
   const fetchUsers = React.useCallback(async (page = usersPagination.page) => {
     setLoadingUsers(true);
@@ -207,19 +207,19 @@ const AdminUserManagement: React.FC = () => {
 
   React.useEffect(() => {
     void fetchUsers(1);
-  }, [userSearch, roleFilter, departmentFilter, statusFilter, activityFilter, sortBy, sortOrder]);
+  }, [fetchUsers, userSearch, roleFilter, departmentFilter, statusFilter, activityFilter, sortBy, sortOrder]);
 
   React.useEffect(() => {
     void fetchActivities(1);
-  }, [activitySearch]);
+  }, [activitySearch, fetchActivities]);
 
   React.useEffect(() => {
     void fetchAuditLogs(1);
-  }, [auditSearch]);
+  }, [auditSearch, fetchAuditLogs]);
 
   React.useEffect(() => {
     void fetchDashboardCounts();
-  }, []);
+  }, [fetchDashboardCounts]);
 
   const summaryStats = React.useMemo(() => {
     const totalUsers = usersPagination.total;

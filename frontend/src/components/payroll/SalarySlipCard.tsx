@@ -69,7 +69,7 @@ const buildRows = (record: PayrollRecord) => {
 };
 
 export const SalarySlipCard: React.FC<SalarySlipCardProps> = ({
-  companyName = "HR Harmony Hub",
+  companyName = "Arihant Dream Infra Project Ltd.",
   companyAddress = "",
   record,
   downloading = false,
@@ -218,7 +218,7 @@ export const SalarySlipCard: React.FC<SalarySlipCardProps> = ({
                   <td className="border border-slate-900 bg-slate-50 px-3 py-2 font-semibold">Total Deductions</td>
                   <td className="border border-slate-900 px-3 py-2 text-right font-semibold">{currency.format(record.totalDeductions || 0)}</td>
                 </tr>
-                <tr className="bg-blue-100">
+                <tr className="bg-[rgba(230,199,163,0.2)]">
                   <td className="border border-slate-900 px-3 py-2 font-bold">Net Pay</td>
                   <td className="border border-slate-900 px-3 py-2 text-right font-bold">{currency.format(record.netSalary || 0)}</td>
                 </tr>

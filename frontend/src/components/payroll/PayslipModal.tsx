@@ -85,7 +85,7 @@ const PayslipModal: React.FC<PayslipModalProps> = ({
           </div>
         </DialogHeader>
         <div className="max-h-[calc(92vh-110px)] overflow-y-auto bg-slate-100 p-4 sm:p-6">
-          {record ? <PayslipDocument ref={printRef} record={record} className="shadow-[0_20px_60px_rgba(15,23,42,0.12)]" /> : null}
+          {record ? <PayslipDocument ref={printRef} record={record} className="shadow-[0_20px_60px_rgba(166,124,82,0.16)]" /> : null}
         </div>
       </DialogContent>
     </Dialog>

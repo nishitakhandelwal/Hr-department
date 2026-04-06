@@ -3,6 +3,7 @@ import { body, param } from "express-validator";
 import {
   createUser,
   deleteUser,
+  getAdminDashboardSummary,
   getManagedUsers,
   getUsers,
   inviteUser,
@@ -30,6 +31,7 @@ const roleUpdateValidators = [
 
 router.use(protect, authorize("admin"));
 
+router.get("/dashboard-summary", authorizeModule("dashboard"), asyncHandler(getAdminDashboardSummary));
 router.get("/", authorizeModule("userManagement"), asyncHandler(getUsers));
 router.get("/management", authorizeModule("userManagement"), asyncHandler(getManagedUsers));
 router.get("/activity", authorizeModule("userManagement"), asyncHandler(listUserActivities));

@@ -57,16 +57,6 @@ export const ensureEmployeeProfileForUser = async (user, { populate = "" } = {})
   let employee = await Employee.findOne({ userId: user._id });
 
   if (!employee) {
-    const normalizedEmail = toLowerEmail(user.email);
-    if (normalizedEmail) {
-      const legacyEmployee = await Employee.findOne({ email: normalizedEmail }).sort({ createdAt: 1 });
-      if (legacyEmployee && (!legacyEmployee.userId || String(legacyEmployee.userId) === String(user._id))) {
-        employee = legacyEmployee;
-      }
-    }
-  }
-
-  if (!employee) {
     const payload = await buildDefaultEmployeePayload(user);
     try {
       employee = await Employee.create(payload);

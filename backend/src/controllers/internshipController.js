@@ -106,7 +106,7 @@ export const createInternship = async (req, res) => {
 
   await sendCandidateWorkflowEmail({
     to: candidate.email,
-    subject: "Internship assigned - HR Harmony Hub",
+    subject: "Internship assigned - Arihant Dream Infra Project Ltd.",
     message: `Your internship period is in progress from ${start.toDateString()} to ${end.toDateString()}.`,
   });
 

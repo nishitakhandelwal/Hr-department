@@ -35,6 +35,7 @@ const ForgotPassword: React.FC = () => {
             email,
             expiresInSeconds: response.data?.expiresInSeconds || 300,
             resendCooldownSeconds: response.data?.resendCooldownSeconds || 30,
+            otpRequested: true,
           },
         });
       }, 600);

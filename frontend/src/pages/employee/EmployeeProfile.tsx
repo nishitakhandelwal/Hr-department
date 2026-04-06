@@ -27,6 +27,7 @@ const EmployeeProfile: React.FC = () => {
   const { user, refreshProfile } = useAuth();
   const profileImageUrl = user?.profileImage || user?.profilePhotoUrl || "";
   const [loading, setLoading] = useState(false);
+  const [profileError, setProfileError] = useState("");
   const [profile, setProfile] = useState<ProfileView>({
     fullName: user?.name || "",
     email: user?.email || "",
@@ -44,6 +45,7 @@ const EmployeeProfile: React.FC = () => {
   useEffect(() => {
     void (async () => {
       setLoading(true);
+      setProfileError("");
       try {
         const employee = await apiService.getMyEmployeeProfile();
         setProfile({
@@ -59,7 +61,7 @@ const EmployeeProfile: React.FC = () => {
           ifscCode: employee.bankDetails?.ifscCode || "",
           paymentMode: employee.bankDetails?.paymentMode || "",
         });
-      } catch {
+      } catch (error) {
         setProfile({
           fullName: user?.name || "",
           email: user?.email || "",
@@ -73,6 +75,7 @@ const EmployeeProfile: React.FC = () => {
           ifscCode: "",
           paymentMode: "",
         });
+        setProfileError(error instanceof Error ? error.message : "Failed to load employee profile.");
       } finally {
         setLoading(false);
       }
@@ -107,7 +110,7 @@ const EmployeeProfile: React.FC = () => {
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="text-center">
+        <Card className="border-[#2A2623] text-center shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
           <CardContent className="space-y-4 pt-6">
             <ProfileAvatar
               name={profile.fullName || user?.name || "User"}
@@ -125,14 +128,11 @@ const EmployeeProfile: React.FC = () => {
               name={profile.fullName || user?.name || "User"}
               imageUrl={profileImageUrl}
               onUpload={async (file) => {
-                const updatedUser = await apiService.updateMyProfilePhoto(file);
-                console.log("Uploaded URL:", updatedUser.profileImage || updatedUser.profilePhotoUrl || "");
-                console.log("Saved user:", updatedUser);
+                await apiService.updateMyProfilePhoto(file);
                 await refreshProfile();
               }}
               onRemove={async () => {
-                const updatedUser = await apiService.removeMyProfilePhoto();
-                console.log("Saved user:", updatedUser);
+                await apiService.removeMyProfilePhoto();
                 await refreshProfile();
               }}
             />
@@ -148,12 +148,13 @@ const EmployeeProfile: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)] lg:col-span-2">
           <CardHeader>
             <CardTitle>Profile Details</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? <p className="mb-4 text-sm text-muted-foreground">Loading profile...</p> : null}
+            {profileError ? <p className="mb-4 rounded-xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">{profileError}</p> : null}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               {detailRows.map((item) => (
                 <div key={item.label} className="space-y-1.5">

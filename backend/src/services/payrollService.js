@@ -166,7 +166,6 @@ export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettin
   const salary = buildSalaryStructureSnapshot(employee);
   const presentDays = attendanceRows.filter((row) => row.status === "present").length;
   const lateDays = attendanceRows.filter((row) => row.status === "late").length;
-  const absentDays = attendanceRows.filter((row) => row.status === "absent").length;
   const leaveDays = attendanceRows.filter((row) => row.status === "leave").length;
   const overtimeHours = round2(
     attendanceRows.reduce((sum, row) => {
@@ -182,13 +181,19 @@ export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettin
     payrollSettings?.workingDaysMode,
     payrollSettings?.fixedWorkingDays
   );
+  const absentDays = Math.max(totalWorkingDays - presentDays - lateDays - leaveDays, 0);
   const payableDays = Math.min(
     totalWorkingDays,
     presentDays + lateDays + (payrollSettings?.includePaidLeaveInWages !== false ? leaveDays : 0)
   );
 
   const fullWages = round2(salary.basicSalary + salary.hra + salary.specialAllowance + salary.allowances);
-  const earnedWages = totalWorkingDays > 0 ? round2((fullWages / totalWorkingDays) * payableDays) : 0;
+  const payableRatio = totalWorkingDays > 0 ? payableDays / totalWorkingDays : 0;
+  const earnedBasicSalary = round2(salary.basicSalary * payableRatio);
+  const earnedHra = round2(salary.hra * payableRatio);
+  const earnedSpecialAllowance = round2(salary.specialAllowance * payableRatio);
+  const earnedAllowances = round2(salary.allowances * payableRatio);
+  const earnedWages = round2(earnedBasicSalary + earnedHra + earnedSpecialAllowance + earnedAllowances);
   const overtimeRate =
     salary.overtimeRatePerHour > 0
       ? salary.overtimeRatePerHour
@@ -200,7 +205,7 @@ export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettin
   const fineAmount = round2(absentDays * finePerAbsentDay + lateDays * finePerLateMark);
 
   const pfBaseWage = payrollSettings?.pf?.wageLimit > 0
-    ? Math.min(earnedWages, toPositiveNumber(payrollSettings.pf.wageLimit))
+    ? Math.min(earnedBasicSalary, toPositiveNumber(payrollSettings.pf.wageLimit))
     : earnedWages;
   const pfEmployee = salary.pfEnabled && payrollSettings?.pf?.enabled
     ? round2(pfBaseWage * (toPositiveNumber(payrollSettings.pf.employeeRate) / 100))
@@ -220,14 +225,14 @@ export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettin
     : 0;
 
   const totalDeductions = round2(salary.deductions + salary.tax + fineAmount + pfEmployee + esiEmployee);
-  const grossSalary = round2(fullWages + salary.bonus);
+  const grossSalary = round2(earnedWages + overtimePay + salary.bonus);
   const netSalary = round2(Math.max(0, earnedWages + overtimePay + salary.bonus - totalDeductions));
 
   const earnings = [
-    { label: "Basic Salary", amount: salary.basicSalary },
-    { label: "HRA", amount: salary.hra },
-    { label: "Special Allowance", amount: salary.specialAllowance },
-    { label: "Other Allowance", amount: salary.allowances },
+    { label: "Basic Salary", amount: earnedBasicSalary },
+    { label: "HRA", amount: earnedHra },
+    { label: "Special Allowance", amount: earnedSpecialAllowance },
+    { label: "Other Allowance", amount: earnedAllowances },
     { label: "Bonus", amount: salary.bonus },
     { label: "Overtime", amount: overtimePay },
   ];
@@ -262,10 +267,10 @@ export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettin
     payableDays,
     fullWages,
     earnedWages,
-    basicSalary: salary.basicSalary,
-    hra: salary.hra,
-    allowances: salary.allowances,
-    specialAllowance: salary.specialAllowance,
+    basicSalary: earnedBasicSalary,
+    hra: earnedHra,
+    allowances: earnedAllowances,
+    specialAllowance: earnedSpecialAllowance,
     bonus: salary.bonus,
     grossSalary,
     overtimePay,
@@ -345,6 +350,11 @@ const buildEarningDeductionRows = (payroll) => {
 };
 
 export const buildPayslipHtml = ({ payroll, company }) => {
+  const companyName = company?.companyName || env.company?.name || "Company";
+  const companyAddress = company?.address || "-";
+  const companyEmail = company?.contactEmail || env.company?.supportEmail || "-";
+  const companyPhone = company?.contactPhone || "-";
+  const companyWebsite = company?.website || "-";
   const payPeriod = `${payroll.month} ${payroll.year}`;
   const earningsDeductionsRows = buildEarningDeductionRows(payroll)
     .map(
@@ -543,11 +553,9 @@ export const buildPayslipHtml = ({ payroll, company }) => {
           <tr>
             <td class="company-cell">
               <div class="company">
-                <h1>Arihant Dream Infra Project Ltd.</h1>
-                <p>An ISO 9001:2008 Certified Company</p>
-                <p>2nd Floor,Class of Pearl,Income Tax Colony, Tonk Road, Jaipur</p>
-                <p>CIN: U70101RJ2011PLC035322 | GST: 08AAJCA5226A1Z3</p>
-                <p>Tel.: 0141-2970900 | Email: info@arihantgroupjaipur.com | URL: www.arihantgroupjaipur.com</p>
+                <h1>${escapeHtml(companyName)}</h1>
+                <p>${escapeHtml(companyAddress)}</p>
+                <p>Tel.: ${escapeHtml(companyPhone)} | Email: ${escapeHtml(companyEmail)} | URL: ${escapeHtml(companyWebsite)}</p>
               </div>
             </td>
             <td class="logo-cell">
@@ -653,10 +661,9 @@ export const buildPayslipHtml = ({ payroll, company }) => {
           </div>
 
           <div class="footer">
-            <p class="title">Arihant Dream Infra Project Ltd.</p>
-            <p>2nd Floor,Class of Pearl,Income Tax Colony, Tonk Road, Jaipur</p>
-            <p>Tel.: 0141-2970900 | Email: info@arihantgroupjaipur.com | URL: www.arihantgroupjaipur.com</p>
-            <p>CIN: U70101RJ2011PLC035322 | GST: 08AAJCA5226A1Z3</p>
+            <p class="title">${escapeHtml(companyName)}</p>
+            <p>${escapeHtml(companyAddress)}</p>
+            <p>Tel.: ${escapeHtml(companyPhone)} | Email: ${escapeHtml(companyEmail)} | URL: ${escapeHtml(companyWebsite)}</p>
           </div>
         </div>
       </div>

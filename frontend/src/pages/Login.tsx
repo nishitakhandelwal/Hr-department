@@ -31,6 +31,7 @@ const Login: React.FC = () => {
     }
     if (user.accessRole === "hr_manager") return "/hr/dashboard";
     if (user.accessRole === "recruiter") return "/recruiter/dashboard";
+    if (user.role === "employee") return "/employee/dashboard";
     return "/candidate/dashboard";
   };
 

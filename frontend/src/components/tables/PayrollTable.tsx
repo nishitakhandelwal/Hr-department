@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from "react";
 import { ChevronDown, Download, Eye, FileText } from "lucide-react";
 
@@ -46,20 +47,20 @@ interface PayrollTableProps {
 }
 
 const actionTriggerClass =
-  "h-10 min-w-[126px] justify-between rounded-xl border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 shadow-none transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900";
+  "h-10 min-w-[126px] justify-between rounded-xl border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-3.5 text-sm font-medium text-[#E6C7A3] shadow-none transition-all duration-200 hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]";
 
 const statusClassName = (status: string) => {
   const normalized = status.toLowerCase();
 
   if (normalized === "processed") {
-    return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border border-[rgba(230,199,163,0.18)] bg-[rgba(230,199,163,0.12)] text-[#E6C7A3]";
   }
 
   if (normalized === "pending") {
-    return "border border-amber-200 bg-amber-50 text-amber-700";
+    return "border border-[rgba(166,124,82,0.22)] bg-[rgba(166,124,82,0.16)] text-[#E6C7A3]";
   }
 
-  return "border border-slate-200 bg-slate-100 text-slate-700";
+  return "border border-[#2A2623] bg-[rgba(35,32,29,0.72)] text-[#A1A1AA]";
 };
 
 const PayrollTable: React.FC<PayrollTableProps> = ({
@@ -72,18 +73,18 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
 }) => {
   if (data.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
-        <p className="text-base font-medium text-slate-900">No payroll records found</p>
-        <p className="mt-1 text-sm text-slate-500">Try another month or adjust your payroll filters.</p>
+      <div className="rounded-2xl border border-dashed border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)] px-6 py-10 text-center">
+        <p className="text-base font-medium text-[#F5F5F5]">No payroll records found</p>
+        <p className="mt-1 text-sm text-[#A1A1AA]">Try another month or adjust your payroll filters.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-2xl border border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)]">
       <Table>
         <TableHeader>
-          <TableRow className="border-b border-slate-200 bg-slate-50 hover:bg-slate-50">
+          <TableRow className="border-b border-[#2A2623] bg-[rgba(230,199,163,0.08)] hover:bg-[rgba(230,199,163,0.08)]">
             <TableHead>Month</TableHead>
             <TableHead>Present Days</TableHead>
             <TableHead>Absent Days</TableHead>
@@ -99,16 +100,16 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
             const isGenerated = generatedPayrollIds.includes(row._id);
 
             return (
-              <TableRow key={row._id} className="border-b border-slate-200 hover:bg-slate-50/80">
+              <TableRow key={row._id} className="border-b border-[#2A2623] hover:bg-[rgba(230,199,163,0.08)]">
                 <TableCell className="min-w-[180px]">
-                  <div className="font-medium text-slate-900">{row.monthLabel}</div>
-                  <div className="mt-1 text-xs text-slate-500">{row.employeeName}</div>
+                  <div className="font-medium text-[#F5F5F5]">{row.monthLabel}</div>
+                  <div className="mt-1 text-xs text-[#A1A1AA]">{row.employeeName}</div>
                 </TableCell>
-                <TableCell className="text-slate-700">{row.presentDays}</TableCell>
-                <TableCell className="text-slate-700">{row.absentDays}</TableCell>
-                <TableCell className="font-medium text-slate-900">{row.grossSalaryFormatted}</TableCell>
-                <TableCell className="text-slate-700">{row.deductionsFormatted}</TableCell>
-                <TableCell className="font-semibold text-slate-950">{row.netSalaryFormatted}</TableCell>
+                <TableCell className="text-[#D4D4D8]">{row.presentDays}</TableCell>
+                <TableCell className="text-[#D4D4D8]">{row.absentDays}</TableCell>
+                <TableCell className="font-medium text-[#F5F5F5]">{row.grossSalaryFormatted}</TableCell>
+                <TableCell className="text-[#D4D4D8]">{row.deductionsFormatted}</TableCell>
+                <TableCell className="font-semibold text-[#F5F5F5]">{row.netSalaryFormatted}</TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusClassName(row.status)}`}>
                     {row.status}
@@ -125,19 +126,19 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
                           onClick={(event) => event.stopPropagation()}
                         >
                           <span className="inline-flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-slate-500" />
+                            <FileText className="h-4 w-4 text-[#E6C7A3]" />
                             Actions
                           </span>
-                          <ChevronDown className="h-4 w-4 text-slate-400" />
+                          <ChevronDown className="h-4 w-4 text-[#A1A1AA]" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-52 rounded-xl border-slate-200 p-2 shadow-lg">
-                        <DropdownMenuLabel className="px-2.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <DropdownMenuContent align="end" className="w-52 rounded-xl border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-2 shadow-[0_18px_40px_rgba(166,124,82,0.22)]">
+                        <DropdownMenuLabel className="px-2.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#A1A1AA]">
                           Payslip Actions
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 focus:bg-slate-50 focus:text-slate-900"
+                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-[#E6C7A3] focus:bg-[rgba(230,199,163,0.12)] focus:text-[#F5F5F5]"
                           onClick={(event) => {
                             event.stopPropagation();
                             onGeneratePayslip(row);
@@ -147,7 +148,7 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
                           {isGenerated ? "Regenerate Payslip" : "Generate Payslip"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 focus:bg-slate-50 focus:text-slate-900"
+                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-[#E6C7A3] focus:bg-[rgba(230,199,163,0.12)] focus:text-[#F5F5F5]"
                           onClick={(event) => {
                             event.stopPropagation();
                             onViewPayslip(row);
@@ -158,7 +159,7 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           disabled={actionLoadingId === row._id}
-                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-[#4338ca] focus:bg-indigo-50 focus:text-[#4338ca]"
+                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-[#E6C7A3] focus:bg-[rgba(230,199,163,0.12)] focus:text-[#F5F5F5]"
                           onClick={(event) => {
                             event.stopPropagation();
                             onDownloadPdf(row);

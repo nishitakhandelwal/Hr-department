@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Eye, FileImage, FileText, RefreshCw, ShieldAlert, XCircle } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -39,7 +39,7 @@ const actionButtonClass =
 
 const statusClassMap: Record<string, string> = {
   Requested: "border border-slate-200 bg-slate-100 text-slate-700",
-  Submitted: "border border-blue-200 bg-blue-50 text-blue-700",
+  Submitted: "border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#2A211B)] text-[#E6C7A3]",
   "Correction Requested": "border border-amber-200 bg-amber-50 text-amber-700",
   Approved: "border border-emerald-200 bg-emerald-50 text-emerald-700",
   Rejected: "border border-rose-200 bg-rose-50 text-rose-700",
@@ -74,7 +74,7 @@ const AdminJoiningForms: React.FC = () => {
     form: null,
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiService.listJoiningForms({ status: statusFilter || undefined });
@@ -88,11 +88,11 @@ const AdminJoiningForms: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, toast]);
 
   useEffect(() => {
     void load();
-  }, [statusFilter]);
+  }, [load]);
 
   const openReviewModal = (formId: string, action: ReviewAction) => {
     setRemarks("");
@@ -259,7 +259,7 @@ const AdminJoiningForms: React.FC = () => {
       </section>
 
       <Dialog open={reviewModal.open} onOpenChange={(open) => (open ? undefined : closeReviewModal())}>
-        <DialogContent className="max-w-md border-slate-200 bg-white p-0 shadow-[0_28px_80px_rgba(15,23,42,0.18)]">
+        <DialogContent className="max-w-md border-slate-200 bg-white p-0 shadow-[0_28px_80px_rgba(166,124,82,0.18)]">
           <div className="rounded-[26px] bg-white p-6">
             <DialogHeader className="space-y-2 text-left">
               <DialogTitle className="text-xl font-semibold text-slate-950">Add Remarks</DialogTitle>

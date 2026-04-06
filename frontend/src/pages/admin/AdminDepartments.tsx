@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,7 @@ const AdminDepartments: React.FC = () => {
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
   const { toast } = useToast();
 
-  const loadDepartments = async () => {
+  const loadDepartments = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiService.list<Department>("departments");
@@ -46,11 +46,11 @@ const AdminDepartments: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   React.useEffect(() => {
     void loadDepartments();
-  }, []);
+  }, [loadDepartments]);
 
   const openAdd = () => { setForm(emptyDept); setEditIndex(null); setDialogOpen(true); };
   const openEdit = (i: number) => { setForm({ ...departments[i] }); setEditIndex(i); setDialogOpen(true); };

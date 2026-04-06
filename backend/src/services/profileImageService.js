@@ -16,9 +16,7 @@ const syncRelatedProfileImage = async ({ user, imageUrl }) => {
 
   if (user.role === "candidate") {
     await Candidate.updateOne(
-      {
-        $or: [{ userId: user._id }, { email: user.email }],
-      },
+      { userId: user._id },
       { $set: { profileImage: imageUrl || "" } }
     );
   }

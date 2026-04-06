@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { MoreHorizontal, Trash2, UserCheck, BriefcaseBusiness, Send, FileCheck } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useToast } from "@/hooks/use-toast";
@@ -72,7 +72,7 @@ const AdminCandidates: React.FC = () => {
   const [page, setPage] = useState(1);
   const pageSize = 8;
 
-  const fetchCandidates = async () => {
+  const fetchCandidates = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiService.list<CandidateRecord>("candidates");
@@ -85,11 +85,11 @@ const AdminCandidates: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     void fetchCandidates();
-  }, []);
+  }, [fetchCandidates]);
 
   const handleView = async (id: string) => {
     setModalOpen(true);

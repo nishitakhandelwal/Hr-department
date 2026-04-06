@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { DataTable, StatusBadge } from "@/components/DataTable";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ const AdminOffboarding: React.FC = () => {
   const [customReason, setCustomReason] = useState("");
   const { toast } = useToast();
 
-  const loadOffboarding = async () => {
+  const loadOffboarding = useCallback(async () => {
     setLoading(true);
     try {
       const rows = await apiService.list<OffboardingApiRow>("offboarding");
@@ -71,11 +71,11 @@ const AdminOffboarding: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   React.useEffect(() => {
     void loadOffboarding();
-  }, []);
+  }, [loadOffboarding]);
 
   const updateStatus = (idx: number, status: string) => {
     void (async () => {

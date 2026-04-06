@@ -487,7 +487,7 @@ const canAccessLetter = async (user, letter) => {
     return employee && String(employee._id) === String(letter.employeeId);
   }
   if (user.role === "candidate" && letter.candidateId) {
-    const candidate = await Candidate.findOne({ email: toLowerEmail(user.email) });
+    const candidate = await Candidate.findOne({ userId: user._id });
     return candidate && String(candidate._id) === String(letter.candidateId);
   }
   return false;
@@ -507,7 +507,7 @@ export const listMyLetters = async (req, res) => {
   }
 
   if (user.role === "candidate") {
-    const candidate = await Candidate.findOne({ email: toLowerEmail(user.email) });
+    const candidate = await Candidate.findOne({ userId: user._id });
     filter = candidate ? { candidateId: candidate._id } : { _id: null };
   }
 
@@ -730,14 +730,12 @@ export const sendLetterByEmail = async (req, res) => {
 
     const normalizedType = toString(letterType).toLowerCase();
     if (normalizedType.includes("offer")) {
-      const candidate = candidateId
-        ? await Candidate.findById(candidateId)
-        : await Candidate.findOne({ email: normalizedEmployeeEmail });
+      const candidate = candidateId ? await Candidate.findById(candidateId) : null;
 
       if (!candidate) {
-        return res.status(404).json({
-          success: false,
-          message: "Offer letter email sent, but candidate was not found for status update.",
+        return res.json({
+          success: true,
+          message: `Letter sent to ${normalizedEmployeeEmail} successfully`,
         });
       }
 

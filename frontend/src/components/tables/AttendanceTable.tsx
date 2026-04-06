@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from "react";
 import { DataTable, DataTableColumn, StatusBadge } from "@/components/DataTable";
 import { ExportColumn, createExportColumnsFromTable } from "@/utils/export";

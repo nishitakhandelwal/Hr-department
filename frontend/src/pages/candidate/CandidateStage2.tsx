@@ -106,7 +106,7 @@ const CandidateStage2: React.FC = () => {
   const [startingCamera, setStartingCamera] = useState(false);
   const [noticePeriod, setNoticePeriod] = useState("");
   const [experienceDetails, setExperienceDetails] = useState("");
-  const [expectedSalary, setExpectedSalary] = useState<number>(0);
+  const [expectedSalary, setExpectedSalary] = useState("");
   const [candidateRemarks, setCandidateRemarks] = useState("");
   const [managementAssessment, setManagementAssessment] = useState({
     communication: "",
@@ -266,9 +266,10 @@ const CandidateStage2: React.FC = () => {
     }
 
     const nextErrors: Record<string, string> = {};
+    const salaryValue = Number(expectedSalary);
     if (!noticePeriod.trim()) nextErrors.noticePeriod = "Notice period is required.";
     if (!experienceDetails.trim()) nextErrors.experienceDetails = "Experience details are required.";
-    if (!expectedSalary || Number(expectedSalary) <= 0) nextErrors.expectedSalary = "Expected salary must be greater than 0.";
+    if (!expectedSalary.trim() || Number.isNaN(salaryValue) || salaryValue <= 0) nextErrors.expectedSalary = "Expected salary must be greater than 0.";
     const referenceError = validateReferenceRows(references);
     if (referenceError) nextErrors.references = referenceError;
     const employmentError = validateEmploymentRows(employmentHistory);
@@ -297,7 +298,7 @@ const CandidateStage2: React.FC = () => {
       await apiService.submitCandidateStage2({
         noticePeriod,
         experienceDetails,
-        expectedSalary: Number(expectedSalary || 0),
+        expectedSalary: salaryValue,
         references,
         employmentHistory,
         managementAssessment,
@@ -332,9 +333,9 @@ const CandidateStage2: React.FC = () => {
 
   const activeExt = getFileExtension(documentFile?.name || "");
   const fileIcon = [".jpg", ".jpeg", ".png"].includes(activeExt) ? (
-    <FileImage className="h-5 w-5 text-sky-600" />
+    <FileImage className="h-5 w-5 text-[#E6C7A3]" />
   ) : [".pdf", ".doc", ".docx"].includes(activeExt) ? (
-    <FileText className="h-5 w-5 text-indigo-600" />
+    <FileText className="h-5 w-5 text-[#E6C7A3]" />
   ) : (
     <FileIcon className="h-5 w-5 text-muted-foreground" />
   );
@@ -365,8 +366,9 @@ const CandidateStage2: React.FC = () => {
                   <Input
                     disabled={isLocked}
                     type="number"
+                    inputMode="numeric"
                     value={expectedSalary}
-                    onChange={(e) => setExpectedSalary(Number(e.target.value || 0))}
+                    onChange={(e) => setExpectedSalary(e.target.value)}
                   />
                   {fieldErrors.expectedSalary ? <p className="text-xs text-destructive">{fieldErrors.expectedSalary}</p> : null}
                 </div>

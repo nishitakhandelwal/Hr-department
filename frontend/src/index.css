@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,26 +6,26 @@
 
 @layer base {
   :root {
-    --background: 38 38% 95%;
-    --foreground: 28 24% 18%;
+    --background: 30 24% 95%;
+    --foreground: 0 0% 11%;
 
-    --card: 42 43% 97%;
-    --card-foreground: 28 24% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 11%;
 
-    --popover: 42 43% 97%;
-    --popover-foreground: 28 24% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 11%;
 
-    --primary: 39 45% 48%;
-    --primary-foreground: 35 60% 98%;
+    --primary: 27 40% 39%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 34 40% 88%;
-    --secondary-foreground: 30 25% 20%;
+    --secondary: 32 24% 91%;
+    --secondary-foreground: 24 18% 19%;
 
-    --muted: 35 31% 91%;
-    --muted-foreground: 28 14% 44%;
+    --muted: 34 24% 92%;
+    --muted-foreground: 0 0% 42%;
 
-    --accent: 35 45% 89%;
-    --accent-foreground: 28 24% 18%;
+    --accent: 31 41% 84%;
+    --accent-foreground: 24 25% 24%;
 
     --destructive: 0 80% 63%;
     --destructive-foreground: 0 0% 100%;
@@ -36,52 +36,105 @@
     --warning: 35 85% 56%;
     --warning-foreground: 24 32% 16%;
 
-    --info: 206 58% 52%;
-    --info-foreground: 0 0% 100%;
+    --info: 33 57% 77%;
+    --info-foreground: 24 25% 24%;
 
-    --border: 34 25% 84%;
-    --input: 35 28% 88%;
-    --ring: 39 45% 48%;
+    --border: 24 11% 14%;
+    --input: 24 11% 14%;
+    --ring: 27 40% 39%;
 
     --radius: 1rem;
 
-    --sidebar-background: 233 39% 9%;
-    --sidebar-foreground: 221 31% 92%;
-    --sidebar-primary: 246 100% 72%;
+    --sidebar-background: 24 24% 14%;
+    --sidebar-foreground: 30 20% 92%;
+    --sidebar-primary: 31 41% 64%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 233 26% 15%;
-    --sidebar-accent-foreground: 220 33% 96%;
-    --sidebar-border: 232 23% 18%;
-    --sidebar-ring: 246 100% 72%;
-    --sidebar-muted: 225 16% 68%;
+    --sidebar-accent: 27 22% 18%;
+    --sidebar-accent-foreground: 30 20% 92%;
+    --sidebar-border: 24 21% 22%;
+    --sidebar-ring: 31 41% 64%;
+    --sidebar-muted: 26 12% 68%;
 
-    --shadow-card: 0 24px 60px rgba(125, 105, 73, 0.12);
-    --shadow-card-hover: 0 26px 70px rgba(171, 140, 91, 0.18);
-    --shadow-glow: 0 18px 48px rgba(191, 154, 93, 0.24);
-    --shadow-soft: 0 14px 36px rgba(139, 117, 83, 0.12);
+    --shadow-card: 0 18px 48px rgba(98, 72, 47, 0.08);
+    --shadow-card-hover: 0 24px 60px rgba(88, 64, 42, 0.14);
+    --shadow-glow: 0 18px 56px rgba(139, 94, 60, 0.24);
+    --shadow-soft: 0 12px 28px rgba(92, 67, 46, 0.09);
+
+    --portal-primary-solid: #8b5e3c;
+    --portal-primary-dark: #c8a27c;
+    --portal-primary-soft: rgba(139, 94, 60, 0.14);
+    --portal-primary-soft-strong: rgba(139, 94, 60, 0.24);
+    --portal-primary-faint: rgba(139, 94, 60, 0.08);
+    --portal-primary-rgb: 139, 94, 60;
+    --portal-primary-text: #6d4526;
+    --portal-surface-border: rgba(120, 89, 59, 0.28);
+    --portal-surface-bg: rgba(255, 252, 248, 0.82);
+    --portal-surface-bg-strong: rgba(255, 255, 255, 0.92);
+    --portal-subtle-surface: rgba(255, 249, 242, 0.78);
+    --portal-subtle-surface-strong: rgba(255, 252, 248, 0.92);
+    --portal-heading-color: #1c1c1c;
+    --portal-copy-color: #5e5852;
+    --portal-muted-color: #6b6b6b;
+    --portal-shell-start: #f7f3ee;
+    --portal-shell-mid: #f5efe7;
+    --portal-shell-end: #efe3d4;
+    --portal-glow-1: rgba(200, 162, 124, 0.18);
+    --portal-glow-2: rgba(139, 94, 60, 0.12);
+    --portal-grid: rgba(143, 114, 85, 0.06);
+    --portal-shell-shadow: 0 30px 80px rgba(92, 67, 46, 0.12);
+    --portal-glass-highlight: rgba(255, 255, 255, 0.72);
+    --portal-sidebar-start: rgba(247, 243, 238, 0.98);
+    --portal-sidebar-mid: rgba(243, 235, 225, 0.98);
+    --portal-sidebar-end: rgba(236, 225, 211, 0.98);
+    --portal-sidebar-border: rgba(139, 94, 60, 0.12);
+    --portal-sidebar-text: #2e241c;
+    --portal-sidebar-muted-text: #7d6857;
+    --portal-sidebar-item-hover: rgba(139, 94, 60, 0.08);
+    --portal-sidebar-icon-bubble: rgba(139, 94, 60, 0.08);
+    --portal-sidebar-icon-bubble-hover: rgba(139, 94, 60, 0.14);
+    --portal-hover-border-strong: rgba(28, 28, 28, 0.34);
+    --portal-hover-shadow-strong: 0 22px 44px rgba(24, 18, 12, 0.14);
+    --portal-hover-overlay: rgba(28, 28, 28, 0.03);
+    --portal-icon-foreground: #1c1c1c;
+    --portal-icon-shadow: 0 14px 28px rgba(139, 94, 60, 0.18), 0 0 0 1px rgba(255,255,255,0.2) inset;
+    --portal-bg-layer-1: radial-gradient(circle at 20% 30%, #D6BFA3 0%, transparent 40%);
+    --portal-bg-layer-2: radial-gradient(circle at 80% 70%, #8B5E3C 0%, transparent 50%);
+    --portal-bg-layer-3: radial-gradient(circle at 50% 50%, #3A2E25 0%, transparent 60%);
+    --portal-bg-base: linear-gradient(135deg, #F7F3EE, #E6D3B3);
+    --portal-smoke-primary: radial-gradient(circle at 60% 40%, rgba(214,191,163,0.25), transparent 60%);
+    --portal-smoke-secondary: radial-gradient(circle, rgba(139,94,60,0.14), transparent 62%);
+    --portal-smoke-noise:
+      radial-gradient(circle at 32% 62%, rgba(247,243,238,0.42), transparent 28%),
+      radial-gradient(circle at 72% 28%, rgba(214,191,163,0.16), transparent 32%);
   }
 
   .dark {
-    --background: 232 42% 8%;
-    --foreground: 220 33% 96%;
+    --bg-main: #0F0E0D;
+    --bg-surface: #1A1816;
+    --bg-elevated: #23201D;
+    --text-primary: #F5F5F5;
+    --text-secondary: #A1A1AA;
+    --border-strong: #2A2623;
+    --background: 30 7% 6%;
+    --foreground: 0 0% 96%;
 
-    --card: 232 31% 12%;
-    --card-foreground: 220 33% 96%;
+    --card: 30 8% 9%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 232 30% 12%;
-    --popover-foreground: 220 33% 96%;
+    --popover: 30 8% 9%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 246 100% 72%;
+    --primary: 31 32% 49%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 187 100% 62%;
-    --secondary-foreground: 230 35% 9%;
+    --secondary: 32 8% 13%;
+    --secondary-foreground: 0 0% 96%;
 
-    --muted: 229 23% 18%;
-    --muted-foreground: 227 19% 72%;
+    --muted: 30 6% 12%;
+    --muted-foreground: 240 5% 65%;
 
-    --accent: 232 25% 17%;
-    --accent-foreground: 220 33% 96%;
+    --accent: 30 8% 14%;
+    --accent-foreground: 33 57% 77%;
 
     --destructive: 0 80% 63%;
     --destructive-foreground: 0 0% 100%;
@@ -92,12 +145,62 @@
     --warning: 40 98% 60%;
     --warning-foreground: 230 35% 9%;
 
-    --info: 198 100% 60%;
-    --info-foreground: 0 0% 100%;
+    --info: 33 57% 77%;
+    --info-foreground: 24 25% 24%;
 
-    --border: 232 21% 24%;
-    --input: 232 21% 20%;
-    --ring: 246 100% 72%;
+    --border: 24 11% 14%;
+    --input: 24 11% 14%;
+    --ring: 31 32% 49%;
+    --shadow-card: 0 10px 40px rgba(0, 0, 0, 0.4);
+    --shadow-card-hover: 0 18px 50px rgba(0, 0, 0, 0.48);
+    --shadow-glow: 0 10px 30px rgba(166, 124, 82, 0.3);
+    --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.32);
+    --portal-primary-solid: #a67c52;
+    --portal-primary-dark: #e6c7a3;
+    --portal-primary-soft: rgba(166, 124, 82, 0.18);
+    --portal-primary-soft-strong: rgba(166, 124, 82, 0.3);
+    --portal-primary-faint: rgba(166, 124, 82, 0.1);
+    --portal-primary-rgb: 166, 124, 82;
+    --portal-primary-text: #e6c7a3;
+    --portal-surface-border: #2A2623;
+    --portal-surface-bg: rgba(26, 24, 22, 0.88);
+    --portal-surface-bg-strong: rgba(35, 32, 29, 0.94);
+    --portal-subtle-surface: rgba(31, 29, 27, 0.9);
+    --portal-subtle-surface-strong: rgba(35, 32, 29, 0.98);
+    --portal-heading-color: #f5f5f5;
+    --portal-copy-color: #a1a1aa;
+    --portal-muted-color: #8f8f96;
+    --portal-shell-start: #0f0e0d;
+    --portal-shell-mid: #0f0e0d;
+    --portal-shell-end: #0f0e0d;
+    --portal-glow-1: rgba(166, 124, 82, 0.12);
+    --portal-glow-2: rgba(230, 199, 163, 0.08);
+    --portal-grid: rgba(230, 199, 163, 0.02);
+    --portal-shell-shadow: 0 16px 50px rgba(0, 0, 0, 0.42);
+    --portal-glass-highlight: rgba(255, 255, 255, 0.08);
+    --portal-sidebar-start: rgba(15, 14, 13, 0.98);
+    --portal-sidebar-mid: rgba(21, 19, 18, 0.98);
+    --portal-sidebar-end: rgba(26, 24, 22, 0.98);
+    --portal-sidebar-border: rgba(42, 38, 35, 0.92);
+    --portal-sidebar-text: #f5f5f5;
+    --portal-sidebar-muted-text: #a1a1aa;
+    --portal-sidebar-item-hover: rgba(230, 199, 163, 0.08);
+    --portal-sidebar-icon-bubble: rgba(230, 199, 163, 0.08);
+    --portal-sidebar-icon-bubble-hover: rgba(230, 199, 163, 0.14);
+    --portal-hover-border-strong: rgba(245, 245, 245, 0.22);
+    --portal-hover-shadow-strong: 0 24px 48px rgba(0, 0, 0, 0.3);
+    --portal-hover-overlay: rgba(255, 255, 255, 0.03);
+    --portal-icon-foreground: #ffffff;
+    --portal-icon-shadow: 0 14px 28px rgba(var(--portal-primary-rgb), 0.22), 0 0 0 1px rgba(255,255,255,0.16) inset;
+    --portal-bg-layer-1: radial-gradient(circle at 20% 30%, rgba(166,124,82,0.12), transparent 40%);
+    --portal-bg-layer-2: radial-gradient(circle at 80% 70%, rgba(230,199,163,0.08), transparent 50%);
+    --portal-bg-layer-3: linear-gradient(135deg, transparent 0%, rgba(35,32,29,0.38) 100%);
+    --portal-bg-base: #0F0E0D;
+    --portal-smoke-primary: radial-gradient(circle at 60% 40%, rgba(214,191,163,0.15), transparent 60%);
+    --portal-smoke-secondary: radial-gradient(circle at 30% 75%, rgba(166,124,82,0.1), transparent 50%);
+    --portal-smoke-noise:
+      radial-gradient(circle at 28% 64%, rgba(214,191,163,0.04), transparent 22%),
+      radial-gradient(circle at 76% 22%, rgba(166,124,82,0.05), transparent 26%);
   }
 
   * {
@@ -112,7 +215,7 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, rgba(99, 102, 241, 0.6), rgba(34, 211, 238, 0.35));
+    background: linear-gradient(135deg, #A67C52, #E6C7A3);
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: content-box;
@@ -129,12 +232,12 @@
   body {
     min-height: 100vh;
     background:
-      radial-gradient(circle at 14% 16%, rgba(217, 188, 126, 0.18), transparent 22%),
-      radial-gradient(circle at 84% 10%, rgba(255, 247, 230, 0.72), transparent 22%),
-      radial-gradient(circle at 70% 82%, rgba(206, 178, 132, 0.14), transparent 24%),
-      linear-gradient(180deg, #f7f1e5 0%, #f5efe4 42%, #f2eadf 100%);
+      var(--portal-bg-layer-1),
+      var(--portal-bg-layer-2),
+      var(--portal-bg-layer-3),
+      var(--portal-bg-base);
     color: hsl(var(--foreground));
-    font-family: "Inter", ui-sans-serif, sans-serif;
+    font-family: "Manrope", ui-sans-serif, sans-serif;
     font-feature-settings: "ss01" 1, "cv11" 1, "cv02" 1;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -149,24 +252,23 @@
     pointer-events: none;
     z-index: -1;
     border-radius: 999px;
-    filter: blur(90px);
+    filter: blur(120px);
     opacity: 0.6;
   }
 
   body::before {
-    top: 6%;
-    left: -6rem;
-    width: 20rem;
-    height: 20rem;
-    background: rgba(201, 171, 114, 0.2);
+    inset: 0;
+    width: auto;
+    height: auto;
+    background: var(--portal-smoke-primary);
   }
 
   body::after {
-    right: -5rem;
-    bottom: 10%;
-    width: 22rem;
-    height: 22rem;
-    background: rgba(236, 222, 193, 0.65);
+    top: 18%;
+    right: 8%;
+    width: 28rem;
+    height: 28rem;
+    background: var(--portal-smoke-secondary);
   }
 
   #root {
@@ -206,12 +308,51 @@
   }
 }
 
+.portal-theme-admin {
+  --primary: 27 40% 39%;
+  --ring: 27 40% 39%;
+  --sidebar-primary: 31 41% 64%;
+  --portal-primary-solid: #8b5e3c;
+  --portal-primary-dark: #c8a27c;
+  --portal-primary-soft: rgba(139, 94, 60, 0.14);
+  --portal-primary-soft-strong: rgba(139, 94, 60, 0.24);
+  --portal-primary-faint: rgba(139, 94, 60, 0.08);
+  --portal-primary-rgb: 139, 94, 60;
+  --portal-primary-text: #6d4526;
+}
+
+.portal-theme-employee {
+  --primary: 27 40% 39%;
+  --ring: 27 40% 39%;
+  --sidebar-primary: 31 41% 64%;
+  --portal-primary-solid: #8b5e3c;
+  --portal-primary-dark: #c8a27c;
+  --portal-primary-soft: rgba(139, 94, 60, 0.14);
+  --portal-primary-soft-strong: rgba(139, 94, 60, 0.24);
+  --portal-primary-faint: rgba(139, 94, 60, 0.08);
+  --portal-primary-rgb: 139, 94, 60;
+  --portal-primary-text: #6d4526;
+}
+
+.portal-theme-candidate {
+  --primary: 27 40% 39%;
+  --ring: 27 40% 39%;
+  --sidebar-primary: 31 41% 64%;
+  --portal-primary-solid: #8b5e3c;
+  --portal-primary-dark: #c8a27c;
+  --portal-primary-soft: rgba(139, 94, 60, 0.14);
+  --portal-primary-soft-strong: rgba(139, 94, 60, 0.24);
+  --portal-primary-faint: rgba(139, 94, 60, 0.08);
+  --portal-primary-rgb: 139, 94, 60;
+  --portal-primary-text: #6d4526;
+}
+
 @layer components {
   .surface-card {
     background:
-      linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(249, 243, 233, 0.96)),
-      linear-gradient(135deg, rgba(205, 178, 123, 0.08), rgba(255, 255, 255, 0.4));
-    border: 1px solid rgba(196, 172, 132, 0.22);
+      linear-gradient(180deg, var(--portal-surface-bg-strong), var(--portal-surface-bg)),
+      linear-gradient(135deg, rgba(var(--portal-primary-rgb), 0.08), rgba(255, 255, 255, 0.25));
+    border: 1px solid var(--portal-surface-border);
     backdrop-filter: blur(22px);
     box-shadow: var(--shadow-card);
     transition:
@@ -223,17 +364,27 @@
   .surface-card:hover {
     transform: translateY(-6px);
     box-shadow: var(--shadow-card-hover);
-    border-color: rgba(190, 158, 102, 0.36);
+    border-color: rgba(var(--portal-primary-rgb), 0.22);
   }
 
   .page-shell {
     @apply relative overflow-hidden rounded-[32px] p-6 lg:p-8;
-    background:
-      linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(249, 242, 231, 0.96)),
-      linear-gradient(135deg, rgba(201, 171, 114, 0.12), rgba(255, 255, 255, 0.45));
-    border: 1px solid rgba(196, 172, 132, 0.2);
-    backdrop-filter: blur(24px);
-    box-shadow: var(--shadow-card);
+    background: linear-gradient(180deg, var(--portal-surface-bg-strong), var(--portal-surface-bg));
+    border: 1px solid var(--portal-surface-border);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--portal-shell-shadow);
+    transition:
+      border-color 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .page-shell:hover {
+    border-color: var(--portal-hover-border-strong);
+    box-shadow:
+      var(--portal-shell-shadow),
+      0 0 0 1px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
   }
 
   .page-shell::before {
@@ -243,27 +394,87 @@
     width: 15rem;
     height: 15rem;
     border-radius: 999px;
-    background: radial-gradient(circle, rgba(201, 171, 114, 0.22), transparent 72%);
+    background: radial-gradient(circle, rgba(var(--portal-primary-rgb), 0.16), transparent 72%);
     pointer-events: none;
     filter: blur(30px);
     opacity: 0.7;
   }
 
-  .glass-panel {
-    border: 1px solid rgba(196, 172, 132, 0.18);
+  .page-shell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
     background:
-      linear-gradient(180deg, rgba(255, 252, 247, 0.92), rgba(247, 239, 226, 0.88)),
-      linear-gradient(135deg, rgba(201, 171, 114, 0.08), rgba(255, 255, 255, 0.35));
-    backdrop-filter: blur(22px);
+      linear-gradient(135deg, transparent 0%, rgba(var(--portal-primary-rgb), 0.04) 55%, transparent 100%),
+      linear-gradient(var(--portal-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--portal-grid) 1px, transparent 1px);
+    background-size: auto, 24px 24px, 24px 24px;
+    mask-image: linear-gradient(180deg, rgba(255,255,255,0.4), transparent 100%);
+    pointer-events: none;
+    opacity: 0.45;
+  }
+
+  .glass-panel {
+    position: relative;
+    border: 1px solid var(--portal-surface-border);
+    background: linear-gradient(180deg, var(--portal-surface-bg), rgba(255, 255, 255, 0.4));
+    backdrop-filter: blur(12px);
     box-shadow: var(--shadow-soft);
+    transition:
+      border-color 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .dark .page-shell,
+  .dark .dashboard-panel,
+  .dark .dashboard-subtle-card,
+  .dark .glass-panel {
+    background: linear-gradient(135deg, var(--portal-surface-bg), var(--portal-surface-bg-strong));
+    border-color: var(--portal-surface-border);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(10px);
+  }
+
+  .dark .page-shell::after {
+    opacity: 0.12;
+  }
+
+  .dark .shell-section {
+    background: linear-gradient(180deg, rgba(230,199,163,0.04), rgba(35,32,29,0.12));
+    border-color: var(--portal-surface-border);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+
+  .dark .portal-kicker {
+    background: rgba(230, 199, 163, 0.08);
+    border-color: rgba(230, 199, 163, 0.16);
+    color: var(--accent-foreground);
+  }
+
+  .glass-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border-top: 1px solid var(--portal-glass-highlight);
+    background: linear-gradient(180deg, rgba(var(--portal-primary-rgb), 0.05), transparent 35%);
+    pointer-events: none;
+  }
+
+  .glass-panel:hover {
+    border-color: var(--portal-hover-border-strong);
+    box-shadow:
+      var(--shadow-soft),
+      0 0 0 1px rgba(0, 0, 0, 0.08);
   }
 
   .premium-shell {
     @apply relative min-h-screen;
     background:
-      radial-gradient(circle at 18% 12%, rgba(213, 184, 132, 0.16), transparent 18%),
-      radial-gradient(circle at 82% 18%, rgba(255, 246, 226, 0.6), transparent 18%),
-      linear-gradient(180deg, rgba(248, 242, 233, 1), rgba(245, 237, 224, 1));
+      var(--portal-bg-layer-1),
+      var(--portal-bg-layer-2),
+      var(--portal-bg-layer-3),
+      var(--portal-bg-base);
   }
 
   .premium-shell::before,
@@ -278,68 +489,240 @@
   }
 
   .premium-shell::before {
-    top: 8rem;
-    left: 4rem;
-    width: 18rem;
-    height: 18rem;
-    background: rgba(198, 165, 105, 0.22);
+    inset: 0;
+    width: auto;
+    height: auto;
+    background: var(--portal-smoke-primary);
   }
 
   .premium-shell::after {
-    right: 2rem;
-    bottom: 5rem;
-    width: 20rem;
-    height: 20rem;
-    background: rgba(243, 233, 211, 0.68);
+    top: 10%;
+    right: 6%;
+    width: 26rem;
+    height: 26rem;
+    background: var(--portal-smoke-secondary);
+  }
+
+  .premium-shell > .shell-noise {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.3;
+    background: var(--portal-smoke-noise);
+    filter: blur(70px);
+  }
+
+  .shell-section {
+    @apply relative overflow-hidden rounded-[28px];
+    border: 1px solid var(--portal-surface-border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.2), transparent);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+    transition:
+      border-color 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .shell-section:hover {
+    border-color: var(--portal-hover-border-strong);
+  }
+
+  .sidebar-premium {
+    background:
+      radial-gradient(circle at 18% 14%, rgba(var(--portal-primary-rgb), 0.26), transparent 24%),
+      radial-gradient(circle at 82% 18%, rgba(var(--portal-primary-rgb), 0.12), transparent 18%),
+      linear-gradient(180deg, var(--portal-sidebar-start), var(--portal-sidebar-mid) 50%, var(--portal-sidebar-end));
+    border-color: var(--portal-sidebar-border);
+    box-shadow:
+      24px 0 90px rgba(10, 10, 18, 0.28),
+      inset -1px 0 0 rgba(255,255,255,0.04);
+    color: var(--portal-sidebar-text);
+  }
+
+  .sidebar-premium::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(var(--portal-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--portal-grid) 1px, transparent 1px);
+    background-size: 26px 26px;
+    mask-image: linear-gradient(180deg, rgba(255,255,255,0.18), transparent 65%);
+    pointer-events: none;
+    opacity: 0.32;
+  }
+
+  .sidebar-rail-highlight {
+    position: absolute;
+    top: 1.25rem;
+    bottom: 1.25rem;
+    right: -1px;
+    width: 1px;
+    background: linear-gradient(180deg, transparent, rgba(var(--portal-primary-rgb), 0.36), transparent);
+    pointer-events: none;
+  }
+
+  .nav-pill-active {
+    box-shadow:
+      0 18px 40px rgba(var(--portal-primary-rgb), 0.32),
+      0 0 0 1px rgba(255,255,255,0.08),
+      inset 0 1px 0 rgba(255,255,255,0.26);
+  }
+
+  .floating-card {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .floating-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border-top: 1px solid rgba(255,255,255,0.55);
+    pointer-events: none;
+    opacity: 0.72;
+  }
+
+  .floating-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, var(--portal-hover-overlay), transparent 42%, transparent 100%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .floating-card:hover::after {
+    opacity: 1;
   }
 }
 
 @layer utilities {
   .gradient-primary {
-    background-image: linear-gradient(135deg, #b48a4f 0%, #d5b27a 48%, #f0dfbd 100%);
+    background-image: linear-gradient(135deg, var(--portal-primary-solid) 0%, var(--portal-primary-dark) 100%);
   }
 
   .gradient-accent {
-    background-image: linear-gradient(135deg, #2dd4bf 0%, #22d3ee 100%);
+    background-image: linear-gradient(135deg, #A67C52 0%, #E6C7A3 100%);
   }
 
   .gradient-text {
-    background-image: linear-gradient(135deg, #48331d 0%, #9f7741 48%, #d0a55f 100%);
+    background-image: linear-gradient(135deg, var(--portal-primary-dark) 0%, var(--portal-primary-solid) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
   .premium-number {
-    text-shadow: 0 8px 24px rgba(188, 151, 91, 0.16);
+    text-shadow: 0 8px 24px rgba(var(--portal-primary-rgb), 0.14);
   }
 
   .dashboard-panel {
-    @apply rounded-[24px] border p-5 shadow-card transition-all duration-300;
-    background: linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(248, 241, 231, 0.95));
-    border-color: rgba(196, 172, 132, 0.18);
+    @apply floating-card rounded-[24px] border p-5 shadow-card transition-all duration-300;
+    background: linear-gradient(180deg, var(--portal-surface-bg-strong), rgba(255, 255, 255, 0.72));
+    border-color: var(--portal-surface-border);
+    backdrop-filter: blur(12px);
   }
 
   .dashboard-panel:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: var(--shadow-card-hover), var(--portal-hover-shadow-strong);
+    border-color: var(--portal-hover-border-strong);
   }
 
   .dashboard-subtle-card {
-    @apply rounded-[24px] border p-4;
-    background: linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(245, 238, 226, 0.92));
-    border-color: rgba(196, 172, 132, 0.16);
+    @apply floating-card rounded-[24px] border p-4;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.66));
+    border-color: var(--portal-surface-border);
+    backdrop-filter: blur(10px);
+    transition:
+      border-color 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .dashboard-subtle-card:hover {
+    border-color: var(--portal-hover-border-strong);
+    box-shadow: var(--portal-hover-shadow-strong);
+    transform: translateY(-4px) scale(1.01);
   }
 
   .dashboard-label {
     @apply text-[11px] font-semibold uppercase tracking-[0.2em];
-    color: rgba(118, 89, 54, 0.72);
+    color: rgba(var(--portal-primary-rgb), 0.72);
   }
 
   .glow-ring {
     box-shadow:
-      0 0 0 1px rgba(129, 140, 248, 0.16),
-      0 0 35px rgba(99, 102, 241, 0.18);
+      0 0 0 1px rgba(var(--portal-primary-rgb), 0.16),
+      0 0 35px rgba(var(--portal-primary-rgb), 0.18);
+  }
+
+  .portal-kicker {
+    @apply inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em];
+    border-color: rgba(var(--portal-primary-rgb), 0.18);
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--portal-primary-text);
+    backdrop-filter: blur(10px);
+  }
+
+  .portal-heading {
+    color: var(--portal-heading-color);
+  }
+
+  .portal-copy {
+    color: var(--portal-copy-color);
+  }
+
+  .portal-accent-icon {
+    background: linear-gradient(135deg, var(--portal-primary-solid) 0%, var(--portal-primary-dark) 100%);
+    color: var(--portal-icon-foreground);
+    box-shadow: var(--portal-icon-shadow);
+  }
+
+  .portal-accent-icon svg {
+    stroke-width: 2.6;
+    transform: scale(1.12);
+  }
+
+  .dashboard-subtle-card .portal-accent-icon {
+    box-shadow:
+      0 18px 34px rgba(var(--portal-primary-rgb), 0.28),
+      0 0 0 1px rgba(255,255,255,0.18) inset;
+  }
+
+  .dashboard-panel svg,
+  .page-shell svg,
+  .glass-panel svg {
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      stroke-width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .dashboard-panel:hover .portal-accent-icon svg,
+  .dashboard-subtle-card:hover .portal-accent-icon svg {
+    transform: scale(1.14);
+  }
+
+  .portal-orb {
+    background: radial-gradient(circle, rgba(var(--portal-primary-rgb), 0.22), transparent 70%);
+  }
+
+  .portal-orb-soft {
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.95), transparent 68%);
+  }
+
+  .portal-progress-track {
+    background: rgba(var(--portal-primary-rgb), 0.12);
+  }
+
+  .portal-progress-fill {
+    background: linear-gradient(90deg, var(--portal-primary-solid) 0%, var(--portal-primary-dark) 100%);
   }
 
   .hover-lift {
@@ -350,8 +733,13 @@
   }
 
   .hover-lift:hover {
-    transform: translateY(-6px);
-    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: var(--shadow-card-hover), var(--portal-hover-shadow-strong);
+    border-color: var(--portal-hover-border-strong);
+  }
+
+  .portal-muted {
+    color: var(--portal-muted-color);
   }
 
   .page-enter {

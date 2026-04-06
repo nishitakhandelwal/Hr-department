@@ -189,7 +189,7 @@ curl http://localhost:5000/api/holidays/upcoming?days=7 \
 - ✅ **Reminders** - "Don't forget your reminder!"
 
 ### Email Subject
-`Tomorrow's Schedule - HR Harmony Hub`
+`Tomorrow's Schedule - Arihant Dream Infra Project Ltd.`
 
 ---
 

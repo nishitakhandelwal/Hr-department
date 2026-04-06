@@ -3,6 +3,7 @@ import axios from "axios";
 const TOKEN_KEY = "hr_auth_token";
 const USER_KEY = "hr_auth_user";
 const REMEMBER_ME_KEY = "hr_auth_remember";
+const AUTH_COOKIE_KEY = "hr_auth_token";
 
 const rawApiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const API_BASE_URL = rawApiUrl.endsWith("/api") ? rawApiUrl : `${rawApiUrl}/api`;
@@ -79,6 +80,10 @@ export const authStorage = {
     sessionStorage.removeItem(USER_KEY);
     storage.setItem(TOKEN_KEY, token);
     storage.setItem(USER_KEY, JSON.stringify(user));
+    if (typeof document !== "undefined") {
+      const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 8;
+      document.cookie = `${AUTH_COOKIE_KEY}=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+    }
   },
   clear() {
     localStorage.removeItem(TOKEN_KEY);
@@ -86,9 +91,16 @@ export const authStorage = {
     localStorage.removeItem(REMEMBER_ME_KEY);
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(USER_KEY);
+    if (typeof document !== "undefined") {
+      document.cookie = `${AUTH_COOKIE_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+    }
   },
   getToken() {
-    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+    const token = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+    if (token && typeof document !== "undefined" && !document.cookie.includes(`${AUTH_COOKIE_KEY}=`)) {
+      document.cookie = `${AUTH_COOKIE_KEY}=${encodeURIComponent(token)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
+    }
+    return token;
   },
   getUser<T>() {
     const raw = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY);
@@ -827,10 +839,7 @@ export const apiService = {
     formData.append("profileImage", file);
     const { data } = await api.post<{ success: boolean; message: string; data: { imageUrl: string; user: AuthUser } }>(
       "/upload-profile",
-      formData,
-      {
-        headers: { "Content-Type": "multipart/form-data" },
-      }
+      formData
     );
     return data.data.user;
   },
@@ -839,10 +848,7 @@ export const apiService = {
     formData.append("profileImage", file);
     const { data } = await api.post<{ success: boolean; message: string; data: { imageUrl: string; user: AuthUser } }>(
       "/upload-profile",
-      formData,
-      {
-        headers: { "Content-Type": "multipart/form-data" },
-      }
+      formData
     );
     return data.data.user;
   },
@@ -855,8 +861,7 @@ export const apiService = {
     formData.append("profilePhoto", file);
     const { data } = await api.put<{ success: boolean; message: string; data: ManagedUser }>(
       `/users/${userId}/profile-image`,
-      formData,
-      { headers: { "Content-Type": "multipart/form-data" } }
+      formData
     );
     return data.data;
   },
@@ -978,7 +983,7 @@ export const apiService = {
       overtimeRatePerHour?: number;
     }
   ) {
-    const { data } = await api.put<ApiResponse<Record<string, unknown>>>(`/employees/${employeeId}/salary-structure`, payload);
+    const { data } = await api.put<ApiResponse<Record<string, unknown>>>(`/employee/${employeeId}/salary-structure`, payload);
     return data.data;
   },
   async exportModule({
@@ -990,59 +995,44 @@ export const apiService = {
     reportTitle,
     sheetName,
   }: ExportModuleRequest): Promise<ExportModuleResult> {
-      const hasClientRows = Array.isArray(rows) && rows.length > 0;
-      console.log("[API] exportModule called with:", { moduleName, type, hasClientRows, filtersProvided: !!filters });
-      
-      try {
-        let response;
-        if (hasClientRows) {
-          console.log("[API] Using POST request with client rows");
-          response = await api.post("/exports", {
-            module: moduleName,
-            type,
-            filters,
-            rows,
-            columns,
-            reportTitle,
-            sheetName,
-          }, {
-            responseType: "blob",
-            timeout: 120000,
-            maxBodyLength: Infinity,
-            maxContentLength: Infinity,
-          });
-        } else {
-          console.log("[API] Using GET request (server export)");
-          response = await api.get("/exports", {
-            params: {
-              module: moduleName,
-              type,
-              filters: filters ? JSON.stringify(filters) : undefined,
-            },
-            responseType: "blob",
-            timeout: 120000,
-            maxContentLength: Infinity,
-          });
-        }
+    const hasClientRows = Array.isArray(rows) && rows.length > 0;
 
-        console.log("[API] Export response received:", { 
-          statusCode: response.status,
-          contentLength: response.data?.size,
-          contentType: response.headers["content-type"],
-          hasData: !!response.data
-        });
+    let response;
+    if (hasClientRows) {
+      response = await api.post("/exports", {
+        module: moduleName,
+        type,
+        filters,
+        rows,
+        columns,
+        reportTitle,
+        sheetName,
+      }, {
+        responseType: "blob",
+        timeout: 120000,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      });
+    } else {
+      response = await api.get("/exports", {
+        params: {
+          module: moduleName,
+          type,
+          filters: filters ? JSON.stringify(filters) : undefined,
+        },
+        responseType: "blob",
+        timeout: 120000,
+        maxContentLength: Infinity,
+      });
+    }
 
-        const disposition = String(response.headers["content-disposition"] || "");
-        const match = disposition.match(/filename="?([^"]+)"?/i);
+    const disposition = String(response.headers["content-disposition"] || "");
+    const match = disposition.match(/filename="?([^"]+)"?/i);
 
-        return {
-          blob: response.data as Blob,
-          fileName: match?.[1],
-        };
-      } catch (error) {
-        console.error("[API] Export failed:", error);
-        throw error;
-      }
+    return {
+      blob: response.data as Blob,
+      fileName: match?.[1],
+    };
   },
   async create<T>(resource: string, payload: unknown) {
     const { data } = await api.post<ApiResponse<T>>(`/${resource}`, payload);
@@ -1163,19 +1153,30 @@ export const apiService = {
     };
     declarationAccepted: boolean;
   }): Promise<ApiServiceResponse<CandidateRecord>> {
-    const { data } = await api.post<ApiResponse<CandidateRecord>>("/candidates", payload);
+    const { data } = await api.post<ApiResponse<CandidateRecord>>("/candidate", payload);
     return data;
   },
   async getCandidateById(id: string) {
-    const { data } = await api.get<ApiResponse<CandidateRecord>>(`/candidates/${id}`);
+    const { data } = await api.get<ApiResponse<CandidateRecord>>(`/candidate/${id}`);
     return data.data;
   },
   async getMyEmployeeProfile() {
-    const { data } = await api.get<ApiResponse<EmployeeRecord>>("/employees/me");
+    const { data } = await api.get<ApiResponse<EmployeeRecord>>("/employee/me");
+    return data.data;
+  },
+  async getEmployeeDashboardSummary() {
+    const { data } = await api.get<
+      ApiResponse<{
+        attendanceRows: Array<{ date: string; checkOut?: string; hoursWorked?: number }>;
+        leaveRows: Array<{ fromDate?: string; toDate?: string; status?: string }>;
+        payrollRows: Array<{ month?: string; netSalary?: number }>;
+        approvedLeaveDays: number;
+      }>
+    >("/employee/dashboard-summary");
     return data.data;
   },
   async getMyCandidateApplication() {
-    const { data } = await api.get<ApiResponse<CandidateRecord | null>>("/candidates/me");
+    const { data } = await api.get<ApiResponse<CandidateRecord | null>>("/candidate/me");
     return data.data;
   },
   async updateMyCandidateProfile(payload: {
@@ -1185,7 +1186,7 @@ export const apiService = {
     stage1: CandidateRecord["stage1"];
     stage2Details: CandidateRecord["stage2Details"];
   }) {
-    const { data } = await api.put<ApiResponse<CandidateRecord>>("/candidates/me/profile", payload);
+    const { data } = await api.put<ApiResponse<CandidateRecord>>("/candidate/me/profile", payload);
     return data.data;
   },
   async updateMyCandidateDocuments(payload: {
@@ -1199,9 +1200,7 @@ export const apiService = {
     for (const file of payload.files || []) {
       formData.append("files", file);
     }
-    const { data } = await api.put<ApiResponse<CandidateRecord>>("/candidates/me/documents", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { data } = await api.put<ApiResponse<CandidateRecord>>("/candidate/me/documents", formData);
     return data.data;
   },
   async submitCandidateStage2(payload: {
@@ -1242,10 +1241,7 @@ export const apiService = {
     formData.append("candidateRemarks", payload.candidateRemarks);
     formData.append("resume", payload.resume);
 
-    const { data } = await api.post<ApiResponse<CandidateRecord>>("/candidates/me/stage2", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+    const { data } = await api.post<ApiResponse<CandidateRecord>>("/candidate/me/stage2", formData, {
       onUploadProgress: (event) => {
         if (!payload.onUploadProgress) return;
         const total = event.total || 0;
@@ -1266,9 +1262,6 @@ export const apiService = {
     formData.append("source", payload.source);
 
     const { data } = await api.post<ApiResponse<CandidateRecord>>("/upload-video", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
       onUploadProgress: (event) => {
         if (!payload.onUploadProgress) return;
         const total = event.total || 0;
@@ -1291,11 +1284,11 @@ export const apiService = {
       videoRating?: number | null;
     }
   ) {
-    const { data } = await api.put<ApiResponse<CandidateRecord>>(`/candidates/${id}/review`, payload);
+    const { data } = await api.put<ApiResponse<CandidateRecord>>(`/candidate/${id}/review`, payload);
     return data.data;
   },
   async updateCandidateStatus(id: string, status: CandidateStatus) {
-    const { data } = await api.patch<ApiResponse<CandidateRecord>>(`/candidates/${id}/status`, { status });
+    const { data } = await api.patch<ApiResponse<CandidateRecord>>(`/candidate/${id}/status`, { status });
     return data.data;
   },
   async assignInternship(
@@ -1307,7 +1300,7 @@ export const apiService = {
     }
   ) {
     const { data } = await api.post<ApiResponse<{ candidate: CandidateRecord; internship: InternshipRecord }>>(
-      `/candidates/${candidateId}/assign-internship`,
+      `/candidate/${candidateId}/assign-internship`,
       payload
     );
     return data.data;
@@ -1320,11 +1313,11 @@ export const apiService = {
       joiningDate: string;
     }
   ) {
-    const { data } = await api.post<ApiResponse<CandidateRecord>>(`/candidates/${candidateId}/send-offer`, payload);
+    const { data } = await api.post<ApiResponse<CandidateRecord>>(`/candidate/${candidateId}/send-offer`, payload);
     return data.data;
   },
   async sendJoiningForm(candidateId: string) {
-    const { data } = await api.post<ApiResponse<CandidateRecord>>(`/candidates/${candidateId}/send-joining-form`);
+    const { data } = await api.post<ApiResponse<CandidateRecord>>(`/candidate/${candidateId}/send-joining-form`);
     return data.data;
   },
   async convertCandidate(
@@ -1332,13 +1325,13 @@ export const apiService = {
     payload?: { departmentId?: string; designation?: string; salary?: number; joiningDate?: string }
   ) {
     const { data } = await api.post<ApiResponse<{ employee: unknown; candidate: CandidateRecord }>>(
-      `/candidates/${candidateId}/convert-to-employee`,
+      `/candidate/${candidateId}/convert-to-employee`,
       payload || {}
     );
     return data.data;
   },
   async deleteCandidate(id: string) {
-    const { data } = await api.delete<ApiResponse<unknown>>(`/candidates/${id}`);
+    const { data } = await api.delete<ApiResponse<unknown>>(`/candidate/${id}`);
     return data.data;
   },
   async sendLetterByEmail(payload: LetterEmailPayload) {
@@ -1354,7 +1347,7 @@ export const apiService = {
   },
   async acceptOffer(candidateId: string) {
     const { data } = await api.post<ApiResponse<{ employee: unknown; candidate: CandidateRecord }>>(
-      `/candidates/accept-offer/${candidateId}`
+      `/candidate/accept-offer/${candidateId}`
     );
     return data.data;
   },
@@ -1473,9 +1466,7 @@ export const apiService = {
     if (payload.files?.photograph) formData.append("photograph", payload.files.photograph);
     if (payload.files?.certificates) formData.append("certificates", payload.files.certificates);
     if (payload.files?.idProof) formData.append("idProof", payload.files.idProof);
-    const { data } = await api.post<ApiResponse<JoiningFormRecord>>("/joining-forms/me/submit", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { data } = await api.post<ApiResponse<JoiningFormRecord>>("/joining-forms/me/submit", formData);
     return data.data;
   },
   async reviewJoiningForm(
@@ -1539,7 +1530,7 @@ export const apiService = {
   async updateUserRole(userId: string, accessRole: UserAccessRole, permissions?: ManagedUser["permissions"]) {
     const token = authStorage.getToken();
     const { data } = await api.put<ApiResponse<ManagedUser>>(
-      `/admin/users/${userId}/role`,
+      `/users/${userId}/role`,
       { accessRole, permissions },
       { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
     );
@@ -1565,6 +1556,33 @@ export const apiService = {
     const { data } = await api.get<ApiResponse<PublicSettingsPayload>>("/settings/public");
     return data.data;
   },
+  async downloadProtectedFile(fileUrl: string) {
+    const response = await api.get<Blob>(fileUrl, { responseType: "blob" });
+    return response.data;
+  },
+  async getAdminDashboardSummary() {
+    const { data } = await api.get<
+      ApiResponse<{
+        activeEmployeesCount: number;
+        applicationsUnderReview: number;
+        pendingHrReviews: number;
+        pendingLeavesCount: number;
+        totalPayrollValue: number;
+        departmentsCovered: number;
+        totalCandidates: number;
+        totalEmployees: number;
+        events: Array<{
+          id: string;
+          title: string;
+          date: string;
+          type: "meeting" | "holiday" | "reminder" | "birthday";
+          time?: string;
+          note?: string;
+        }>;
+      }>
+    >("/users/dashboard-summary");
+    return data.data;
+  },
   async updateSettings(payload: Partial<SettingsPayload>, companyLogo?: File) {
     const formData = new FormData();
     if (payload.company) formData.append("company", JSON.stringify(payload.company));
@@ -1575,9 +1593,7 @@ export const apiService = {
     if (payload.documents) formData.append("documents", JSON.stringify(payload.documents));
     if (payload.audit) formData.append("audit", JSON.stringify(payload.audit));
     if (companyLogo) formData.append("companyLogo", companyLogo);
-    const { data } = await api.put<ApiResponse<SettingsPayload>>("/settings", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { data } = await api.put<ApiResponse<SettingsPayload>>("/settings", formData);
     return data.data;
   },
   async updateCompanySettings(payload: Partial<SettingsPayload["company"]>, companyLogo?: File) {
@@ -1586,9 +1602,7 @@ export const apiService = {
       if (value !== undefined && value !== null) formData.append(key, String(value));
     });
     if (companyLogo) formData.append("companyLogo", companyLogo);
-    const { data } = await api.put<ApiResponse<SettingsPayload["company"]>>("/settings/company", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { data } = await api.put<ApiResponse<SettingsPayload["company"]>>("/settings/company", formData);
     return data.data;
   },
   async updateRbacSettings(rolePermissions: SettingsPayload["rolePermissions"]) {
@@ -1629,9 +1643,7 @@ export const apiService = {
     formData.append("email", payload.email);
     formData.append("phone", payload.phone || "");
     if (profilePhoto) formData.append("profilePhoto", profilePhoto);
-    const { data } = await api.put<ApiResponse<AuthUser>>("/settings/profile", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { data } = await api.put<ApiResponse<AuthUser>>("/settings/profile", formData);
     return data.data;
   },
   async changePassword(payload: { currentPassword: string; newPassword: string }) {

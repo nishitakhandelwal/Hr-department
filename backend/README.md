@@ -1,4 +1,4 @@
-# HR Harmony Hub Backend
+# Arihant Dream Infra Project Ltd. Backend
 
 Production-ready backend using Node.js, Express, MongoDB Atlas (Mongoose), JWT auth, Multer upload, and Nodemailer.
 

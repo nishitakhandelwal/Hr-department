@@ -41,16 +41,16 @@ const EVENT_META: Record<EventItem["type"], { label: string; dot: string; badge:
   },
   birthday: {
     label: "Birthday",
-    dot: "bg-violet-500",
-    badge: "border-violet-500/20 bg-violet-500/10 text-violet-700 dark:text-violet-300",
-    surface: "border-violet-500/20 bg-violet-500/10",
+    dot: "bg-[#E6C7A3]",
+    badge: "border-[#2A2623] bg-[rgba(230,199,163,0.2)] text-[#E6C7A3] dark:text-[#E6C7A3]",
+    surface: "border-[#2A2623] bg-[rgba(230,199,163,0.2)]",
     icon: <Gift className="h-3.5 w-3.5" />,
   },
   meeting: {
     label: "Meeting",
-    dot: "bg-sky-500",
-    badge: "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-    surface: "border-sky-500/20 bg-sky-500/10",
+    dot: "bg-[#A67C52]",
+    badge: "border-[#2A2623] bg-[rgba(230,199,163,0.2)] text-[#E6C7A3] dark:text-[#E6C7A3]",
+    surface: "border-[#2A2623] bg-[rgba(230,199,163,0.2)]",
     icon: <Users className="h-3.5 w-3.5" />,
   },
   reminder: {
@@ -293,7 +293,7 @@ export const EventCalendarCard: React.FC<EventCalendarCardProps> = ({ role, titl
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="overflow-hidden rounded-[30px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.82))] p-6 shadow-card backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(15,23,42,0.72))]"
+        className="overflow-hidden rounded-[30px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.82))] p-6 shadow-card backdrop-blur-xl dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)]"
       >
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
@@ -319,7 +319,7 @@ export const EventCalendarCard: React.FC<EventCalendarCardProps> = ({ role, titl
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
-          <div className="rounded-[28px] border border-white/70 bg-[linear-gradient(180deg,rgba(99,102,241,0.05),rgba(255,255,255,0.78))] p-4 shadow-soft dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(99,102,241,0.08),rgba(15,23,42,0.58))]">
+          <div className="rounded-[28px] border border-white/70 bg-[linear-gradient(180deg,rgba(230,199,163,0.12),rgba(255,255,255,0.78))] p-4 shadow-soft dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)]">
             {loading ? (
               <div className="flex min-h-[420px] items-center justify-center text-sm text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -448,7 +448,7 @@ export const EventCalendarCard: React.FC<EventCalendarCardProps> = ({ role, titl
       </motion.section>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-xl rounded-[28px] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-0 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(15,23,42,0.94))]">
+        <DialogContent className="max-w-xl rounded-[28px] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-0 dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)]">
           <div className="border-b border-border/70 px-6 py-5">
             <DialogHeader>
               <DialogTitle>{editingEvent ? "Edit Event" : role === "admin" ? "Create Event" : "Create Reminder"}</DialogTitle>

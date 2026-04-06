@@ -1,34 +1,32 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { addDays, format, startOfDay } from "date-fns";
-import { motion } from "framer-motion";
-import { ArrowRight, CalendarDays, CheckCircle, Clock, DollarSign, FileText, UserCircle } from "lucide-react";
+import React from "react";
+import { ArrowRight, CalendarDays, CheckCircle, Clock, FileText, IndianRupee, Sparkles, UserCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
-import PortalProfileCard from "@/components/dashboard/PortalProfileCard";
 import CircularStatsWidget from "@/components/dashboard/CircularStatsWidget";
-import TaskProgressList from "@/components/dashboard/TaskProgressList";
 import PortalCalendarCard, { type PortalCalendarEvent } from "@/components/dashboard/PortalCalendarCard";
+import PortalDashboardSkeleton from "@/components/dashboard/PortalDashboardSkeleton";
+import { PortalDataTable, type PortalTableColumn } from "@/components/dashboard/PortalDataTable";
+import PortalHeroPanel from "@/components/dashboard/PortalHeroPanel";
+import PortalProfileCard from "@/components/dashboard/PortalProfileCard";
+import TaskProgressList from "@/components/dashboard/TaskProgressList";
+import { StatusBadge } from "@/components/DataTable";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { apiService } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
 
-type AttendanceSummaryRow = {
-  date: string;
-  checkOut?: string;
-  hoursWorked?: number;
-};
+type EmployeeDashboardSummary = Awaited<ReturnType<typeof apiService.getEmployeeDashboardSummary>>;
+type EmployeeProfile = Awaited<ReturnType<typeof apiService.getMyEmployeeProfile>>;
 
-type LeaveSummaryRow = {
-  fromDate?: string;
-  toDate?: string;
-};
-
-type PayrollSummaryRow = {
-  month?: string;
-  netSalary?: number;
+type EmployeeWorkspaceRow = {
+  id: string;
+  type: "attendance" | "leave" | "payroll";
+  title: string;
+  detail: string;
+  meta: string;
+  status: string;
 };
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -37,162 +35,195 @@ const EmployeeDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [attendanceRows, setAttendanceRows] = useState<AttendanceSummaryRow[]>([]);
-  const [leaveRows, setLeaveRows] = useState<LeaveSummaryRow[]>([]);
-  const [payrollRows, setPayrollRows] = useState<PayrollSummaryRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [summary, setSummary] = React.useState<EmployeeDashboardSummary>({
+    attendanceRows: [],
+    leaveRows: [],
+    payrollRows: [],
+    approvedLeaveDays: 0,
+  });
+  const [profile, setProfile] = React.useState<EmployeeProfile | null>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     void (async () => {
       if (!user) return;
       setLoading(true);
       try {
-        const [attendance, leaves, payroll] = await Promise.all([
-          apiService.list<AttendanceSummaryRow>("attendance"),
-          apiService.list<LeaveSummaryRow>("leave"),
-          apiService.list<PayrollSummaryRow>("payroll"),
+        const [dashboardSummary, employeeProfile] = await Promise.all([
+          apiService.getEmployeeDashboardSummary(),
+          apiService.getMyEmployeeProfile(),
         ]);
-        setAttendanceRows(attendance);
-        setLeaveRows(leaves);
-        setPayrollRows(payroll);
+
+        React.startTransition(() => {
+          setSummary(dashboardSummary);
+          setProfile(employeeProfile);
+        });
       } catch (error) {
-        toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to load dashboard", variant: "destructive" });
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to load dashboard",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     })();
   }, [user, toast]);
 
-  const latestPayroll = payrollRows[0];
-  const usedLeaveDays = leaveRows.reduce((sum: number, row) => {
-    if (!row.fromDate || !row.toDate) return sum;
-    const from = new Date(row.fromDate);
-    const to = new Date(row.toDate);
-    return sum + (Math.ceil((to.getTime() - from.getTime()) / (1000 * 3600 * 24)) + 1);
-  }, 0);
-  const today = useMemo(() => startOfDay(new Date()), []);
-  const attendanceScore = attendanceRows.length ? Math.min(100, 62 + attendanceRows.length * 6) : 48;
-  const todayStatus = attendanceRows[0] ? (attendanceRows[0]?.checkOut ? "Checked Out" : "Checked In") : "No record";
+  const latestPayroll = summary.payrollRows[0];
+  const pendingLeaveRequests = summary.leaveRows.filter((row) => String(row.status || "").toLowerCase() === "pending").length;
+  const attendanceScore = summary.attendanceRows.length ? Math.min(100, 62 + summary.attendanceRows.length * 6) : 48;
+  const todayStatus = summary.attendanceRows[0] ? (summary.attendanceRows[0]?.checkOut ? "Checked Out" : "Checked In") : "No record";
 
-  const calendarEvents = useMemo<PortalCalendarEvent[]>(() => {
-    const items: PortalCalendarEvent[] = leaveRows.slice(0, 3).map((leave, index) => ({
-      id: `leave-${index}`,
-      title: "Personal leave block",
-      date: leave.fromDate || format(addDays(today, index + 4), "yyyy-MM-dd"),
-      type: "holiday",
-      note: leave.toDate ? `Scheduled through ${leave.toDate}.` : "Leave window added to your plan.",
-    }));
+  const calendarEvents = React.useMemo<PortalCalendarEvent[]>(
+    () =>
+      summary.leaveRows
+        .filter((leave) => leave.fromDate)
+        .slice(0, 6)
+        .map((leave, index) => ({
+          id: `leave-${index}`,
+          title: `Leave ${String(leave.status || "scheduled")}`,
+          date: leave.fromDate || "",
+          type: String(leave.status || "").toLowerCase() === "approved" ? "holiday" : "reminder",
+          note: leave.toDate ? `Scheduled through ${leave.toDate}.` : "Leave request recorded in the system.",
+        })),
+    [summary.leaveRows]
+  );
 
-    items.push({
-      id: "standup",
-      title: "Weekly team sync",
-      date: format(addDays(today, 1), "yyyy-MM-dd"),
-      type: "meeting",
-      time: "11:00 AM",
-      note: "A focused check-in with your reporting team.",
-    });
+  const workspaceFeed = React.useMemo<EmployeeWorkspaceRow[]>(
+    () => [
+      ...summary.leaveRows.map((leave, index) => ({
+        id: `leave-${index}`,
+        type: "leave" as const,
+        title: leave.fromDate ? `Leave from ${leave.fromDate}` : "Leave request",
+        detail: leave.toDate ? `Through ${leave.toDate}` : "Single-day request",
+        meta: "Leave workflow",
+        status: String(leave.status || "pending"),
+      })),
+      ...summary.payrollRows.map((payroll, index) => ({
+        id: `payroll-${index}`,
+        type: "payroll" as const,
+        title: payroll.month || "Payroll cycle",
+        detail: currency.format(Number(payroll.netSalary || 0)),
+        meta: "Payroll update",
+        status: payroll.netSalary ? "paid" : "processing",
+      })),
+      ...summary.attendanceRows.slice(0, 4).map((attendance, index) => ({
+        id: `attendance-${index}`,
+        type: "attendance" as const,
+        title: attendance.date,
+        detail: attendance.hoursWorked ? `${attendance.hoursWorked} hours worked` : "Attendance recorded",
+        meta: attendance.checkOut ? "Closed attendance" : "Open attendance",
+        status: attendance.checkOut ? "present" : "pending",
+      })),
+    ],
+    [summary.attendanceRows, summary.leaveRows, summary.payrollRows]
+  );
 
-    items.push({
-      id: "payday",
-      title: "Payroll release window",
-      date: format(addDays(today, 6), "yyyy-MM-dd"),
-      type: "reminder",
-      note: latestPayroll?.month ? `Latest visible cycle: ${latestPayroll.month}.` : "Keep payslip documents ready.",
-    });
+  const workspaceColumns = React.useMemo<PortalTableColumn<EmployeeWorkspaceRow>[]>(
+    () => [
+      {
+        key: "item",
+        header: "Item",
+        render: (row) => (
+          <div>
+            <p className="portal-heading font-semibold">{row.title}</p>
+            <p className="portal-muted mt-1 text-xs">{row.meta}</p>
+          </div>
+        ),
+      },
+      {
+        key: "type",
+        header: "Category",
+        render: (row) => (
+          <div>
+            <p className="portal-heading text-sm font-medium capitalize">{row.type}</p>
+            <p className="portal-muted mt-1 text-xs">{row.detail}</p>
+          </div>
+        ),
+      },
+      {
+        key: "status",
+        header: "Status",
+        className: "text-right",
+        render: (row) => <div className="flex justify-end"><StatusBadge status={row.status} /></div>,
+      },
+    ],
+    []
+  );
 
-    items.push({
-      id: "birthday",
-      title: "Team celebration",
-      date: format(addDays(today, 8), "yyyy-MM-dd"),
-      type: "birthday",
-      note: "A small team moment captured in your shared calendar.",
-    });
-
-    return items;
-  }, [leaveRows, latestPayroll?.month, today]);
+  if (loading && !profile && summary.attendanceRows.length === 0 && summary.leaveRows.length === 0 && summary.payrollRows.length === 0) {
+    return <PortalDashboardSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={`Welcome, ${user?.name?.split(" ")[0] || "User"}`}
-        subtitle="A calm personal workspace for attendance, leave, payroll, and daily coordination with the same premium system used across every HR portal."
-        action={
+        subtitle="A premium personal HR workspace for attendance, leave, payroll, and day-to-day employee coordination."
+        action={(
           <Button variant="outline" className="gap-2 rounded-[18px]" onClick={() => navigate("/employee/profile")}>
             Open Profile
             <ArrowRight className="h-4 w-4" />
           </Button>
-        }
+        )}
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px]">
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
-          className="dashboard-panel relative overflow-hidden p-7"
-        >
-          <div className="pointer-events-none absolute -right-10 top-2 h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(207,174,116,0.24),transparent_70%)] blur-3xl" />
-          <div className="pointer-events-none absolute left-0 top-0 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(255,248,235,0.95),transparent_68%)] blur-2xl" />
-          <div className="relative">
-            <div className="inline-flex items-center rounded-full border border-[#e0cfb3] bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9a7747]">
-              Employee Pulse
-            </div>
-            <h2 className="mt-4 max-w-3xl text-[34px] font-semibold leading-tight tracking-[-0.04em] text-[#24190f]">
-              Daily work, benefits, and visibility in one elegant, low-friction dashboard.
-            </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f5a43]">
-              Everything important stays visible, polished, and easy to act on without turning the employee experience into an analytics wall.
-            </p>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {[
-                { label: "Attendance entries", value: String(attendanceRows.length), note: "Recent records captured in your timeline.", icon: Clock },
-                { label: "Leave used", value: `${usedLeaveDays} days`, note: "Approved leave already consumed this cycle.", icon: CalendarDays },
-                { label: "Latest payroll", value: currency.format(Number(latestPayroll?.netSalary || 0)), note: latestPayroll?.month || "Payroll data becomes visible here.", icon: DollarSign },
-              ].map((item) => (
-                <div key={item.label} className="dashboard-subtle-card">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="dashboard-label">{item.label}</p>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[16px] bg-[#1f2638] text-[#f3dcc0]">
-                      <item.icon className="h-4 w-4" />
-                    </div>
-                  </div>
-                  <p className="mt-3 text-[28px] font-semibold leading-none text-[#24190f]">{item.value}</p>
-                  <p className="mt-2 text-sm leading-6 text-[#7a664e]">{item.note}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.section>
+        <PortalHeroPanel
+          eyebrow="Employee Pulse"
+          title="Keep daily work, leave, and payroll visible without turning the employee experience into clutter."
+          description="This dashboard is designed to feel calm and premium while still surfacing the exact HR information people actually need during the week."
+          highlights={[
+            {
+              label: "Attendance entries",
+              value: String(summary.attendanceRows.length),
+              note: "Recent check-ins and check-outs recorded in your account.",
+              icon: Clock,
+            },
+            {
+              label: "Approved leave",
+              value: `${summary.approvedLeaveDays} days`,
+              note: `${pendingLeaveRequests} request(s) are still pending review.`,
+              icon: CalendarDays,
+            },
+            {
+              label: "Latest payroll",
+              value: currency.format(Number(latestPayroll?.netSalary || 0)),
+              note: latestPayroll?.month || "Payroll data becomes visible here after processing.",
+              icon: IndianRupee,
+            },
+          ]}
+        />
 
         <PortalProfileCard
-          name={user?.name || "Employee"}
-          roleLabel="Employee Portal"
-          subtitle="This personal dashboard keeps your workflow simple: review attendance, check leave balance, confirm payroll, and stay ready for team events."
+          name={profile?.fullName || user?.name || "Employee"}
+          roleLabel={profile?.designation || "Employee Portal"}
+          subtitle="Your personal dashboard keeps work essentials together: attendance rhythm, leave planning, payroll visibility, and quick access to profile information."
           imageUrl={user?.profileImage || user?.profilePhotoUrl || ""}
           meta={[
             { label: "Current status", value: todayStatus, icon: CheckCircle },
-            { label: "Leave balance", value: `${Math.max(20 - usedLeaveDays, 0)} days`, icon: CalendarDays },
-            { label: "Profile access", value: "Open employee profile", icon: UserCircle },
+            { label: "Pending leaves", value: `${pendingLeaveRequests} request(s)`, icon: CalendarDays },
+            { label: "Department", value: profile?.department || "Not assigned", icon: Sparkles },
           ]}
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Today's Status" value={todayStatus} change="Live check-in flow" changeType="positive" icon={Clock} color="success" delay={0} onClick={() => navigate("/employee/attendance")} />
-        <StatCard title="Leave Balance" value={`${Math.max(20 - usedLeaveDays, 0)} days`} change={`${usedLeaveDays} used`} changeType="neutral" icon={CalendarDays} color="info" delay={1} onClick={() => navigate("/employee/leave")} />
-        <StatCard title="This Month's Pay" value={currency.format(Number(latestPayroll?.netSalary || 0))} change={latestPayroll?.month || "No payroll record yet"} changeType="positive" icon={DollarSign} color="primary" delay={2} onClick={() => navigate("/employee/payroll")} />
-        <StatCard title="Letters" value="Open module" change="Downloads and formal docs" changeType="neutral" icon={FileText} color="warning" delay={3} onClick={() => navigate("/employee/letters")} />
+        <StatCard title="Today's Status" value={todayStatus} change="Live attendance flow" changeType="positive" icon={Clock} color="success" delay={0} onClick={() => navigate("/employee/attendance")} />
+        <StatCard title="Approved Leave" value={`${summary.approvedLeaveDays} days`} change={`${pendingLeaveRequests} pending`} changeType="neutral" icon={CalendarDays} color="info" delay={1} onClick={() => navigate("/employee/leave")} />
+        <StatCard title="This Month's Pay" value={currency.format(Number(latestPayroll?.netSalary || 0))} change={latestPayroll?.month || "No payroll record yet"} changeType="positive" icon={IndianRupee} color="primary" delay={2} onClick={() => navigate("/employee/payroll")} />
+        <StatCard title="Letters" value="Open module" change="Documents and downloads" changeType="neutral" icon={FileText} color="warning" delay={3} onClick={() => navigate("/employee/letters")} />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <CircularStatsWidget
           label="Attendance Consistency"
           value={attendanceScore}
-          subtitle="A quick confidence score blending attendance activity, leave usage, and personal routine stability."
+          subtitle="A quick confidence score blending attendance activity, leave usage, and payroll visibility."
           breakdown={[
-            { label: "Attendance records", value: `${attendanceRows.length}` },
-            { label: "Leave consumed", value: `${usedLeaveDays} days` },
+            { label: "Attendance records", value: `${summary.attendanceRows.length}` },
+            { label: "Approved leave", value: `${summary.approvedLeaveDays} days` },
             { label: "Payroll visibility", value: latestPayroll?.month || "Awaiting cycle" },
           ]}
         />
@@ -204,32 +235,42 @@ const EmployeeDashboard: React.FC = () => {
             {
               title: "Attendance rhythm",
               description: "Keep daily records clean and complete for a smooth workweek.",
-              progress: Math.min(100, 40 + attendanceRows.length * 10),
+              progress: Math.min(100, 40 + summary.attendanceRows.length * 10),
               icon: Clock,
             },
             {
               title: "Leave planning",
-              description: "Track time away early so approvals and handovers stay easy.",
-              progress: Math.max(20, 100 - usedLeaveDays * 4),
+              description: `${pendingLeaveRequests} leave request(s) are still in the queue.`,
+              progress: Math.max(20, 100 - pendingLeaveRequests * 20),
               icon: CalendarDays,
             },
             {
               title: "Payroll awareness",
               description: "Review the latest cycle and keep compensation details visible.",
               progress: latestPayroll ? 88 : 34,
-              icon: DollarSign,
+              icon: IndianRupee,
             },
           ]}
         />
       </div>
 
-      <PortalCalendarCard
-        title="Employee Calendar"
-        subtitle="Meetings, holidays, personal leave, and team moments are organized into the same premium calendar system used across the full HR platform."
-        events={calendarEvents}
+      <PortalDataTable
+        title="Personal HR Activity"
+        subtitle="A dynamic timeline of your recent leave, payroll, and attendance items with pagination-ready structure."
+        columns={workspaceColumns}
+        rows={workspaceFeed}
+        loading={loading}
+        pageSize={6}
+        emptyTitle="No HR activity yet"
+        emptyDescription="Attendance, leave, and payroll activity will appear here as soon as your account starts receiving updates."
+        getRowKey={(row) => row.id}
       />
 
-      {loading ? <div className="dashboard-subtle-card text-sm text-[#7a664e]">Refreshing your workspace...</div> : null}
+      <PortalCalendarCard
+        title="Employee Calendar"
+        subtitle="Recorded leave windows appear here so your upcoming HR timeline stays visible without placeholder content."
+        events={calendarEvents}
+      />
     </div>
   );
 };

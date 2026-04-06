@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Filter, Loader2, Plus } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -146,7 +146,7 @@ const AdminEmployees: React.FC = () => {
   const [salarySaving, setSalarySaving] = useState(false);
   const [savingEmployee, setSavingEmployee] = useState(false);
 
-  const loadEmployees = async () => {
+  const loadEmployees = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiService.list<EmployeeApiRow>("employees");
@@ -179,11 +179,11 @@ const AdminEmployees: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   React.useEffect(() => {
     void loadEmployees();
-  }, []);
+  }, [loadEmployees]);
 
   const departments = [...new Set(employees.map((employee) => employee.department).filter(Boolean))];
 
@@ -516,7 +516,7 @@ const AdminEmployees: React.FC = () => {
             <Button
               onClick={handleSave}
               disabled={savingEmployee}
-              className="gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-5 text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:from-blue-700 hover:to-violet-700"
+              className="gap-2 rounded-xl border border-[#2A2623] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] px-5 text-[#1A1816] shadow-[0_18px_40px_rgba(166,124,82,0.4)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_44px_rgba(166,124,82,0.4)]"
             >
               {savingEmployee ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {savingEmployee ? (editIndex !== null ? "Updating..." : "Adding...") : editIndex !== null ? "Update" : "Add"}
