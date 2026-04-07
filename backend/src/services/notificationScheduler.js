@@ -1,11 +1,11 @@
 import { CronJob } from "cron";
-import { Notification } from "../models/Notification.js";
 import { Event } from "../models/Event.js";
 import { Holiday } from "../models/Holiday.js";
 import { User } from "../models/User.js";
 import { sendEmail } from "./emailService.js";
 import { format, addDays, startOfDay } from "date-fns";
 import { buildMessageEmailLayout } from "../layouts/email/index.js";
+import { createNotificationRecord } from "./notificationService.js";
 
 let scheduledJob = null;
 
@@ -67,18 +67,16 @@ async function getTomorrowBirthdays() {
 /**
  * Create in-app notification for a user
  */
-async function createNotification(userId, title, message, type = "event") {
+async function createScheduledNotification(userId, title, message, type = "event", dedupeDate = new Date()) {
   try {
-    const notification = new Notification({
+    return await createNotificationRecord({
       userId,
       title,
       message,
       type,
-      read: false,
+      dedupeScope: `scheduler:${type}`,
+      dedupeDate,
     });
-
-    await notification.save();
-    return notification;
   } catch (error) {
     console.error("Error creating notification:", error);
   }
@@ -176,7 +174,9 @@ async function processEventNotifications() {
 
       // Bulk create notifications
       if (notifications.length > 0) {
-        await Notification.insertMany(notifications);
+        for (const notification of notifications) {
+          await createScheduledNotification(notification.userId, notification.title, notification.message, notification.type, tomorrow);
+        }
 
         // Send email notification for holidays and important events
         const importance = notifications.some((n) => ["holiday", "meeting"].includes(n.type));

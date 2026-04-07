@@ -25,7 +25,8 @@ import { NavLink, useNavigate } from "react-router-dom";
 import ImageWithFallback from "@/components/common/ImageWithFallback";
 import ProfileAvatar from "@/components/common/ProfileAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { useSystemSettings } from "@/context/SystemSettingsContext";
+import { resolveProfileRedirect } from "@/config/navigation.config";
+import { useNavigation, useSystemSettings } from "@/context/SystemSettingsContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,72 +41,31 @@ import { resolveCompanyLogoUrl } from "@/lib/images";
 import { apiService, isUnauthorizedError, type NotificationItem } from "@/services/api";
 
 interface NavItem {
+  id: string;
   label: string;
   path: string;
   icon: React.ElementType;
   moduleKey?: string;
+  featureKey?: string;
 }
 
-const adminNav: NavItem[] = [
-  { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard, moduleKey: "dashboard" },
-  { label: "Profile", path: "/admin/profile", icon: UserCircle },
-  { label: "Candidates", path: "/admin/candidates", icon: UserCheck, moduleKey: "candidates" },
-  { label: "Internships", path: "/admin/internships", icon: Briefcase, moduleKey: "candidates" },
-  { label: "Joining Forms", path: "/admin/joining-forms", icon: ClipboardCheck, moduleKey: "candidates" },
-  { label: "Employees", path: "/admin/employees", icon: Users, moduleKey: "employees" },
-  { label: "Attendance", path: "/admin/attendance", icon: Clock, moduleKey: "attendance" },
-  { label: "Leave", path: "/admin/leave", icon: CalendarDays, moduleKey: "candidates" },
-  { label: "Payroll", path: "/admin/payroll", icon: IndianRupee, moduleKey: "payroll" },
-  { label: "Letters", path: "/admin/letters", icon: FileText, moduleKey: "letters" },
-  { label: "Departments", path: "/admin/departments", icon: Building2, moduleKey: "departments" },
-  { label: "Offboarding", path: "/admin/offboarding", icon: Briefcase },
-  { label: "User Management", path: "/admin/users", icon: ShieldCheck, moduleKey: "userManagement" },
-  { label: "Settings", path: "/admin/settings", icon: Settings, moduleKey: "settings" },
-];
-
-const employeeNav: NavItem[] = [
-  { label: "Dashboard", path: "/employee/dashboard", icon: LayoutDashboard },
-  { label: "Profile", path: "/employee/profile", icon: UserCircle },
-  { label: "Attendance", path: "/employee/attendance", icon: Clock },
-  { label: "Leave", path: "/employee/leave", icon: CalendarDays },
-  { label: "Payroll", path: "/employee/payroll", icon: IndianRupee },
-  { label: "Letters", path: "/employee/letters", icon: FileText },
-];
-
-const pendingEmployeeNav: NavItem[] = [
-  { label: "Joining Form", path: "/joining-form", icon: ClipboardCheck },
-];
-
-const hrNav: NavItem[] = [
-  { label: "HR Dashboard", path: "/hr/dashboard", icon: LayoutDashboard, moduleKey: "dashboard" },
-  { label: "Candidates", path: "/admin/candidates", icon: UserCheck, moduleKey: "candidates" },
-  { label: "Letters", path: "/admin/letters", icon: FileText, moduleKey: "letters" },
-];
-
-const recruiterNav: NavItem[] = [
-  { label: "Recruiter Dashboard", path: "/recruiter/dashboard", icon: LayoutDashboard, moduleKey: "dashboard" },
-  { label: "Candidates", path: "/admin/candidates", icon: UserCheck, moduleKey: "candidates" },
-];
-
-const candidateNav: NavItem[] = [
-  { label: "Dashboard", path: "/candidate/dashboard", icon: LayoutDashboard },
-  { label: "My Profile", path: "/candidate/profile", icon: UserCircle },
-  { label: "Job Applications", path: "/candidate/applications", icon: Briefcase },
-  { label: "Application Status", path: "/candidate/status", icon: Layers3 },
-  { label: "Documents", path: "/candidate/documents", icon: FolderOpen },
-  { label: "Notifications", path: "/candidate/notifications", icon: Bell },
-];
-
-const getNotificationLink = (type: string, role?: string) => {
-  if (role === "candidate") {
-    if (type === "candidate") return "/candidate/status";
-    return "/candidate/notifications";
-  }
-  if (type === "candidate") return "/admin/candidates";
-  if (type === "leave") return "/admin/leave";
-  if (type === "payroll") return "/admin/payroll";
-  if (type === "attendance") return "/admin/attendance";
-  return "/admin/dashboard";
+const iconRegistry: Record<string, React.ElementType> = {
+  Bell,
+  Briefcase,
+  Building2,
+  CalendarDays,
+  ClipboardCheck,
+  Clock,
+  FileText,
+  FolderOpen,
+  IndianRupee,
+  Layers3,
+  LayoutDashboard,
+  Settings,
+  ShieldCheck,
+  UserCheck,
+  UserCircle,
+  Users,
 };
 
 const formatTimeAgo = (isoDate: string) => {
@@ -120,19 +80,24 @@ const formatTimeAgo = (isoDate: string) => {
 
 const normalizeCompanyName = (value?: string | null) => {
   const trimmedValue = value?.trim();
-  if (!trimmedValue) return "Arihant Dream Infra Project Ltd.";
-
-  const normalized = trimmedValue.toLowerCase();
-  if (normalized.includes("hr harmony")) {
-    return "Arihant Dream Infra Project Ltd.";
-  }
-
-  return trimmedValue;
+  return trimmedValue || "Company";
 };
 
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
-  const { publicSettings, theme, toggleTheme } = useSystemSettings();
+  const { publicSettings, theme, toggleTheme, getLabel, isFeatureEnabled, canAccessRoute, getDefaultRoute } = useSystemSettings();
+  const dynamicNavigation = useNavigation();
+  const departmentLabel = getLabel("layout.portal.department", "HR Department");
+  const workspaceLabel = getLabel("layout.portal.workspace", "workspace");
+  const portalBlurb = getLabel("layout.portal.blurb", "Premium HRMS workspace with live modules, approvals, and activity.");
+  const notificationsTitle = getLabel("layout.notifications.title", "Notifications");
+  const notificationsSubtitle = getLabel("layout.notifications.subtitle", "Recent alerts and updates");
+  const notificationsEmpty = getLabel("layout.notifications.empty", "No notifications yet.");
+  const notificationsLoadingLabel = getLabel("layout.notifications.loading", "Loading notifications...");
+  const markAllReadLabel = getLabel("common.markAllRead", "Mark all read");
+  const profileLabel = getLabel("common.profile", "Profile");
+  const logoutLabel = getLabel("common.logout", "Logout");
+  const pendingEmployeeBanner = getLabel("layout.pendingEmployee.banner", "Please complete your Joining Form to activate your account.");
   const companyLogo = resolveCompanyLogoUrl(publicSettings?.company?.companyLogoUrl);
   const companyName = normalizeCompanyName(publicSettings?.company?.companyName);
   const navigate = useNavigate();
@@ -148,8 +113,23 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   const isCandidate = user?.role === "candidate";
   const isPendingEmployee = user?.role === "employee" && user?.status !== "active_employee";
   const portalThemeClass = isAdmin || isHr || isRecruiter ? "portal-theme-admin" : isCandidate ? "portal-theme-candidate" : "portal-theme-employee";
-  const rawNavItems = isAdmin ? adminNav : isHr ? hrNav : isRecruiter ? recruiterNav : isCandidate ? candidateNav : isPendingEmployee ? pendingEmployeeNav : employeeNav;
-  const navItems = rawNavItems.filter((item) => !item.moduleKey || user?.permissions?.modules?.[item.moduleKey] !== false);
+  const rawNavItems = dynamicNavigation.map((item) => ({
+    id: item.id,
+    label: getLabel(item.labelKey, item.labelKey),
+    path: item.path,
+    icon: iconRegistry[item.icon] || LayoutDashboard,
+    moduleKey: item.moduleKey,
+    featureKey: item.featureKey,
+  }));
+  const navItems = rawNavItems.filter(
+    (item) =>
+      (!isPendingEmployee || item.id === "joining.form") &&
+      canAccessRoute(item.id) &&
+      (!item.moduleKey || user?.permissions?.modules?.[item.moduleKey] !== false) &&
+      (!item.featureKey || isFeatureEnabled(item.featureKey))
+  );
+  const resolveNavigationPath = (routeId: string, fallbackPath?: string) =>
+    navItems.find((item) => item.id === routeId)?.path || fallbackPath || getDefaultRoute();
   const isSidebarOpen = isMobile || isSidebarExpanded;
   const sidebarWidthClass = isSidebarOpen ? "w-64" : "w-16";
   const sidebarShellClass = "sidebar-premium backdrop-blur-2xl";
@@ -221,7 +201,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const displayName = user?.name || user?.email || "";
-  const portalLabel = isAdmin ? "Admin" : isHr ? "HR" : isRecruiter ? "Recruiter" : isCandidate ? "Candidate" : "Employee";
+  const portalLabel = user?.accessRole === "super_admin" ? "Super Admin" : isAdmin ? "Admin" : isHr ? "HR" : isRecruiter ? "Recruiter" : isCandidate ? "Candidate" : "Employee";
 
   const handleLogout = async () => {
     await logout();
@@ -240,7 +220,22 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       );
     }
 
-    navigate(getNotificationLink(notification.type, user?.role));
+    const nextPath =
+      user?.role === "candidate"
+        ? notification.type === "candidate"
+          ? resolveNavigationPath("candidate.status", resolveNavigationPath("candidate.notifications"))
+          : resolveNavigationPath("candidate.notifications")
+        : notification.type === "candidate"
+          ? resolveNavigationPath("admin.candidates")
+          : notification.type === "leave"
+            ? resolveNavigationPath("admin.leave")
+            : notification.type === "payroll"
+              ? resolveNavigationPath("admin.payroll")
+              : notification.type === "attendance"
+                ? resolveNavigationPath("admin.attendance")
+                : getDefaultRoute();
+
+    navigate(nextPath);
   };
 
   const markAllRead = async () => {
@@ -271,7 +266,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               <ImageWithFallback src={companyLogo} alt="Company Logo" className="h-12 w-12 object-contain" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-[var(--portal-sidebar-text)]">{companyName}</p>
-                <p className={`mt-1 text-xs uppercase tracking-[0.18em] ${sidebarMutedTextClass}`}>HR Department</p>
+                <p className={`mt-1 text-xs uppercase tracking-[0.18em] ${sidebarMutedTextClass}`}>{departmentLabel}</p>
               </div>
             </div>
           )}
@@ -281,9 +276,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           <div className="px-3 pt-4">
             <div className="rounded-[22px] border border-[var(--portal-sidebar-border)] bg-[var(--portal-sidebar-icon-bubble)] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--portal-sidebar-muted-text)]">{portalLabel} portal</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--portal-sidebar-text)]">
-                Premium HRMS workspace with live modules, approvals, and activity.
-              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--portal-sidebar-text)]">{portalBlurb}</p>
             </div>
           </div>
         ) : null}
@@ -293,11 +286,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             <NavLink
               key={item.path}
               to={item.path}
-              end={
-                item.path === "/admin/dashboard" ||
-                item.path === "/employee/dashboard" ||
-                item.path === "/candidate/dashboard"
-              }
+              end={item.id.endsWith(".dashboard")}
               className={({ isActive }) =>
                 `group flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-medium transition-all duration-300 ease-in-out ${
                   isActive
@@ -326,7 +315,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             }`}
           >
             <LogOut className="h-5 w-5 [stroke-width:2.35]" />
-            {isSidebarOpen ? <span>Logout</span> : null}
+            {isSidebarOpen ? <span>{logoutLabel}</span> : null}
           </button>
         </div>
       </aside>
@@ -338,7 +327,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           <div className="shell-section px-1.5 py-1.5">
             <div className="glass-panel flex items-center justify-between gap-4 rounded-[24px] px-4 py-3.5 transition-colors duration-300">
               <div className="hidden min-w-0 lg:block">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] portal-muted">{portalLabel} workspace</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] portal-muted">{portalLabel} {workspaceLabel}</p>
                 <p className="portal-heading mt-1 truncate text-sm font-semibold">{companyName}</p>
               </div>
               <div className="flex items-center gap-3">
@@ -364,18 +353,18 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 <PopoverContent align="end" className="w-96 rounded-[24px] border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-0 shadow-card backdrop-blur-xl transition-colors duration-300">
                   <div className="flex items-center justify-between border-b border-[var(--portal-surface-border)] px-4 py-4">
                     <div>
-                      <h4 className="portal-heading text-sm font-semibold">Notifications</h4>
-                      <p className="portal-muted text-xs">Recent alerts and updates</p>
+                      <h4 className="portal-heading text-sm font-semibold">{notificationsTitle}</h4>
+                      <p className="portal-muted text-xs">{notificationsSubtitle}</p>
                     </div>
-                    {unreadCount > 0 ? <Button variant="ghost" size="sm" onClick={markAllRead}>Mark all read</Button> : null}
+                    {unreadCount > 0 ? <Button variant="ghost" size="sm" onClick={markAllRead}>{markAllReadLabel}</Button> : null}
                   </div>
 
                   <div className="max-h-80 overflow-y-auto p-2">
                     {notificationsLoading ? (
-                      <div className="portal-muted px-3 py-4 text-sm">Loading notifications...</div>
+                      <div className="portal-muted px-3 py-4 text-sm">{notificationsLoadingLabel}</div>
                     ) : notifications.length === 0 ? (
                       <div className="portal-muted rounded-2xl border border-dashed border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] px-4 py-8 text-center text-sm">
-                        No notifications yet.
+                        {notificationsEmpty}
                       </div>
                     ) : notifications.map((notification) => (
                       <div
@@ -410,28 +399,14 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-1.5 shadow-card backdrop-blur-xl transition-colors duration-300">
                   <DropdownMenuItem
                     className="rounded-xl px-3 py-2.5 portal-heading focus:bg-[var(--portal-subtle-surface)] focus:text-[var(--portal-heading-color)]"
-                    onClick={() =>
-                      navigate(
-                        isAdmin
-                          ? "/admin/profile"
-                          : isHr
-                            ? "/hr/dashboard"
-                            : isRecruiter
-                              ? "/recruiter/dashboard"
-                              : isCandidate
-                                ? "/candidate/profile"
-                                : isPendingEmployee
-                                  ? "/joining-form"
-                                  : "/employee/profile",
-                      )
-                    }
+                    onClick={() => navigate(resolveProfileRedirect(user))}
                   >
-                    {isPendingEmployee ? "Joining Form" : "Profile"}
+                    {isPendingEmployee ? getLabel("nav.employee.joiningForm", "Joining Form") : profileLabel}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="mx-1 my-1 bg-[var(--portal-surface-border)]" />
                   <DropdownMenuItem onClick={handleLogout} className="rounded-xl px-3 py-2.5 text-destructive focus:bg-[rgba(239,68,68,0.12)] focus:text-destructive">
                     <LogOut className="mr-2 h-4 w-4" />
-                    Logout
+                    {logoutLabel}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -442,8 +417,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
         <main className="relative z-[1] flex-1 overflow-y-auto p-4 lg:p-6">
           {isPendingEmployee ? (
-            <div className="mx-auto mb-4 max-w-[1600px] rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100 backdrop-blur-xl">
-              Please complete your Joining Form to activate your account.
+            <div className={`mx-auto mb-4 max-w-[1600px] rounded-2xl px-4 py-3 text-sm backdrop-blur-xl ${theme === "dark" ? "border border-amber-300/20 bg-amber-400/10 text-amber-100" : "border border-amber-200 bg-amber-50 text-black"}`}>
+              {pendingEmployeeBanner}
             </div>
           ) : null}
           <div className="page-enter mx-auto max-w-[1600px]">{children}</div>

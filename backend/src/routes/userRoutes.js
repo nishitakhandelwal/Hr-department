@@ -17,6 +17,7 @@ import {
   updateUserSecurity,
   updateUserStatus,
 } from "../controllers/userController.js";
+import { API_ROLE_GROUPS } from "../config/permissions.config.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authorize, authorizeModule, protect } from "../middleware/authMiddleware.js";
 import { uploadProfilePhoto } from "../middleware/uploadMiddleware.js";
@@ -29,7 +30,7 @@ const roleUpdateValidators = [
   body("accessRole").notEmpty().withMessage("Access role is required."),
 ];
 
-router.use(protect, authorize("admin"));
+router.use(protect, authorize(API_ROLE_GROUPS.adminOnly));
 
 router.get("/dashboard-summary", authorizeModule("dashboard"), asyncHandler(getAdminDashboardSummary));
 router.get("/", authorizeModule("userManagement"), asyncHandler(getUsers));

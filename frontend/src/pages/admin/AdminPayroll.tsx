@@ -34,6 +34,7 @@ import { downloadElementAsPdf } from "@/utils/html2pdf";
 import PayslipModal from "@/components/payroll/PayslipModal";
 import PayslipDocument from "@/components/payroll/PayslipDocument";
 import { useToast } from "@/hooks/use-toast";
+import { useFeature, useLabel, usePermission } from "@/context/SystemSettingsContext";
 
 type PayrollSummary = {
   totalPayroll: number;
@@ -127,6 +128,25 @@ const StatCard = ({
 
 const AdminPayroll: React.FC = () => {
   const { toast } = useToast();
+  const payrollEnabled = useFeature("payroll");
+  const canRunPayroll = usePermission("run_payroll");
+  const pageTitle = useLabel("admin.payroll.title", "Payroll");
+  const runPayrollLabel = useLabel("admin.payroll.run", "Run Payroll");
+  const rulesTitle = useLabel("admin.payroll.rules.title", "Payroll Rules");
+  const saveRulesLabel = useLabel("admin.payroll.saveRules", "Save Rules");
+  const savingRulesLabel = useLabel("admin.payroll.savingRules", "Saving...");
+  const showSettingsLabel = useLabel("admin.payroll.showSettings", "Show Settings");
+  const hideSettingsLabel = useLabel("admin.payroll.hideSettings", "Hide Settings");
+  const totalPayrollLabel = useLabel("admin.payroll.stats.total", "Total Payroll");
+  const processedLabel = useLabel("admin.payroll.stats.processed", "Processed");
+  const processedHint = useLabel("admin.payroll.stats.processedHint", "Employees completed");
+  const pendingLabel = useLabel("admin.payroll.stats.pending", "Pending");
+  const pendingHint = useLabel("admin.payroll.stats.pendingHint", "Employees waiting");
+  const payrollRegisterLabel = useLabel("admin.payroll.register.title", "Payroll Register");
+  const skippedTitle = useLabel("admin.payroll.skipped.title", "Skipped During Payroll Run");
+  const runDialogTitle = useLabel("admin.payroll.dialog.runTitle", "Run Payroll");
+  const processPayrollLabel = useLabel("admin.payroll.process", "Process Payroll");
+  const processingLabel = useLabel("admin.payroll.processing", "Processing...");
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
   const [summary, setSummary] = useState<PayrollSummary | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthValue());
@@ -146,6 +166,10 @@ const AdminPayroll: React.FC = () => {
   const [generatedPayslipIds, setGeneratedPayslipIds] = useState<string[]>([]);
   const [fallbackPayrollRecord, setFallbackPayrollRecord] = useState<PayrollRecord | null>(null);
   const fallbackPayslipRef = React.useRef<HTMLDivElement>(null);
+
+  if (!payrollEnabled) {
+    return null;
+  }
 
   const loadPayroll = useCallback(async (monthValue = selectedMonth) => {
     const { month, year } = parseMonthValue(monthValue);
@@ -336,7 +360,7 @@ const AdminPayroll: React.FC = () => {
       <section className="rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-6 shadow-[0_20px_50px_rgba(166,124,82,0.16)]">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight text-[#F5F5F5]">Payroll</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-[#F5F5F5]">{pageTitle}</h1>
             <p className="max-w-2xl text-sm leading-6 text-[#A1A1AA]">
               Review payroll month by month, manage payslip actions, and keep the workspace focused on the register instead of side panels.
             </p>
@@ -362,7 +386,7 @@ const AdminPayroll: React.FC = () => {
               onClick={() => setRunDialogOpen(true)}
             >
               <PlayCircle className="h-4 w-4" />
-              Run Payroll
+              {runPayrollLabel}
             </Button>
             <ExportButton
               moduleName="payroll"
@@ -382,7 +406,7 @@ const AdminPayroll: React.FC = () => {
       <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen} className="rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] shadow-[0_20px_50px_rgba(166,124,82,0.16)]">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>
-            <p className="text-base font-semibold text-[#F5F5F5]">Payroll Rules</p>
+            <p className="text-base font-semibold text-[#F5F5F5]">{rulesTitle}</p>
             <p className="mt-1 text-sm text-[#A1A1AA]">Collapsed by default to keep the register clean. Expand only when you need to update company rules.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -393,7 +417,7 @@ const AdminPayroll: React.FC = () => {
               disabled={configSaving}
             >
               <Save className="h-4 w-4" />
-              {configSaving ? "Saving..." : "Save Rules"}
+              {configSaving ? savingRulesLabel : saveRulesLabel}
             </Button>
             <CollapsibleTrigger asChild>
               <Button
@@ -401,7 +425,7 @@ const AdminPayroll: React.FC = () => {
                 className={`${toolbarButtonClass} border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]`}
               >
                 <Settings2 className="h-4 w-4" />
-                {settingsOpen ? "Hide Settings" : "Show Settings"}
+                {settingsOpen ? hideSettingsLabel : showSettingsLabel}
                 <ChevronDown className={`h-4 w-4 transition-transform ${settingsOpen ? "rotate-180" : ""}`} />
               </Button>
             </CollapsibleTrigger>
@@ -591,15 +615,15 @@ const AdminPayroll: React.FC = () => {
       </Collapsible>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <StatCard title="Total Payroll" value={currency.format(summary?.totalPayroll || 0)} hint={monthLabel} icon={Wallet} />
-        <StatCard title="Processed" value={summary?.processedEmployees || 0} hint="Employees completed" icon={CheckCircle2} />
-        <StatCard title="Pending" value={summary?.pendingEmployees || 0} hint="Employees waiting" icon={Clock3} />
+        <StatCard title={totalPayrollLabel} value={currency.format(summary?.totalPayroll || 0)} hint={monthLabel} icon={Wallet} />
+        <StatCard title={processedLabel} value={summary?.processedEmployees || 0} hint={processedHint} icon={CheckCircle2} />
+        <StatCard title={pendingLabel} value={summary?.pendingEmployees || 0} hint={pendingHint} icon={Clock3} />
       </section>
 
       <section className="rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] shadow-[0_20px_50px_rgba(166,124,82,0.16)]">
         <div className="flex flex-col gap-3 border-b border-[#2A2623] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <h2 className="text-lg font-semibold text-[#F5F5F5]">Payroll Register</h2>
+            <h2 className="text-lg font-semibold text-[#F5F5F5]">{payrollRegisterLabel}</h2>
             <p className="mt-1 text-sm text-[#A1A1AA]">
               Use Generate, View, and Download actions in sequence without crowding the main workspace.
             </p>
@@ -637,7 +661,7 @@ const AdminPayroll: React.FC = () => {
 
       {!!skipped.length && (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">
-          <h3 className="font-semibold">Skipped During Payroll Run</h3>
+          <h3 className="font-semibold">{skippedTitle}</h3>
           <div className="mt-2 space-y-1 text-amber-900/80">
             {skipped.map((entry) => (
               <p key={`${entry.employeeId}-${entry.reason}`}>
@@ -651,7 +675,7 @@ const AdminPayroll: React.FC = () => {
       <Dialog open={runDialogOpen} onOpenChange={setRunDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Run Payroll</DialogTitle>
+            <DialogTitle>{runDialogTitle}</DialogTitle>
             <DialogDescription>
               This will calculate payroll for the selected month, apply configured rules, and refresh the dashboard with the latest processed records.
             </DialogDescription>
@@ -665,8 +689,8 @@ const AdminPayroll: React.FC = () => {
                 Cancel
               </Button>
             </DialogClose>
-            <Button className={`${toolbarButtonClass} border border-[rgba(166,124,82,0.24)] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] text-[#1A1816] shadow-[0_14px_32px_rgba(166,124,82,0.24)] hover:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] hover:shadow-[0_18px_36px_rgba(166,124,82,0.32)]`} onClick={() => void handleRunPayroll()} disabled={loading}>
-              {loading ? "Processing..." : "Confirm And Process"}
+            <Button className={`${toolbarButtonClass} border border-[rgba(166,124,82,0.24)] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] text-[#1A1816] shadow-[0_14px_32px_rgba(166,124,82,0.24)] hover:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] hover:shadow-[0_18px_36px_rgba(166,124,82,0.32)]`} onClick={() => void handleRunPayroll()} disabled={loading || !canRunPayroll}>
+              {loading ? processingLabel : processPayrollLabel}
             </Button>
           </DialogFooter>
         </DialogContent>

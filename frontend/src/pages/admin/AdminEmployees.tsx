@@ -72,7 +72,9 @@ type EmployeeApiRow = {
   userId?: { _id: string; name?: string; email?: string; department?: string } | string;
   employeeId?: string;
   fullName?: string;
+  name?: string;
   email?: string;
+  department?: string;
   departmentName?: string;
   designation?: string;
   joiningDate?: string;
@@ -129,6 +131,28 @@ const emptySalary: SalaryStructure = {
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
+const mapEmployeeRow = (row: EmployeeApiRow): Employee => ({
+  _id: row._id,
+  userId: row.userId,
+  employeeId: row.employeeId,
+  name: isUserRef(row.userId) ? row.userId.name || row.fullName || row.name || "" : row.fullName || row.name || "",
+  email: isUserRef(row.userId) ? row.userId.email || row.email || "" : row.email || "",
+  department: isUserRef(row.userId)
+    ? row.userId.department || row.department || row.departmentName || ""
+    : row.department || row.departmentName || "",
+  designation: row.designation || "",
+  joiningDate: row.joiningDate ? new Date(row.joiningDate).toISOString().slice(0, 10) : "",
+  joined: row.joiningDate ? new Date(row.joiningDate).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "",
+  status: row.status === "active" ? "Active" : "Inactive",
+  salary: row.salary,
+  salaryStructure: row.salaryStructure,
+  compensationStatus: row.salaryStructure?.isConfigured ? "Configured" : "Pending",
+  bankDetails: {
+    ...emptyBankDetails,
+    ...(row.bankDetails || {}),
+  },
+});
+
 const AdminEmployees: React.FC = () => {
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -149,26 +173,8 @@ const AdminEmployees: React.FC = () => {
   const loadEmployees = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiService.list<EmployeeApiRow>("employees");
-      const mapped: Employee[] = data.map((row) => ({
-        _id: row._id,
-        userId: row.userId,
-        employeeId: row.employeeId,
-        name: isUserRef(row.userId) ? row.userId.name || row.fullName || "" : row.fullName || "",
-        email: isUserRef(row.userId) ? row.userId.email || row.email || "" : row.email || "",
-        department: isUserRef(row.userId) ? row.userId.department || row.departmentName || "" : row.departmentName || "",
-        designation: row.designation,
-        joiningDate: row.joiningDate ? new Date(row.joiningDate).toISOString().slice(0, 10) : "",
-        joined: row.joiningDate ? new Date(row.joiningDate).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "",
-        status: row.status === "active" ? "Active" : "Inactive",
-        salary: row.salary,
-        salaryStructure: row.salaryStructure,
-        compensationStatus: row.salaryStructure?.isConfigured ? "Configured" : "Pending",
-        bankDetails: {
-          ...emptyBankDetails,
-          ...(row.bankDetails || {}),
-        },
-      }));
+      const data = await apiService.listEmployees();
+      const mapped: Employee[] = data.map((row) => mapEmployeeRow(row));
       setEmployees(mapped);
     } catch (error) {
       toast({
@@ -260,7 +266,7 @@ const AdminEmployees: React.FC = () => {
       try {
         if (editIndex !== null && employees[editIndex]?._id) {
           const employee = employees[editIndex];
-          await apiService.update("employees", employee._id!, {
+          const updated = await apiService.updateEmployee(employee._id!, {
             designation: form.designation,
             joiningDate: form.joiningDate || new Date().toISOString(),
             bankDetails: form.bankDetails,
@@ -274,8 +280,24 @@ const AdminEmployees: React.FC = () => {
               isActive: form.status === "Active",
             });
           }
+          setEmployees((current) =>
+            current.map((item, index) =>
+              index === editIndex
+                ? {
+                    ...item,
+                    ...mapEmployeeRow(updated as EmployeeApiRow),
+                    name: form.name,
+                    email: form.email,
+                    department: form.department,
+                    designation: form.designation,
+                    status: form.status,
+                    bankDetails: form.bankDetails,
+                  }
+                : item
+            )
+          );
         } else {
-          await apiService.create("employees", {
+          const created = await apiService.createEmployee({
             name: form.name,
             email: form.email,
             password: form.password,
@@ -287,6 +309,21 @@ const AdminEmployees: React.FC = () => {
             joiningDate: form.joiningDate || new Date().toISOString(),
             bankDetails: form.bankDetails,
             accountStatus: form.status === "Active" ? "active" : "disabled",
+          });
+          const nextEmployee = {
+            ...mapEmployeeRow(created as EmployeeApiRow),
+            name: form.name,
+            email: form.email,
+            department: form.department,
+            designation: form.designation,
+            status: form.status,
+            bankDetails: form.bankDetails,
+          };
+          setDraftFilters({ search: "", department: "", status: "" });
+          setAppliedFilters({ search: "", department: "", status: "" });
+          setEmployees((current) => {
+            const filteredCurrent = current.filter((item) => item._id !== nextEmployee._id && item.email !== nextEmployee.email);
+            return [nextEmployee, ...filteredCurrent];
           });
         }
         setForm(emptyEmployee);
@@ -313,7 +350,7 @@ const AdminEmployees: React.FC = () => {
       if (deleteIndex === null) return;
       try {
         const employee = employees[deleteIndex];
-        if (employee._id) await apiService.remove("employees", employee._id);
+        if (employee._id) await apiService.deleteEmployee(employee._id);
         if (employee.userId && typeof employee.userId !== "string") await apiService.remove("users", employee.userId._id);
         setDeleteIndex(null);
         await loadEmployees();
@@ -438,9 +475,9 @@ const AdminEmployees: React.FC = () => {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[92vh] sm:max-w-3xl rounded-xl border border-border/70 p-0 shadow-xl">
-          <DialogHeader className="sticky top-0 z-10 border-b border-border bg-white px-6 py-5">
-            <DialogTitle>{editIndex !== null ? "Edit Employee" : "Add Employee"}</DialogTitle>
+        <DialogContent className="max-h-[92vh] sm:max-w-3xl rounded-[28px] border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-0 shadow-[0_28px_80px_rgba(166,124,82,0.22)]">
+          <DialogHeader className="sticky top-0 z-10 border-b border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-6 py-5">
+            <DialogTitle className="text-[#F5F5F5]">{editIndex !== null ? "Edit Employee" : "Add Employee"}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[calc(92vh-140px)] overflow-y-auto px-6 py-4">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -511,7 +548,7 @@ const AdminEmployees: React.FC = () => {
             </div>
           </div>
           </div>
-          <DialogFooter className="sticky bottom-0 gap-2 border-t border-border bg-white px-6 py-4">
+          <DialogFooter className="sticky bottom-0 gap-2 border-t border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-6 py-4">
             <DialogClose asChild><Button variant="outline" disabled={savingEmployee}>Cancel</Button></DialogClose>
             <Button
               onClick={handleSave}
@@ -526,16 +563,16 @@ const AdminEmployees: React.FC = () => {
       </Dialog>
 
       <Dialog open={salaryDialogOpen} onOpenChange={setSalaryDialogOpen}>
-        <DialogContent className="max-h-[92vh] sm:max-w-3xl p-0">
-          <DialogHeader className="sticky top-0 z-10 border-b border-border bg-white px-6 py-5">
-            <DialogTitle>Payroll Configuration</DialogTitle>
+        <DialogContent className="max-h-[92vh] sm:max-w-3xl rounded-[28px] border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-0 shadow-[0_28px_80px_rgba(166,124,82,0.22)]">
+          <DialogHeader className="sticky top-0 z-10 border-b border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-6 py-5">
+            <DialogTitle className="text-[#F5F5F5]">Payroll Configuration</DialogTitle>
           </DialogHeader>
           <div className="max-h-[calc(92vh-140px)] overflow-y-auto px-6 py-4">
           <div className="space-y-4 py-2">
-            <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm">
-              <div className="font-medium text-card-foreground">{salaryIndex !== null ? employees[salaryIndex]?.name : "Employee"}</div>
-              <div className="text-muted-foreground">{salaryIndex !== null ? employees[salaryIndex]?.employeeId : ""}</div>
-              <div className="mt-2 text-card-foreground">Gross Salary Preview: <span className="font-semibold">{currency.format(grossPreview)}</span></div>
+            <div className="rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.72)] p-4 text-sm">
+              <div className="font-medium text-[#F5F5F5]">{salaryIndex !== null ? employees[salaryIndex]?.name : "Employee"}</div>
+              <div className="text-[#A1A1AA]">{salaryIndex !== null ? employees[salaryIndex]?.employeeId : ""}</div>
+              <div className="mt-2 text-[#F5F5F5]">Gross Salary Preview: <span className="font-semibold text-[#E6C7A3]">{currency.format(grossPreview)}</span></div>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -610,18 +647,18 @@ const AdminEmployees: React.FC = () => {
                 <Label>Overtime Rate Per Hour</Label>
                 <Input type="number" min="0" value={salaryForm.overtimeRatePerHour} onChange={(event) => setSalaryForm({ ...salaryForm, overtimeRatePerHour: Number(event.target.value) })} />
               </div>
-              <div className="rounded-xl border border-border bg-muted/20 p-4 sm:col-span-2">
+              <div className="rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.72)] p-4 sm:col-span-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">PF Deduction</p>
-                    <p className="text-xs text-muted-foreground">Apply PF during payroll calculation</p>
+                    <p className="text-sm font-medium text-[#F5F5F5]">PF Deduction</p>
+                    <p className="text-xs text-[#A1A1AA]">Apply PF during payroll calculation</p>
                   </div>
                   <input type="checkbox" checked={salaryForm.pfEnabled} onChange={(event) => setSalaryForm({ ...salaryForm, pfEnabled: event.target.checked })} />
                 </div>
                 <div className="mt-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">ESI Deduction</p>
-                    <p className="text-xs text-muted-foreground">Apply ESI when payroll rules allow it</p>
+                    <p className="text-sm font-medium text-[#F5F5F5]">ESI Deduction</p>
+                    <p className="text-xs text-[#A1A1AA]">Apply ESI when payroll rules allow it</p>
                   </div>
                   <input type="checkbox" checked={salaryForm.esiEnabled} onChange={(event) => setSalaryForm({ ...salaryForm, esiEnabled: event.target.checked })} />
                 </div>
@@ -629,7 +666,7 @@ const AdminEmployees: React.FC = () => {
             </div>
           </div>
           </div>
-          <DialogFooter className="sticky bottom-0 border-t border-border bg-white px-6 py-4">
+          <DialogFooter className="sticky bottom-0 border-t border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-6 py-4">
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
             <Button onClick={() => void handleSalarySave()} disabled={salarySaving} className="gradient-primary text-primary-foreground">
               {salarySaving ? "Saving..." : "Save Compensation"}

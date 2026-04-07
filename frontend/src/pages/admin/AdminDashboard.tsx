@@ -14,6 +14,7 @@ import TaskProgressList from "@/components/dashboard/TaskProgressList";
 import { StatusBadge } from "@/components/DataTable";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
+import { useLabel } from "@/context/SystemSettingsContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiService, type EmployeeRecord } from "@/services/api";
 
@@ -25,6 +26,52 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const dashboardSubtitle = useLabel("admin.dashboard.subtitle");
+  const userManagementLabel = useLabel("admin.dashboard.action.users");
+  const heroEyebrow = useLabel("admin.dashboard.hero.eyebrow");
+  const heroTitle = useLabel("admin.dashboard.hero.title");
+  const heroDescription = useLabel("admin.dashboard.hero.description");
+  const profileRoleLabel = useLabel("admin.dashboard.profile.role");
+  const profileSubtitle = useLabel("admin.dashboard.profile.subtitle");
+  const candidatesTitle = useLabel("admin.dashboard.stats.candidates");
+  const employeesTitle = useLabel("admin.dashboard.stats.employees");
+  const reviewsTitle = useLabel("admin.dashboard.stats.reviews");
+  const queueTitle = useLabel("admin.dashboard.stats.queue");
+  const errorTitle = useLabel("common.error", "Error");
+  const workforceTitle = useLabel("admin.dashboard.widget.workforce");
+  const workforceSubtitle = useLabel("admin.dashboard.widget.workforce.subtitle");
+  const priorityTitle = useLabel("admin.dashboard.widget.priority");
+  const prioritySubtitle = useLabel("admin.dashboard.widget.priority.subtitle");
+  const rosterTitle = useLabel("admin.dashboard.table.title");
+  const rosterSubtitle = useLabel("admin.dashboard.table.subtitle");
+  const calendarTitle = useLabel("admin.dashboard.calendar.title");
+  const calendarSubtitle = useLabel("admin.dashboard.calendar.subtitle");
+  const employeeHeaderLabel = useLabel("admin.dashboard.table.employee");
+  const departmentHeaderLabel = useLabel("admin.dashboard.table.department");
+  const compensationHeaderLabel = useLabel("admin.dashboard.table.compensation");
+  const statusHeaderLabel = useLabel("admin.dashboard.table.status");
+  const unassignedLabel = useLabel("admin.dashboard.table.unassigned");
+  const employeeIdLabel = useLabel("admin.dashboard.table.employeeId");
+  const welcomeLabel = useLabel("admin.dashboard.welcome");
+  const highlightWorkforceLabel = useLabel("admin.dashboard.highlight.workforce.label");
+  const highlightHiringLabel = useLabel("admin.dashboard.highlight.hiring.label");
+  const highlightPayrollLabel = useLabel("admin.dashboard.highlight.payroll.label");
+  const defaultAdminName = useLabel("admin.dashboard.profile.defaultName");
+  const departmentsMetaLabel = useLabel("admin.dashboard.profile.meta.departments");
+  const leavesMetaLabel = useLabel("admin.dashboard.profile.meta.leaves");
+  const queueMetaLabel = useLabel("admin.dashboard.profile.meta.queue");
+  const reviewsChangeLabel = useLabel("admin.dashboard.stats.reviews.change");
+  const queueChangeLabel = useLabel("admin.dashboard.stats.queue.change");
+  const candidatesChangeLabel = useLabel("admin.dashboard.stats.candidates.change");
+  const employeesChangeSuffix = useLabel("admin.dashboard.stats.employees.change.suffix");
+  const workforceEmployeesLabel = useLabel("admin.dashboard.widget.workforce.metric.employees");
+  const workforceDepartmentsLabel = useLabel("admin.dashboard.widget.workforce.metric.departments");
+  const workforceApprovalsLabel = useLabel("admin.dashboard.widget.workforce.metric.approvals");
+  const priorityLeaveLabel = useLabel("admin.dashboard.widget.priority.leave");
+  const priorityReviewsLabel = useLabel("admin.dashboard.widget.priority.reviews");
+  const priorityHiringLabel = useLabel("admin.dashboard.widget.priority.hiring");
+  const emptyEmployeesTitle = useLabel("admin.dashboard.empty.title");
+  const emptyEmployeesDescription = useLabel("admin.dashboard.empty.description");
   const [loading, setLoading] = React.useState(false);
   const [summary, setSummary] = React.useState<AdminDashboardSummary>({
     activeEmployeesCount: 0,
@@ -54,8 +101,8 @@ const AdminDashboard: React.FC = () => {
         });
       } catch (error) {
         toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to load dashboard data",
+          title: errorTitle,
+          description: error instanceof Error ? error.message : `${errorTitle}: dashboard data unavailable`,
           variant: "destructive",
         });
       } finally {
@@ -85,7 +132,7 @@ const AdminDashboard: React.FC = () => {
     () => [
       {
         key: "employee",
-        header: "Employee",
+        header: employeeHeaderLabel,
         render: (employee) => (
           <div>
             <p className="portal-heading font-semibold">{employee.fullName}</p>
@@ -95,27 +142,27 @@ const AdminDashboard: React.FC = () => {
       },
       {
         key: "department",
-        header: "Department",
+        header: departmentHeaderLabel,
         render: (employee) => (
           <div>
-            <p className="portal-heading text-sm font-medium">{employee.department || "Unassigned"}</p>
+            <p className="portal-heading text-sm font-medium">{employee.department || unassignedLabel}</p>
             <p className="portal-muted mt-1 text-xs">{employee.designation}</p>
           </div>
         ),
       },
       {
         key: "salary",
-        header: "Compensation",
+        header: compensationHeaderLabel,
         render: (employee) => (
           <div>
             <p className="portal-heading text-sm font-semibold">{currency.format(Number(employee.salary || 0))}</p>
-            <p className="portal-muted mt-1 text-xs">Employee ID {employee.employeeId}</p>
+            <p className="portal-muted mt-1 text-xs">{employeeIdLabel} {employee.employeeId}</p>
           </div>
         ),
       },
       {
         key: "status",
-        header: "Status",
+        header: statusHeaderLabel,
         className: "text-right",
         render: (employee) => <div className="flex justify-end"><StatusBadge status={employee.status || "inactive"} /></div>,
       },
@@ -132,11 +179,11 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Welcome, ${user?.name?.split(" ")[0] || "Admin"}`}
-        subtitle="Here is your premium admin workspace for hiring, workforce health, payroll visibility, and people operations across the organization."
+        title={`${welcomeLabel}, ${user?.name?.split(" ")[0] || defaultAdminName}`}
+        subtitle={dashboardSubtitle}
         action={(
           <Button onClick={() => navigate("/admin/users")} className="gap-2 rounded-[18px]">
-            User Management
+            {userManagementLabel}
             <ArrowRight className="h-4 w-4" />
           </Button>
         )}
@@ -144,24 +191,24 @@ const AdminDashboard: React.FC = () => {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px]">
         <PortalHeroPanel
-          eyebrow="Executive Command"
-          title="See the full HR system in one calm, high-signal workspace."
-          description="From hiring flow to active workforce coverage, the dashboard keeps the admin portal readable, responsive, and ready for daily decisions without drowning the team in noise."
+          eyebrow={heroEyebrow}
+          title={heroTitle}
+          description={heroDescription}
           highlights={[
             {
-              label: "Active workforce",
+              label: highlightWorkforceLabel,
               value: String(summary.activeEmployeesCount),
               note: `${summary.totalEmployees} total employee records currently managed.`,
               icon: Users,
             },
             {
-              label: "Hiring in motion",
+              label: highlightHiringLabel,
               value: String(summary.applicationsUnderReview),
               note: `${summary.pendingHrReviews} profiles still waiting on HR review.`,
               icon: BriefcaseBusiness,
             },
             {
-              label: "Payroll volume",
+              label: highlightPayrollLabel,
               value: currency.format(Math.round(summary.totalPayrollValue)),
               note: `${summary.pendingLeavesCount} leave approvals still need attention.`,
               icon: Wallet,
@@ -170,23 +217,23 @@ const AdminDashboard: React.FC = () => {
         />
 
         <PortalProfileCard
-          name={user?.name || "Admin"}
-          roleLabel="System Administrator"
-          subtitle="You are looking at the highest-level people operations view, where workforce readiness, candidate momentum, and policy approvals all meet in one product-grade interface."
+          name={user?.name || defaultAdminName}
+          roleLabel={profileRoleLabel}
+          subtitle={profileSubtitle}
           imageUrl={user?.profileImage || user?.profilePhotoUrl || ""}
           meta={[
-            { label: "Departments", value: `${summary.departmentsCovered} active teams`, icon: Building2 },
-            { label: "Pending leaves", value: `${summary.pendingLeavesCount} approvals`, icon: CalendarDays },
-            { label: "Review queue", value: `${summary.pendingHrReviews} candidate profiles`, icon: ClipboardCheck },
+            { label: departmentsMetaLabel, value: `${summary.departmentsCovered} active teams`, icon: Building2 },
+            { label: leavesMetaLabel, value: `${summary.pendingLeavesCount} approvals`, icon: CalendarDays },
+            { label: queueMetaLabel, value: `${summary.pendingHrReviews} candidate profiles`, icon: ClipboardCheck },
           ]}
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          title="Total Candidates"
+          title={candidatesTitle}
           value={summary.totalCandidates}
-          change="Pipeline population"
+          change={candidatesChangeLabel}
           changeType="positive"
           icon={UserCheck}
           color="info"
@@ -194,9 +241,9 @@ const AdminDashboard: React.FC = () => {
           onClick={() => navigate("/admin/candidates")}
         />
         <StatCard
-          title="Active Employees"
+          title={employeesTitle}
           value={summary.activeEmployeesCount}
-          change={`${summary.totalEmployees} total people records`}
+          change={`${summary.totalEmployees} ${employeesChangeSuffix}`}
           changeType="positive"
           icon={Users}
           color="primary"
@@ -204,9 +251,9 @@ const AdminDashboard: React.FC = () => {
           onClick={() => navigate("/admin/employees")}
         />
         <StatCard
-          title="Pending HR Reviews"
+          title={reviewsTitle}
           value={summary.pendingHrReviews}
-          change="Needs evaluation action"
+          change={reviewsChangeLabel}
           changeType="neutral"
           icon={ClipboardCheck}
           color="warning"
@@ -214,9 +261,9 @@ const AdminDashboard: React.FC = () => {
           onClick={() => navigate("/admin/candidates")}
         />
         <StatCard
-          title="People Ops Queue"
+          title={queueTitle}
           value={summary.pendingLeavesCount}
-          change="Leave approvals in motion"
+          change={queueChangeLabel}
           changeType="neutral"
           icon={ShieldCheck}
           color="success"
@@ -227,34 +274,34 @@ const AdminDashboard: React.FC = () => {
 
       <div className="grid gap-6 xl:grid-cols-2">
         <CircularStatsWidget
-          label="Workforce Health"
+          label={workforceTitle}
           value={workforceHealth}
-          subtitle="A lightweight readiness score built from active employee coverage, department spread, and unresolved approval load."
+          subtitle={workforceSubtitle}
           breakdown={[
-            { label: "Active employees", value: `${summary.activeEmployeesCount}/${summary.totalEmployees || 0}` },
-            { label: "Departments covered", value: `${summary.departmentsCovered}` },
-            { label: "Pending approvals", value: `${summary.pendingLeavesCount}` },
+            { label: workforceEmployeesLabel, value: `${summary.activeEmployeesCount}/${summary.totalEmployees || 0}` },
+            { label: workforceDepartmentsLabel, value: `${summary.departmentsCovered}` },
+            { label: workforceApprovalsLabel, value: `${summary.pendingLeavesCount}` },
           ]}
         />
 
         <TaskProgressList
-          title="Admin Priority Stack"
-          subtitle="The most important actions for this portal, expressed as clear progress blocks instead of noisy analytics."
+          title={priorityTitle}
+          subtitle={prioritySubtitle}
           tasks={[
             {
-              title: "Leave approvals",
+              title: priorityLeaveLabel,
               description: `${summary.pendingLeavesCount} requests are waiting for admin action.`,
               progress: Math.min(100, summary.pendingLeavesCount === 0 ? 100 : 100 - summary.pendingLeavesCount * 12),
               icon: CalendarDays,
             },
             {
-              title: "HR evaluations",
+              title: priorityReviewsLabel,
               description: `${summary.pendingHrReviews} candidates still need a final review cycle.`,
               progress: Math.min(100, summary.pendingHrReviews === 0 ? 100 : 100 - summary.pendingHrReviews * 14),
               icon: ClipboardCheck,
             },
             {
-              title: "Hiring throughput",
+              title: priorityHiringLabel,
               description: `${summary.applicationsUnderReview} applicants are moving through the active recruitment stream.`,
               progress: Math.min(100, summary.applicationsUnderReview * 18),
               icon: BriefcaseBusiness,
@@ -264,21 +311,21 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       <PortalDataTable
-        title="Employee Roster"
-        subtitle="A dynamic employee table ready for pagination, quick scanning, and navigation into the full employee management module."
+        title={rosterTitle}
+        subtitle={rosterSubtitle}
         columns={employeeColumns}
         rows={employeeRows}
         loading={loading}
         pageSize={6}
-        emptyTitle="No employees available"
-        emptyDescription="Employee records will appear here as soon as the admin workspace has active people data."
+        emptyTitle={emptyEmployeesTitle}
+        emptyDescription={emptyEmployeesDescription}
         getRowKey={(employee) => employee._id}
         onRowClick={() => navigate("/admin/employees")}
       />
 
       <PortalCalendarCard
-        title="Executive Calendar"
-        subtitle="Shared events, approvals, and workforce milestones are organized into a clean monthly calendar so the admin view stays actionable."
+        title={calendarTitle}
+        subtitle={calendarSubtitle}
         events={calendarEvents}
       />
     </div>

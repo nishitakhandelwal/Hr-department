@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Eye, FileImage, FileText, RefreshCw, ShieldAlert, XCircle } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
+import { useSystemSettings } from "@/context/SystemSettingsContext";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,30 +38,56 @@ const actionLabelMap: Record<ReviewAction, string> = {
 const actionButtonClass =
   "h-9 rounded-xl px-3.5 text-sm font-medium shadow-none transition-all duration-200";
 
-const statusClassMap: Record<string, string> = {
-  Requested: "border border-slate-200 bg-slate-100 text-slate-700",
-  Submitted: "border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#2A211B)] text-[#E6C7A3]",
-  "Correction Requested": "border border-amber-200 bg-amber-50 text-amber-700",
-  Approved: "border border-emerald-200 bg-emerald-50 text-emerald-700",
-  Rejected: "border border-rose-200 bg-rose-50 text-rose-700",
+const getStatusClassName = (status: string, isDarkMode: boolean) => {
+  if (isDarkMode) {
+    return {
+      Requested: "border border-[#2A2623] bg-[rgba(35,32,29,0.72)] text-[#A1A1AA]",
+      Submitted: "border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#2A211B)] text-[#E6C7A3]",
+      "Correction Requested": "border border-[rgba(166,124,82,0.22)] bg-[rgba(166,124,82,0.16)] text-[#E6C7A3]",
+      Approved: "border border-[rgba(230,199,163,0.18)] bg-[rgba(230,199,163,0.12)] text-[#E6C7A3]",
+      Rejected: "border border-red-400/25 bg-red-500/10 text-red-300",
+    }[status] || "border border-[#2A2623] bg-[rgba(35,32,29,0.72)] text-[#A1A1AA]";
+  }
+
+  return {
+    Requested: "border border-[#D6D3D1] bg-[#F5F5F4] text-[#18181B]",
+    Submitted: "border border-[#E7D7C4] bg-[#F8F5F1] text-[#18181B]",
+    "Correction Requested": "border border-[#E7D7C4] bg-[#F6E7D3] text-[#18181B]",
+    Approved: "border border-[#E7D7C4] bg-[#EFE3D3] text-[#18181B]",
+    Rejected: "border border-[#F3C3C3] bg-[#FCE8E8] text-[#18181B]",
+  }[status] || "border border-[#D6D3D1] bg-[#F5F5F4] text-[#18181B]";
 };
 
-const getFileExtension = (url = "") => {
+const getFileExtension = (value = "") => {
   try {
-    const pathname = new URL(url).pathname;
+    const pathname = new URL(value).pathname;
     return pathname.split(".").pop()?.toLowerCase() || "";
   } catch {
-    return url.split("?")[0].split(".").pop()?.toLowerCase() || "";
+    return value.split("?")[0].split(".").pop()?.toLowerCase() || "";
   }
 };
 
-const isImageUrl = (url: string) => ["jpg", "jpeg", "png", "gif", "webp"].includes(getFileExtension(url));
-const isPdfUrl = (url: string) => getFileExtension(url) === "pdf";
+const detectPreviewType = (document?: { url?: string; originalName?: string; mimeType?: string }) => {
+  const mimeType = String(document?.mimeType || "").toLowerCase();
+  const originalNameExtension = getFileExtension(document?.originalName || "");
+  const urlExtension = getFileExtension(document?.url || "");
+  const extension = originalNameExtension || urlExtension;
+
+  if (mimeType.startsWith("image/") || ["jpg", "jpeg", "png", "gif", "webp"].includes(extension)) {
+    return "image" as const;
+  }
+  if (mimeType === "application/pdf" || extension === "pdf") {
+    return "pdf" as const;
+  }
+  return "file" as const;
+};
 
 const AdminJoiningForms: React.FC = () => {
   const { toast } = useToast();
+  const { theme } = useSystemSettings();
+  const isDarkMode = theme === "dark";
   const [rows, setRows] = useState<JoiningFormRecord[]>([]);
-  const [statusFilter, setStatusFilter] = useState("Submitted");
+  const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [remarks, setRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -108,18 +135,29 @@ const AdminJoiningForms: React.FC = () => {
   const submitDecision = async () => {
     if (!reviewModal.formId || !remarks.trim()) return;
 
+    const nextAction = reviewModal.action;
+    const nextFormId = reviewModal.formId;
+    const nextRemarks = remarks.trim();
+
+    setReviewModal({ open: false, formId: "", action: "approve" });
+    setRemarks("");
     setSubmitting(true);
     try {
-      await apiService.reviewJoiningForm(reviewModal.formId, {
-        action: reviewModal.action,
-        remarks: remarks.trim(),
+      const response = await apiService.reviewJoiningForm(nextFormId, {
+        action: nextAction,
+        remarks: nextRemarks,
       });
       toast({
         title: "Updated",
-        description: `${actionLabelMap[reviewModal.action]} decision submitted successfully.`,
+        description: `${actionLabelMap[nextAction]} decision submitted successfully.`,
       });
-      closeReviewModal();
       await load();
+      if (nextAction === "approve" && response?.employee) {
+        toast({
+          title: "Employee Created",
+          description: "Joining form approved and the profile has been converted into an employee.",
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -137,15 +175,19 @@ const AdminJoiningForms: React.FC = () => {
     <div className="space-y-6">
       <PageHeader title="Joining Forms" subtitle="Review submitted joining forms with cleaner actions and decision remarks." />
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <section className={isDarkMode
+        ? "rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-5 shadow-[0_20px_50px_rgba(166,124,82,0.16)] sm:p-6"
+        : "rounded-3xl border border-[#E7E5E4] bg-white p-5 shadow-[0_20px_50px_rgba(15,14,13,0.08)] sm:p-6"}>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-base font-semibold text-slate-900">Review Queue</p>
-            <p className="mt-1 text-sm text-slate-500">Filter submissions by status and review each form with documented remarks.</p>
+            <p className={`text-base font-semibold ${isDarkMode ? "text-[#F5F5F5]" : "text-[#18181B]"}`}>Review Queue</p>
+            <p className={`mt-1 text-sm ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>Filter submissions by status and review each form with documented remarks. All records are shown by default so employee activation uploads do not stay hidden.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <select
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-700 shadow-none outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+              className={isDarkMode
+                ? "h-10 rounded-xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-3.5 text-sm text-[#F5F5F5] shadow-none outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+                : "h-10 rounded-xl border border-[#D6D3D1] bg-white px-3.5 text-sm text-[#18181B] shadow-none outline-none transition focus:border-[#A67C52] focus:ring-2 focus:ring-[rgba(166,124,82,0.15)]"}
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -156,7 +198,14 @@ const AdminJoiningForms: React.FC = () => {
               <option value="Approved">Approved</option>
               <option value="Rejected">Rejected</option>
             </select>
-            <Button variant="outline" className="h-10 rounded-xl border-slate-200 bg-white px-4 text-slate-700 hover:bg-slate-50" onClick={() => void load()} disabled={loading}>
+            <Button
+              variant="outline"
+              className={isDarkMode
+                ? "h-10 rounded-xl border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-4 text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]"
+                : "h-10 rounded-xl border-[#D6D3D1] bg-white px-4 text-[#18181B] hover:border-[#A67C52] hover:bg-[#F8F5F1] hover:text-[#18181B]"}
+              onClick={() => void load()}
+              disabled={loading}
+            >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
@@ -164,22 +213,24 @@ const AdminJoiningForms: React.FC = () => {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <section className={isDarkMode
+        ? "overflow-hidden rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] shadow-[0_20px_50px_rgba(166,124,82,0.16)]"
+        : "overflow-hidden rounded-3xl border border-[#E7E5E4] bg-white shadow-[0_20px_50px_rgba(15,14,13,0.08)]"}>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr className="border-b border-slate-200">
-                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Candidate</th>
-                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Status</th>
-                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Submitted At</th>
-                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Actions</th>
+            <thead className={isDarkMode ? "bg-[rgba(230,199,163,0.08)]" : "bg-[#F8F5F1]"}>
+              <tr className={isDarkMode ? "border-b border-[#2A2623]" : "border-b border-[#E7E5E4]"}>
+                <th className={`px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>Profile</th>
+                <th className={`px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>Status</th>
+                <th className={`px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>Submitted At</th>
+                <th className={`px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em] ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={4}>
-                    No joining forms found for the selected status.
+                  <td className={`px-5 py-10 text-center text-sm ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`} colSpan={4}>
+                    No joining forms found for the selected filter.
                   </td>
                 </tr>
               ) : (
@@ -187,26 +238,26 @@ const AdminJoiningForms: React.FC = () => {
                   const candidate = typeof row.candidateId === "object" ? row.candidateId : null;
                   const linkedUser = "userId" in row && typeof row.userId === "object" ? row.userId : null;
                   const docs = [
-                    { label: "Resume", url: row.documents?.resume?.url || "" },
-                    { label: "Photograph", url: row.documents?.photograph?.url || "" },
-                    { label: "Certificates", url: row.documents?.certificates?.url || "" },
-                    { label: "ID Proof", url: row.documents?.idProof?.url || "" },
+                    { label: "Resume", ...row.documents?.resume },
+                    { label: "Photograph", ...row.documents?.photograph },
+                    { label: "Certificates", ...row.documents?.certificates },
+                    { label: "ID Proof", ...row.documents?.idProof },
                   ].filter((item) => item.url);
                   const primaryName = candidate?.fullName || linkedUser?.name || "Joining Form Record";
                   const secondaryText = candidate?.email || linkedUser?.email || "Submitted profile";
 
                   return (
-                    <tr key={row._id} className="border-b border-slate-200 last:border-b-0 hover:bg-slate-50/60">
+                    <tr key={row._id} className={isDarkMode ? "border-b border-[#2A2623] last:border-b-0 hover:bg-[rgba(230,199,163,0.08)]" : "border-b border-[#F4F4F5] last:border-b-0 hover:bg-[#FAF7F2]"}>
                       <td className="px-5 py-4">
-                        <div className="font-medium text-slate-900">{primaryName}</div>
-                        <div className="mt-1 text-xs text-slate-500">{secondaryText}</div>
+                        <div className={`font-medium ${isDarkMode ? "text-[#F5F5F5]" : "text-[#18181B]"}`}>{primaryName}</div>
+                        <div className={`mt-1 text-xs ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>{secondaryText}</div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusClassMap[row.status] || "border border-slate-200 bg-slate-100 text-slate-700"}`}>
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${getStatusClassName(row.status, isDarkMode)}`}>
                           {row.status}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-slate-600">
+                      <td className={`px-5 py-4 ${isDarkMode ? "text-[#D4D4D8]" : "text-[#27272A]"}`}>
                         {row.submittedAt ? new Date(row.submittedAt).toLocaleString() : "-"}
                       </td>
                       <td className="px-5 py-4">
@@ -214,39 +265,43 @@ const AdminJoiningForms: React.FC = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            className={`${actionButtonClass} border-slate-200 bg-slate-100 text-slate-700 hover:border-slate-300 hover:bg-slate-200 hover:text-slate-900`}
+                            className={`${actionButtonClass} ${isDarkMode ? "border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]" : "border-[#D6D3D1] bg-white text-[#18181B] hover:border-[#A67C52] hover:bg-[#F8F5F1] hover:text-[#18181B]"}`}
                             disabled={!docs.length}
                             onClick={() => setDocumentPreview({ open: true, form: row })}
                           >
                             <Eye className="h-4 w-4" />
                             Docs
                           </Button>
-                          <Button
-                            size="sm"
-                            className={`${actionButtonClass} bg-[#4f46e5] text-white hover:bg-[#4338ca]`}
-                            onClick={() => openReviewModal(row._id, "approve")}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className={`${actionButtonClass} border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-300 hover:bg-amber-100 hover:text-amber-900`}
-                            onClick={() => openReviewModal(row._id, "request_correction")}
-                          >
-                            <ShieldAlert className="h-4 w-4" />
-                            Correction
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className={`${actionButtonClass} border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 hover:text-rose-800`}
-                            onClick={() => openReviewModal(row._id, "reject")}
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Reject
-                          </Button>
+                          {row.status !== "Approved" && row.status !== "Rejected" ? (
+                            <>
+                              <Button
+                                size="sm"
+                                className={`${actionButtonClass} border border-[rgba(166,124,82,0.24)] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] text-[#1A1816] hover:shadow-[0_16px_34px_rgba(166,124,82,0.28)]`}
+                                onClick={() => openReviewModal(row._id, "approve")}
+                              >
+                                <CheckCircle2 className="h-4 w-4" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={`${actionButtonClass} ${isDarkMode ? "border border-[rgba(166,124,82,0.22)] bg-[rgba(166,124,82,0.16)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#F5F5F5]" : "border border-[#E7D7C4] bg-[#F6E7D3] text-[#18181B] hover:border-[#D6B58C] hover:bg-[#F3DFC6] hover:text-[#18181B]"}`}
+                                onClick={() => openReviewModal(row._id, "request_correction")}
+                              >
+                                <ShieldAlert className="h-4 w-4" />
+                                Correction
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={`${actionButtonClass} ${isDarkMode ? "border-red-400/25 bg-red-500/10 text-red-300 hover:border-red-400/35 hover:bg-red-500/14 hover:text-red-200" : "border border-[#F3C3C3] bg-[#FCE8E8] text-[#18181B] hover:border-[#E7A8A8] hover:bg-[#F9D9D9] hover:text-[#18181B]"}`}
+                                onClick={() => openReviewModal(row._id, "reject")}
+                              >
+                                <XCircle className="h-4 w-4" />
+                                Reject
+                              </Button>
+                            </>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -259,17 +314,17 @@ const AdminJoiningForms: React.FC = () => {
       </section>
 
       <Dialog open={reviewModal.open} onOpenChange={(open) => (open ? undefined : closeReviewModal())}>
-        <DialogContent className="max-w-md border-slate-200 bg-white p-0 shadow-[0_28px_80px_rgba(166,124,82,0.18)]">
-          <div className="rounded-[26px] bg-white p-6">
+        <DialogContent className={isDarkMode ? "max-w-md border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-0 shadow-[0_28px_80px_rgba(166,124,82,0.22)]" : "max-w-md border-[#E7E5E4] bg-white p-0 shadow-[0_28px_80px_rgba(15,14,13,0.14)]"}>
+          <div className={isDarkMode ? "rounded-[26px] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-6" : "rounded-[26px] bg-white p-6"}>
             <DialogHeader className="space-y-2 text-left">
-              <DialogTitle className="text-xl font-semibold text-slate-950">Add Remarks</DialogTitle>
-              <DialogDescription className="text-sm leading-6 text-slate-500">
-                Add remarks for the <span className="font-semibold text-slate-700">{modalActionLabel}</span> action before submitting this review.
+              <DialogTitle className={`text-xl font-semibold ${isDarkMode ? "text-[#F5F5F5]" : "text-[#18181B]"}`}>Add Remarks</DialogTitle>
+              <DialogDescription className={`text-sm leading-6 ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>
+                Add remarks for the <span className={`font-semibold ${isDarkMode ? "text-[#E6C7A3]" : "text-[#A67C52]"}`}>{modalActionLabel}</span> action before submitting this review.
               </DialogDescription>
             </DialogHeader>
 
             <div className="mt-5 space-y-2">
-              <label htmlFor="joining-form-remarks" className="text-sm font-medium text-slate-700">
+              <label htmlFor="joining-form-remarks" className={`text-sm font-medium ${isDarkMode ? "text-[#F5F5F5]" : "text-[#18181B]"}`}>
                 Remarks
               </label>
               <Textarea
@@ -277,7 +332,7 @@ const AdminJoiningForms: React.FC = () => {
                 value={remarks}
                 onChange={(event) => setRemarks(event.target.value)}
                 placeholder="Write clear review remarks for HR records..."
-                className="min-h-[132px] border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus-visible:ring-primary/20"
+                className={isDarkMode ? "min-h-[132px] border-[#2A2623] bg-[rgba(35,32,29,0.72)] text-[#F5F5F5] placeholder:text-[#71717A] focus-visible:ring-primary/20" : "min-h-[132px] border-[#D6D3D1] bg-white text-[#18181B] placeholder:text-[#71717A] focus-visible:ring-[rgba(166,124,82,0.2)]"}
               />
             </div>
 
@@ -285,7 +340,7 @@ const AdminJoiningForms: React.FC = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 rounded-xl border-slate-200 bg-white px-5 text-slate-700 hover:bg-slate-50"
+                className={isDarkMode ? "h-10 rounded-xl border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-5 text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)]" : "h-10 rounded-xl border-[#D6D3D1] bg-white px-5 text-[#18181B] hover:border-[#A67C52] hover:bg-[#F8F5F1]"}
                 onClick={closeReviewModal}
                 disabled={submitting}
               >
@@ -293,7 +348,7 @@ const AdminJoiningForms: React.FC = () => {
               </Button>
               <Button
                 type="button"
-                className="h-10 rounded-xl bg-[#4f46e5] px-5 text-white hover:bg-[#4338ca]"
+                className="h-10 rounded-xl border border-[rgba(166,124,82,0.24)] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] px-5 text-[#1A1816] hover:shadow-[0_16px_34px_rgba(166,124,82,0.28)]"
                 onClick={() => void submitDecision()}
                 disabled={submitting || !remarks.trim()}
               >
@@ -308,7 +363,7 @@ const AdminJoiningForms: React.FC = () => {
         open={documentPreview.open}
         onOpenChange={(open) => setDocumentPreview((current) => ({ ...current, open }))}
       >
-        <DialogContent className="max-w-4xl border-slate-200 bg-white">
+        <DialogContent className={isDarkMode ? "max-w-4xl border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)]" : "max-w-4xl border-[#E7E5E4] bg-white"}>
           <DialogHeader>
             <DialogTitle>Joining Form Documents</DialogTitle>
             <DialogDescription>
@@ -318,38 +373,46 @@ const AdminJoiningForms: React.FC = () => {
 
           <div className="grid gap-4 md:grid-cols-2">
             {[
-              { label: "Resume", url: documentPreview.form?.documents?.resume?.url || "" },
-              { label: "Photograph", url: documentPreview.form?.documents?.photograph?.url || "" },
-              { label: "Certificates", url: documentPreview.form?.documents?.certificates?.url || "" },
-              { label: "ID Proof", url: documentPreview.form?.documents?.idProof?.url || "" },
+              { label: "Resume", ...documentPreview.form?.documents?.resume },
+              { label: "Photograph", ...documentPreview.form?.documents?.photograph },
+              { label: "Certificates", ...documentPreview.form?.documents?.certificates },
+              { label: "ID Proof", ...documentPreview.form?.documents?.idProof },
             ]
               .filter((item) => item.url)
               .map((item) => (
-                <div key={item.label} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                      {isImageUrl(item.url) ? <FileImage className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+                <div key={item.label} className={isDarkMode ? "overflow-hidden rounded-2xl border border-[#2A2623] bg-[rgba(35,32,29,0.72)] shadow-[0_16px_36px_rgba(166,124,82,0.16)]" : "overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white shadow-[0_12px_28px_rgba(15,14,13,0.08)]"}>
+                  <div className={`flex items-center gap-3 px-4 py-3 ${isDarkMode ? "border-b border-[#2A2623]" : "border-b border-[#F4F4F5]"}`}>
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${isDarkMode ? "bg-[rgba(230,199,163,0.12)] text-[#E6C7A3]" : "bg-[#F8F5F1] text-[#A67C52]"}`}>
+                      {detectPreviewType(item) === "image" ? <FileImage className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-                      <p className="text-xs text-slate-500">{getFileExtension(item.url).toUpperCase() || "FILE"}</p>
+                      <p className={`text-sm font-semibold ${isDarkMode ? "text-[#F5F5F5]" : "text-[#18181B]"}`}>{item.label}</p>
+                      <p className={`text-xs ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>{(getFileExtension(item.originalName || "") || getFileExtension(item.url || "") || "file").toUpperCase()}</p>
                     </div>
                   </div>
 
                   <div className="p-4">
-                    {isImageUrl(item.url) ? (
-                      <a href={item.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                    {detectPreviewType(item) === "image" ? (
+                      <a href={item.url} target="_blank" rel="noreferrer" className={`block overflow-hidden rounded-xl ${isDarkMode ? "border border-[#2A2623] bg-[rgba(35,32,29,0.72)]" : "border border-[#E7E5E4] bg-[#FAFAF9]"}`}>
                         <img src={item.url} alt={item.label} className="h-52 w-full object-cover" />
                       </a>
+                    ) : detectPreviewType(item) === "pdf" ? (
+                      <div className={`overflow-hidden rounded-xl ${isDarkMode ? "border border-[#2A2623] bg-[rgba(35,32,29,0.72)]" : "border border-[#E7E5E4] bg-[#FAFAF9]"}`}>
+                        <iframe
+                          src={item.url}
+                          title={`${item.label} preview`}
+                          className="h-52 w-full"
+                        />
+                      </div>
                     ) : (
-                      <div className="flex h-52 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-500">
-                        {isPdfUrl(item.url) ? "PDF preview available in new tab." : "Preview not available for this file type."}
+                      <div className={`flex h-52 items-center justify-center rounded-xl text-sm ${isDarkMode ? "border border-[#2A2623] bg-[rgba(35,32,29,0.72)] text-[#A1A1AA]" : "border border-[#E7E5E4] bg-[#FAFAF9] text-[#52525B]"}`}>
+                        Preview not available for this file type.
                       </div>
                     )}
 
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" className="rounded-xl" onClick={() => window.open(item.url, "_blank", "noopener,noreferrer")}>
-                        {isPdfUrl(item.url) ? "View PDF" : "View File"}
+                        {detectPreviewType(item) === "pdf" ? "View PDF" : "View File"}
                       </Button>
                       <Button variant="outline" size="sm" className="rounded-xl" onClick={() => window.open(item.url, "_blank", "noopener,noreferrer")}>
                         Open URL

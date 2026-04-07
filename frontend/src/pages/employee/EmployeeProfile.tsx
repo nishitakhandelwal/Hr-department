@@ -75,7 +75,7 @@ const EmployeeProfile: React.FC = () => {
           ifscCode: "",
           paymentMode: "",
         });
-        setProfileError(error instanceof Error ? error.message : "Failed to load employee profile.");
+        setProfileError(user?.role === "admin" ? "" : error instanceof Error ? error.message : "Failed to load employee profile.");
       } finally {
         setLoading(false);
       }

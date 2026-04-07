@@ -14,6 +14,14 @@ const holidaySchema = new mongoose.Schema(
 );
 
 holidaySchema.index({ country: 1, date: 1 });
-holidaySchema.index({ date: 1 });
+
+holidaySchema.pre("validate", function normalizeHolidayDateHook(next) {
+  if (this.date) {
+    const normalized = new Date(this.date);
+    normalized.setHours(0, 0, 0, 0);
+    this.date = normalized;
+  }
+  next();
+});
 
 export const Holiday = mongoose.model("Holiday", holidaySchema);

@@ -7,6 +7,7 @@ import { cleanupAuditLogs, getSystemSettings } from "./services/systemSettingsSe
 import { startNotificationScheduler } from "./services/notificationScheduler.js";
 import { initializeDefaultHolidays } from "./services/holidayService.js";
 import { initializeHolidayData } from "./services/calendarService.js";
+import { runDataLifecycleMaintenance, startDataLifecycleScheduler } from "./services/dataLifecycleService.js";
 
 const startHttpServer = () =>
   new Promise((resolve, reject) => {
@@ -25,10 +26,12 @@ const startServer = async () => {
   if (dbConnected) {
     await ensureAdmin();
     await getSystemSettings({ force: true });
+    await runDataLifecycleMaintenance();
     await initializeDefaultHolidays();
     initializeHolidayData();
     await cleanupAuditLogs();
     startNotificationScheduler();
+    startDataLifecycleScheduler();
   } else {
     // eslint-disable-next-line no-console
     console.warn("Skipping admin seed and scheduler because database is not connected.");

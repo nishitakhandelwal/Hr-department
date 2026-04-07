@@ -41,11 +41,12 @@ const userSchema = new mongoose.Schema(
     profilePhotoUrl: { type: String, trim: true, default: "" },
     profileImage: { type: String, trim: true, default: "" },
     password: { type: String, required: true },
-    role: { type: String, enum: ["admin", "employee", "candidate"], required: true },
+    role: { type: String, enum: ["super_admin", "admin", "employee", "candidate"], required: true },
     accessRole: {
       type: String,
       enum: ["super_admin", "admin", "hr_manager", "recruiter", "employee", "candidate"],
       default: function accessRoleDefault() {
+        if (this.role === "super_admin") return "super_admin";
         if (this.role === "admin") return "admin";
         if (this.role === "candidate") return "candidate";
         return "employee";

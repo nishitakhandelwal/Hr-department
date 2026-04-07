@@ -111,6 +111,35 @@ export const authStorage = {
   },
 };
 
+const resolveEntityId = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (value && typeof value === "object") {
+    if (typeof (value as { toHexString?: unknown }).toHexString === "function") {
+      return String((value as { toHexString: () => string }).toHexString());
+    }
+    if (typeof (value as { toString?: unknown }).toString === "function") {
+      const directString = String(value);
+      if (directString && directString !== "[object Object]") return directString;
+    }
+    const record = value as { _id?: unknown; id?: unknown };
+    if (typeof record._id === "string") return record._id;
+    if (typeof record.id === "string") return record.id;
+    if (record._id) return resolveEntityId(record._id);
+    if (record.id) return resolveEntityId(record.id);
+  }
+  return "";
+};
+
+const normalizeCandidateRecord = (candidate: CandidateRecord): CandidateRecord => {
+  const normalizedId = resolveEntityId(candidate._id) || resolveEntityId(candidate.id) || "";
+  return {
+    ...candidate,
+    _id: normalizedId,
+    id: candidate.id || normalizedId,
+  };
+};
+
 type ApiResponse<T> = {
   success: boolean;
   message: string;
@@ -138,8 +167,15 @@ export type CandidateStatus =
   | "Accepted"
   | "Rejected";
 
+export type CandidateWorkflowConfig = {
+  statuses: CandidateStatus[];
+  transitions: Partial<Record<CandidateStatus, CandidateStatus[]>>;
+  legacyStatusMap?: Record<string, CandidateStatus>;
+};
+
 export type CandidateRecord = {
   _id: string;
+  id?: string;
   userId?: string | null;
   fullName: string;
   email: string;
@@ -765,6 +801,42 @@ export type PublicSettingsPayload = {
   };
 };
 
+export type RuntimePermissionMap = Record<string, Record<string, boolean>>;
+
+export type RuntimeNavigationItem = {
+  id: string;
+  path: string;
+  labelKey: string;
+  icon: string;
+  featureKey?: string;
+  moduleKey?: string;
+};
+
+export type RuntimeRouteGuard = {
+  enabled: boolean;
+  featureKey?: string;
+  moduleKey?: string;
+  permissionKey?: string;
+  roles?: string[];
+  accessRoles?: string[];
+};
+
+export type RuntimeConfigPayload = {
+  company: SettingsPayload["company"];
+  preferences: SettingsPayload["preferences"];
+  security: PublicSettingsPayload["security"];
+  features: Record<string, boolean>;
+  labels: Record<string, string>;
+  permissions: RuntimePermissionMap;
+  theme: {
+    primaryColor: string;
+    mode: "light" | "dark";
+  };
+  portalVisibility: Record<string, boolean>;
+  navigation: Record<string, RuntimeNavigationItem[]>;
+  routes: Record<string, RuntimeRouteGuard>;
+};
+
 // Calendar types
 export type CalendarEventType = "holiday" | "birthday" | "meeting" | "reminder";
 
@@ -986,6 +1058,22 @@ export const apiService = {
     const { data } = await api.put<ApiResponse<Record<string, unknown>>>(`/employee/${employeeId}/salary-structure`, payload);
     return data.data;
   },
+  async listEmployees() {
+    const { data } = await api.get<ApiResponse<EmployeeRecord[]>>("/employee");
+    return data.data;
+  },
+  async createEmployee(payload: unknown) {
+    const { data } = await api.post<ApiResponse<EmployeeRecord>>("/employee", payload);
+    return data.data;
+  },
+  async updateEmployee(employeeId: string, payload: unknown) {
+    const { data } = await api.put<ApiResponse<EmployeeRecord>>(`/employee/${employeeId}`, payload);
+    return data.data;
+  },
+  async deleteEmployee(employeeId: string) {
+    const { data } = await api.delete<ApiResponse<unknown>>(`/employee/${employeeId}`);
+    return data.data;
+  },
   async exportModule({
     moduleName,
     type,
@@ -1156,9 +1244,17 @@ export const apiService = {
     const { data } = await api.post<ApiResponse<CandidateRecord>>("/candidate", payload);
     return data;
   },
-  async getCandidateById(id: string) {
-    const { data } = await api.get<ApiResponse<CandidateRecord>>(`/candidate/${id}`);
-    return data.data;
+  async getCandidateById(id: string | { _id?: string; id?: string }) {
+    const resolvedId = resolveEntityId(id);
+    if (!resolvedId || typeof resolvedId !== "string") {
+      throw new Error("Invalid candidate ID");
+    }
+    const { data } = await api.get<ApiResponse<CandidateRecord>>(`/candidate/${resolvedId}`);
+    return normalizeCandidateRecord(data.data);
+  },
+  async listCandidates() {
+    const { data } = await api.get<ApiResponse<CandidateRecord[]>>("/candidate");
+    return data.data.map(normalizeCandidateRecord);
   },
   async getMyEmployeeProfile() {
     const { data } = await api.get<ApiResponse<EmployeeRecord>>("/employee/me");
@@ -1285,6 +1381,10 @@ export const apiService = {
     }
   ) {
     const { data } = await api.put<ApiResponse<CandidateRecord>>(`/candidate/${id}/review`, payload);
+    return normalizeCandidateRecord(data.data);
+  },
+  async getCandidateWorkflowConfig() {
+    const { data } = await api.get<ApiResponse<CandidateWorkflowConfig>>("/candidate/workflow-config");
     return data.data;
   },
   async updateCandidateStatus(id: string, status: CandidateStatus) {
@@ -1554,6 +1654,14 @@ export const apiService = {
   },
   async getPublicSettings() {
     const { data } = await api.get<ApiResponse<PublicSettingsPayload>>("/settings/public");
+    return data.data;
+  },
+  async getConfig() {
+    const { data } = await api.get<ApiResponse<RuntimeConfigPayload>>("/config");
+    return data.data;
+  },
+  async updateConfig(payload: Partial<RuntimeConfigPayload>) {
+    const { data } = await api.put<ApiResponse<RuntimeConfigPayload>>("/config", payload);
     return data.data;
   },
   async downloadProtectedFile(fileUrl: string) {

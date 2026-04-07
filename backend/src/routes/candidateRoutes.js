@@ -8,6 +8,7 @@ import {
   createCandidate,
   deleteCandidate,
   getCandidates,
+  getCandidateWorkflowConfig,
   getMyCandidateApplication,
   reviewCandidateByAdmin,
   sendJoiningFormToCandidate,
@@ -18,6 +19,7 @@ import {
   updateMyCandidateProfile,
   updateCandidateStatus,
 } from "../controllers/candidateController.js";
+import { API_ROLE_GROUPS } from "../config/permissions.config.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authorize, authorizeModule, protect } from "../middleware/authMiddleware.js";
 import { uploadCandidatePortalDocuments, uploadCandidateVideo as uploadCandidateVideoFile, uploadStage2Resume } from "../middleware/uploadMiddleware.js";
@@ -26,34 +28,35 @@ import { validateRequest } from "../middleware/validateRequest.js";
 const router = Router();
 
 // Candidate Stage-1 apply/create
-router.post("/", protect, authorize("candidate"), asyncHandler(createCandidate));
+router.post("/", protect, authorize(API_ROLE_GROUPS.candidateOnly), asyncHandler(createCandidate));
 
 // Admin candidates list
-router.get("/", protect, authorize("admin", "employee"), authorizeModule("candidates"), asyncHandler(getCandidates));
+router.get("/", protect, authorize(API_ROLE_GROUPS.adminOrEmployee), authorizeModule("candidates"), asyncHandler(getCandidates));
+router.get("/workflow-config", protect, authorize(API_ROLE_GROUPS.adminOrEmployee), authorizeModule("candidates"), asyncHandler(getCandidateWorkflowConfig));
 router.post(
   "/accept-offer/:candidateId",
   protect,
-  authorize("admin", "employee"),
+  authorize(API_ROLE_GROUPS.adminOrEmployee),
   authorizeModule("candidates"),
   [param("candidateId").isMongoId().withMessage("Invalid candidate id.")],
   validateRequest,
   asyncHandler(acceptOffer)
 );
-router.get("/me", protect, authorize("candidate"), asyncHandler(getMyCandidateApplication));
-router.put("/me/profile", protect, authorize("candidate"), asyncHandler(updateMyCandidateProfile));
-router.put("/me/documents", protect, authorize("candidate"), uploadCandidatePortalDocuments, asyncHandler(updateMyCandidateDocuments));
-router.post("/upload-video", protect, authorize("candidate"), uploadCandidateVideoFile, asyncHandler(uploadCandidateVideo));
+router.get("/me", protect, authorize(API_ROLE_GROUPS.candidateOnly), asyncHandler(getMyCandidateApplication));
+router.put("/me/profile", protect, authorize(API_ROLE_GROUPS.candidateOnly), asyncHandler(updateMyCandidateProfile));
+router.put("/me/documents", protect, authorize(API_ROLE_GROUPS.candidateOnly), uploadCandidatePortalDocuments, asyncHandler(updateMyCandidateDocuments));
+router.post("/upload-video", protect, authorize(API_ROLE_GROUPS.candidateOnly), uploadCandidateVideoFile, asyncHandler(uploadCandidateVideo));
 router.post(
   "/me/stage2",
   protect,
-  authorize("candidate"),
+  authorize(API_ROLE_GROUPS.candidateOnly),
   uploadStage2Resume,
   asyncHandler(submitCandidateStage2)
 );
 router.get(
   "/:id",
   protect,
-  authorize("admin", "employee"),
+  authorize(API_ROLE_GROUPS.adminOrEmployee),
   authorizeModule("candidates"),
   [param("id").isMongoId().withMessage("Invalid id.")],
   validateRequest,
@@ -64,7 +67,7 @@ router.get(
 router.put(
   "/:id/review",
   protect,
-  authorize("admin", "employee"),
+  authorize(API_ROLE_GROUPS.adminOrEmployee),
   authorizeModule("candidates"),
   [param("id").isMongoId().withMessage("Invalid id.")],
   validateRequest,
@@ -73,7 +76,7 @@ router.put(
 router.patch(
   "/:id/status",
   protect,
-  authorize("admin", "employee"),
+  authorize(API_ROLE_GROUPS.adminOrEmployee),
   authorizeModule("candidates"),
   [param("id").isMongoId().withMessage("Invalid id.")],
   validateRequest,
@@ -82,7 +85,7 @@ router.patch(
 router.post(
   "/:id/assign-internship",
   protect,
-  authorize("admin", "employee"),
+  authorize(API_ROLE_GROUPS.adminOrEmployee),
   authorizeModule("candidates"),
   [param("id").isMongoId().withMessage("Invalid id.")],
   validateRequest,
@@ -91,7 +94,7 @@ router.post(
 router.post(
   "/:id/send-offer",
   protect,
-  authorize("admin", "employee"),
+  authorize(API_ROLE_GROUPS.adminOrEmployee),
   authorizeModule("candidates"),
   [
     param("id").isMongoId().withMessage("Invalid id."),
@@ -105,7 +108,7 @@ router.post(
 router.post(
   "/:id/send-joining-form",
   protect,
-  authorize("admin", "employee"),
+  authorize(API_ROLE_GROUPS.adminOrEmployee),
   authorizeModule("candidates"),
   [param("id").isMongoId().withMessage("Invalid id.")],
   validateRequest,
@@ -114,7 +117,7 @@ router.post(
 router.post(
   "/:id/convert-to-employee",
   protect,
-  authorize("admin", "employee"),
+  authorize(API_ROLE_GROUPS.adminOrEmployee),
   authorizeModule("candidates"),
   [param("id").isMongoId().withMessage("Invalid id.")],
   validateRequest,
@@ -123,7 +126,7 @@ router.post(
 router.delete(
   "/:id",
   protect,
-  authorize("admin", "employee"),
+  authorize(API_ROLE_GROUPS.adminOrEmployee),
   [param("id").isMongoId().withMessage("Invalid id.")],
   validateRequest,
   asyncHandler(deleteCandidate)

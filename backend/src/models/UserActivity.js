@@ -13,4 +13,6 @@ const userActivitySchema = new mongoose.Schema(
   { timestamps: { createdAt: true, updatedAt: false }, versionKey: false }
 );
 
+userActivitySchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
+
 export const UserActivity = mongoose.model("UserActivity", userActivitySchema);

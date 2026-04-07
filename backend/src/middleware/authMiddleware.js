@@ -4,6 +4,22 @@ import { User } from "../models/User.js";
 import { asyncHandler } from "./asyncHandler.js";
 import { normalizePermissions } from "../utils/permissions.js";
 import { getSystemSettings, resolveRoleKeyForUser } from "../services/systemSettingsService.js";
+import { userHasPermission } from "../services/configService.js";
+import { matchesRequiredRole } from "../config/roles.config.js";
+
+const normalizeRequiredRoles = (requiredRoles) => {
+  if (requiredRoles.length === 1 && Array.isArray(requiredRoles[0])) {
+    return requiredRoles[0];
+  }
+  return requiredRoles;
+};
+
+const isAuthorizedForRoles = (user, requiredRoles) => {
+  const normalizedRoles = normalizeRequiredRoles(requiredRoles);
+  const allowed = normalizedRoles.some((requiredRole) => matchesRequiredRole(user, requiredRole));
+  console.log("User Role:", user?.role, "Access Role:", user?.accessRole, "Required:", requiredRoles, "Allowed:", allowed);
+  return allowed;
+};
 
 const getCookieValue = (cookieHeader, key) => {
   const cookies = String(cookieHeader || "")
@@ -131,7 +147,7 @@ export const authorize = (...roles) => (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ success: false, message: "Unauthorized", data: null });
   }
-  if (!roles.includes(req.user.role)) {
+  if (!isAuthorizedForRoles(req.user, roles)) {
     console.warn("[auth.authorize] Forbidden role", {
       method: req.method,
       path: req.originalUrl,
@@ -142,6 +158,16 @@ export const authorize = (...roles) => (req, res, next) => {
       tokenRole: req.auth?.role || null,
       tokenAccessRole: req.auth?.accessRole || null,
     });
+    return res.status(403).json({ success: false, message: "Forbidden", data: null });
+  }
+  return next();
+};
+
+export const authorizeAccessRole = (...accessRoles) => (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: "Unauthorized", data: null });
+  }
+  if (!isAuthorizedForRoles(req.user, accessRoles)) {
     return res.status(403).json({ success: false, message: "Forbidden", data: null });
   }
   return next();
@@ -164,6 +190,18 @@ export const authorizeModule = (moduleKey) => (req, res, next) => {
       userAccessRole: req.user.accessRole,
     });
     return res.status(403).json({ success: false, message: "Forbidden: module access denied", data: null });
+  }
+  return next();
+};
+
+export const authorizePermission = (action) => async (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: "Unauthorized", data: null });
+  }
+  if (req.user.accessRole === "super_admin") return next();
+  const allowed = await userHasPermission(req.user, action);
+  if (!allowed) {
+    return res.status(403).json({ success: false, message: "Forbidden: permission denied", data: null });
   }
   return next();
 };

@@ -1,8 +1,8 @@
 import fs from "fs";
-import { Notification } from "../models/Notification.js";
 import { User } from "../models/User.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { getSystemSettings, isAuditLoggingEnabled } from "./systemSettingsService.js";
+import { createNotificationBatch } from "./notificationService.js";
 
 const notificationFlagMap = {
   candidateApplicationAlerts: "candidateApplicationAlerts",
@@ -40,15 +40,13 @@ export const createSystemNotification = async ({ title, message, type, settingKe
   if (settings.notifications?.[settingKey] === false) return null;
   const admins = await User.find({ role: "admin", isActive: true }).select("_id").lean();
   if (!admins.length) return [];
-  return Notification.insertMany(
-    admins.map((admin) => ({
-      userId: admin._id,
-      title,
-      message,
-      type,
-      read: false,
-    }))
-  );
+  return createNotificationBatch({
+    userIds: admins.map((admin) => admin._id),
+    title,
+    message,
+    type,
+    dedupeScope: `system:${settingKey}`,
+  });
 };
 
 export const maybeSendEmailBySettings = async (senderFn) => {

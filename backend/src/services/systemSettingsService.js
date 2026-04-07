@@ -5,6 +5,7 @@ import { SystemSettings } from "../models/SystemSettings.js";
 import { User } from "../models/User.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { uploadsDir } from "../utils/paths.js";
+import { getDefaultRuntimeConfig } from "./configService.js";
 
 const SETTINGS_KEY = "global";
 
@@ -132,6 +133,7 @@ const DEFAULT_SETTINGS = {
     loggingEnabled: true,
     retentionDays: 180,
   },
+  runtimeConfig: getDefaultRuntimeConfig(),
   payroll: {
     workingDaysMode: "weekdays",
     fixedWorkingDays: 26,
@@ -251,6 +253,7 @@ export const resetSystemSettingsToDefault = async () => {
   settings.preferences = deepClone(DEFAULT_SETTINGS.preferences);
   settings.documents = deepClone(DEFAULT_SETTINGS.documents);
   settings.audit = deepClone(DEFAULT_SETTINGS.audit);
+  settings.runtimeConfig = deepClone(DEFAULT_SETTINGS.runtimeConfig);
   settings.payroll = deepClone(DEFAULT_SETTINGS.payroll);
   await settings.save();
   await refreshSystemSettingsCache();

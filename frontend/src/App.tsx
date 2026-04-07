@@ -2,48 +2,14 @@ import React from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { SystemSettingsProvider, useSystemSettings } from "@/context/SystemSettingsContext";
 import { CandidatePortalProvider } from "@/context/CandidatePortalContext";
 import { AppLayout } from "@/layouts/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import VerifyOtp from "./pages/VerifyOtp";
-import NotFound from "./pages/NotFound";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminCandidates from "./pages/admin/AdminCandidates";
-import AdminEmployees from "./pages/admin/AdminEmployees";
-import AdminAttendance from "./pages/admin/AdminAttendance";
-import AdminLeave from "./pages/admin/AdminLeave";
-import AdminPayroll from "./pages/admin/AdminPayroll";
-import AdminLetters from "./pages/admin/AdminLetters";
-import AdminDepartments from "./pages/admin/AdminDepartments";
-import AdminOffboarding from "./pages/admin/AdminOffboarding";
-import AdminUserManagement from "./pages/admin/AdminUserManagement";
-import AdminSettings from "./pages/admin/AdminSettings";
-import AdminInternships from "./pages/admin/AdminInternships";
-import AdminJoiningForms from "./pages/admin/AdminJoiningForms";
-import SmartCalendar from "./pages/admin/SmartCalendar";
-import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
-import EmployeeProfile from "./pages/employee/EmployeeProfile";
-import EmployeeAttendance from "./pages/employee/EmployeeAttendance";
-import EmployeeLeave from "./pages/employee/EmployeeLeave";
-import EmployeePayroll from "./pages/employee/EmployeePayroll";
-import EmployeeLetters from "./pages/employee/EmployeeLetters";
-import HrDashboard from "./pages/employee/HrDashboard";
-import RecruiterDashboard from "./pages/employee/RecruiterDashboard";
-import CandidateApply from "./pages/public/CandidateApply";
-import CandidateDashboard from "./pages/candidate/CandidateDashboard";
-import CandidateProfile from "./pages/candidate/CandidateProfile";
-import CandidateApplications from "./pages/candidate/CandidateApplications";
-import CandidateStatusPage from "./pages/candidate/CandidateStatusPage";
-import CandidateDocuments from "./pages/candidate/CandidateDocuments";
-import CandidateNotifications from "./pages/candidate/CandidateNotifications";
-import CandidateStage2 from "./pages/candidate/CandidateStage2";
-import CandidateJoiningForm from "./pages/candidate/CandidateJoiningForm";
+import { APP_ROUTES, FALLBACK_ROUTE_COMPONENT } from "@/config/routes.config";
+import { resolveDefaultRedirect } from "@/config/navigation.config";
 
 const queryClient = new QueryClient();
 
@@ -57,111 +23,120 @@ const CandidatePortalShell = () => (
   </ProtectedRoute>
 );
 
+const renderRouteElement = (
+  config: (typeof APP_ROUTES)[number],
+  isAuthenticated: boolean,
+  homeRoute: string,
+  resolvePortalRoot: (path: string) => string
+) => {
+  if (config.redirectTo) {
+    return <Navigate to={resolvePortalRoot(config.redirectTo)} replace />;
+  }
+
+  if (!config.component) return null;
+  const Component = config.component;
+  let element = <Component />;
+
+  if (config.useAppLayout) {
+    element = <AppLayout>{element}</AppLayout>;
+  }
+
+  if (config.authMode === "auth") {
+    element = (
+      <ProtectedRoute
+        roles={config.roles}
+        accessRoles={config.accessRoles}
+        requiredModule={config.requiredModule}
+        routeKey={config.routeKey}
+        featureKey={config.featureKey}
+        permissionKey={config.permissionKey}
+      >
+        {element}
+      </ProtectedRoute>
+    );
+  }
+
+  if (config.authMode === "guest") {
+    element = isAuthenticated ? <Navigate to={homeRoute} replace /> : element;
+  }
+
+  return element;
+};
+
 const AppRoutes = () => {
   const { isAuthenticated, user, loading } = useAuth();
-  const { publicSettings } = useSystemSettings();
-  if (loading) {
+  const { error, loading: configLoading, publicSettings, refreshConfig, getDefaultRoute } = useSystemSettings();
+
+  if (loading || configLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-6">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
       </div>
     );
   }
-  const adminDefaultPage = publicSettings?.preferences?.defaultDashboardPage || "/admin/dashboard";
-  const homeRoute =
-    user?.accessRole === "hr_manager"
-      ? "/hr/dashboard"
-      : user?.accessRole === "recruiter"
-      ? "/recruiter/dashboard"
-      : user?.role === "employee"
-      ? "/employee/dashboard"
-      : user?.role === "candidate"
-      ? "/candidate/dashboard"
-      : adminDefaultPage;
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-8 shadow-sm">
+          <h1 className="text-xl font-semibold text-foreground">Runtime configuration unavailable</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            The application loaded safe config defaults because the live runtime configuration could not be fetched.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+          <button
+            type="button"
+            onClick={() => void refreshConfig()}
+            className="mt-6 inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          >
+            Retry config load
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const adminDefaultPage = publicSettings?.preferences?.defaultDashboardPage;
+  const homeRoute = isAuthenticated ? getDefaultRoute() : resolveDefaultRedirect(user, adminDefaultPage);
+  const NotFound = FALLBACK_ROUTE_COMPONENT;
+  const resolvePortalRoot = (path: string) => {
+    if (path === "/admin" || path === "/super-admin") return getDefaultRoute(user?.accessRole || user?.role);
+    if (path === "/employee") return getDefaultRoute("employee");
+    if (path === "/hr") return getDefaultRoute("hr_manager");
+    if (path === "/recruiter") return getDefaultRoute("recruiter");
+    if (path === "/candidate") return getDefaultRoute("candidate");
+    return path;
+  };
 
   return (
     <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to={homeRoute} replace /> : <Login />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/reset-password/:token" element={<ResetPassword />} />
-      <Route path="/verify-otp" element={<VerifyOtp />} />
-      <Route path="/joining-form" element={<ProtectedRoute roles={["employee"]}><AppLayout><CandidateJoiningForm /></AppLayout></ProtectedRoute>} />
-      <Route path="/register" element={isAuthenticated ? <Navigate to={homeRoute} replace /> : <Register />} />
       <Route path="/" element={<Navigate to={isAuthenticated ? homeRoute : "/login"} replace />} />
 
-      {/* Admin routes */}
-      <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-      <Route path="/admin/dashboard" element={<ProtectedRoute roles={["admin"]}><AppLayout><AdminDashboard /></AppLayout></ProtectedRoute>} />
-      <Route path="/admin/calendar" element={<ProtectedRoute roles={["admin"]}><AppLayout><SmartCalendar /></AppLayout></ProtectedRoute>} />
-      <Route path="/admin/profile" element={<ProtectedRoute roles={["admin"]}><AppLayout><EmployeeProfile /></AppLayout></ProtectedRoute>} />
-      <Route
-        path="/admin/candidates"
-        element={
-          <ProtectedRoute roles={["admin", "employee"]} accessRoles={["super_admin", "admin", "hr_manager", "recruiter"]} requiredModule="candidates">
-            <AppLayout><AdminCandidates /></AppLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route path="/admin/employees" element={<ProtectedRoute roles={["admin"]}><AppLayout><AdminEmployees /></AppLayout></ProtectedRoute>} />
-      <Route path="/admin/attendance" element={<ProtectedRoute roles={["admin"]}><AppLayout><AdminAttendance /></AppLayout></ProtectedRoute>} />
-      <Route path="/admin/leave" element={<ProtectedRoute roles={["admin"]}><AppLayout><AdminLeave /></AppLayout></ProtectedRoute>} />
-      <Route path="/admin/payroll" element={<ProtectedRoute roles={["admin"]}><AppLayout><AdminPayroll /></AppLayout></ProtectedRoute>} />
-      <Route
-        path="/admin/letters"
-        element={
-          <ProtectedRoute roles={["admin", "employee"]} accessRoles={["super_admin", "admin", "hr_manager"]} requiredModule="letters">
-            <AppLayout><AdminLetters /></AppLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route path="/admin/departments" element={<ProtectedRoute roles={["admin"]}><AppLayout><AdminDepartments /></AppLayout></ProtectedRoute>} />
-      <Route path="/admin/offboarding" element={<ProtectedRoute roles={["admin"]}><AppLayout><AdminOffboarding /></AppLayout></ProtectedRoute>} />
-      <Route
-        path="/admin/internships"
-        element={
-          <ProtectedRoute roles={["admin", "employee"]} accessRoles={["super_admin", "admin", "hr_manager", "recruiter"]} requiredModule="candidates">
-            <AppLayout><AdminInternships /></AppLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/joining-forms"
-        element={
-          <ProtectedRoute roles={["admin", "employee"]} accessRoles={["super_admin", "admin", "hr_manager", "recruiter"]} requiredModule="candidates">
-            <AppLayout><AdminJoiningForms /></AppLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route path="/admin/users" element={<ProtectedRoute roles={["admin"]} accessRoles={["super_admin", "admin"]} requiredModule="userManagement"><AppLayout><AdminUserManagement /></AppLayout></ProtectedRoute>} />
-      <Route path="/admin/settings" element={<ProtectedRoute roles={["admin"]} requiredModule="settings"><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
+      {APP_ROUTES.filter((route) => !route.useCandidatePortal).map((route) => (
+        <Route
+          key={route.path}
+          path={route.path}
+          element={renderRouteElement(route, isAuthenticated, homeRoute, resolvePortalRoot)}
+        />
+      ))}
 
-      {/* Employee routes */}
-      <Route path="/employee" element={<Navigate to="/employee/dashboard" replace />} />
-      <Route path="/hr" element={<Navigate to="/hr/dashboard" replace />} />
-      <Route path="/recruiter" element={<Navigate to="/recruiter/dashboard" replace />} />
-      <Route path="/employee/dashboard" element={<ProtectedRoute roles={["employee"]}><AppLayout><EmployeeDashboard /></AppLayout></ProtectedRoute>} />
-      <Route path="/hr/dashboard" element={<ProtectedRoute roles={["employee"]} accessRoles={["hr_manager"]}><AppLayout><HrDashboard /></AppLayout></ProtectedRoute>} />
-      <Route path="/recruiter/dashboard" element={<ProtectedRoute roles={["employee"]} accessRoles={["recruiter"]}><AppLayout><RecruiterDashboard /></AppLayout></ProtectedRoute>} />
-      <Route path="/employee/profile" element={<ProtectedRoute roles={["employee"]}><AppLayout><EmployeeProfile /></AppLayout></ProtectedRoute>} />
-      <Route path="/employee/attendance" element={<ProtectedRoute roles={["employee"]}><AppLayout><EmployeeAttendance /></AppLayout></ProtectedRoute>} />
-      <Route path="/employee/leave" element={<ProtectedRoute roles={["employee"]}><AppLayout><EmployeeLeave /></AppLayout></ProtectedRoute>} />
-      <Route path="/employee/payroll" element={<ProtectedRoute roles={["employee"]}><AppLayout><EmployeePayroll /></AppLayout></ProtectedRoute>} />
-      <Route path="/employee/letters" element={<ProtectedRoute roles={["employee"]}><AppLayout><EmployeeLetters /></AppLayout></ProtectedRoute>} />
-
-      {/* Candidate routes */}
       <Route element={<CandidatePortalShell />}>
-        <Route path="/apply" element={<CandidateApply />} />
-        <Route path="/candidate" element={<Navigate to="/candidate/dashboard" replace />} />
-        <Route path="/candidate/dashboard" element={<CandidateDashboard />} />
-        <Route path="/candidate/profile" element={<CandidateProfile />} />
-        <Route path="/candidate/applications" element={<CandidateApplications />} />
-        <Route path="/candidate/status" element={<CandidateStatusPage />} />
-        <Route path="/candidate/documents" element={<CandidateDocuments />} />
-        <Route path="/candidate/notifications" element={<CandidateNotifications />} />
-        <Route path="/candidate/stage2" element={<CandidateStage2 />} />
-        <Route path="/candidate/joining-form" element={<CandidateJoiningForm />} />
+        {APP_ROUTES.filter((route) => route.useCandidatePortal && route.authMode !== "public").map((route) => (
+          <Route
+            key={route.path}
+            path={route.path}
+            element={renderRouteElement(route, isAuthenticated, homeRoute, resolvePortalRoot)}
+          />
+        ))}
       </Route>
+
+      {APP_ROUTES.filter((route) => route.useCandidatePortal && route.authMode === "public").map((route) => (
+        <Route
+          key={route.path}
+          path={route.path}
+          element={renderRouteElement(route, isAuthenticated, homeRoute, resolvePortalRoot)}
+        />
+      ))}
 
       <Route path="*" element={<NotFound />} />
     </Routes>
@@ -170,15 +145,15 @@ const AppRoutes = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <SystemSettingsProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <SystemSettingsProvider>
         <TooltipProvider>
           <BrowserRouter>
             <AppRoutes />
           </BrowserRouter>
         </TooltipProvider>
-      </AuthProvider>
-    </SystemSettingsProvider>
+      </SystemSettingsProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

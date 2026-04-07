@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useSystemSettings } from "@/context/SystemSettingsContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { apiService, type CandidateRecord, type EmployeeRecord, type JoiningFormPrefillData, type JoiningFormRecord } from "@/services/api";
@@ -14,6 +15,8 @@ import InlineStatusMessage from "@/components/InlineStatusMessage";
 
 const emptyEducation = { degreeOrDiploma: "", university: "", yearOfPassing: "", percentage: "" };
 const MAX_JOINING_FORM_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Widowed", "Separated"] as const;
+const ACCOMMODATION_OPTIONS = ["Owned", "Family Owned", "Rented", "Company Accommodation", "Relatives/Friends", "Paying Guest"] as const;
 const joiningFormFileConfig = {
   resume: {
     accept: ".pdf,.doc,.docx,.jpg,.jpeg,.png",
@@ -112,12 +115,24 @@ const buildPrefillValues = ({
     phoneNumber:
       formData?.personalInformation?.phoneNumber ||
       prefillData?.phoneNumber ||
+      formData?.personalInformation?.mobileNumber ||
+      prefillData?.mobileNumber ||
       candidateData?.phone ||
       employeeData?.phone ||
       user?.phone ||
       user?.phoneNumber ||
       "",
-    mobileNumber: formData?.personalInformation?.mobileNumber || prefillData?.mobileNumber || candidateData?.stage1?.contactDetails?.alternatePhone || "",
+    mobileNumber:
+      formData?.personalInformation?.mobileNumber ||
+      prefillData?.mobileNumber ||
+      formData?.personalInformation?.phoneNumber ||
+      prefillData?.phoneNumber ||
+      candidateData?.stage1?.contactDetails?.alternatePhone ||
+      candidateData?.phone ||
+      employeeData?.phone ||
+      user?.phone ||
+      user?.phoneNumber ||
+      "",
     emailAddress:
       formData?.personalInformation?.emailAddress ||
       prefillData?.emailAddress ||
@@ -184,7 +199,9 @@ const CandidateJoiningForm: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, refreshProfile } = useAuth();
+  const { theme } = useSystemSettings();
   const isEmployeeActivation = user?.role === "employee";
+  const isDarkMode = theme === "dark";
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [candidate, setCandidate] = useState<CandidateRecord | null>(null);
@@ -205,7 +222,6 @@ const CandidateJoiningForm: React.FC = () => {
   const [presentAddress, setPresentAddress] = useState("");
   const [permanentAddress, setPermanentAddress] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [mobileNumber, setMobileNumber] = useState("");
   const [emailAddress, setEmailAddress] = useState("");
   const [accommodationDetails, setAccommodationDetails] = useState("");
   const [educationDetails, setEducationDetails] = useState([emptyEducation]);
@@ -253,7 +269,6 @@ const CandidateJoiningForm: React.FC = () => {
           setPresentAddress(prefill.presentAddress);
           setPermanentAddress(prefill.permanentAddress);
           setPhoneNumber(prefill.phoneNumber);
-          setMobileNumber(prefill.mobileNumber);
           setEmailAddress(prefill.emailAddress);
           setAccommodationDetails(prefill.accommodationDetails);
           setEducationDetails(prefill.educationDetails);
@@ -329,7 +344,7 @@ const CandidateJoiningForm: React.FC = () => {
         presentAddress,
         permanentAddress,
         phoneNumber,
-        mobileNumber,
+        mobileNumber: phoneNumber,
         emailAddress,
         accommodationDetails,
         educationDetails,
@@ -408,7 +423,7 @@ const CandidateJoiningForm: React.FC = () => {
               <p className="mt-3 text-sm font-medium text-emerald-700">{autoFillNotice}</p>
             ) : null}
             {isEmployeeActivation ? (
-              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div className={`mt-4 rounded-xl px-4 py-3 text-sm ${isDarkMode ? "border border-amber-900/30 bg-amber-950/20 text-amber-100" : "border border-amber-200 bg-amber-50 text-black"}`}>
                 Joining Form completion is mandatory before you can access dashboard, attendance, payroll, and other employee modules.
               </div>
             ) : null}
@@ -422,10 +437,22 @@ const CandidateJoiningForm: React.FC = () => {
                 <div><Label>Full Name</Label><Input value={fullName} disabled={isLocked} onChange={(e) => setFullName(e.target.value)} /></div>
                 <div><Label>Date of Birth</Label><DatePicker value={dateOfBirth} disabled={isLocked} onChange={(e) => setDateOfBirth(e.target.value)} /></div>
                 <div><Label>Age</Label><Input value={age} disabled={isLocked} onChange={(e) => setAge(e.target.value)} /></div>
-                <div><Label>Marital Status</Label><Input value={maritalStatus} disabled={isLocked} onChange={(e) => setMaritalStatus(e.target.value)} /></div>
+                <div>
+                  <Label>Marital Status</Label>
+                  <select
+                    className="flex h-12 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={maritalStatus}
+                    disabled={isLocked}
+                    onChange={(e) => setMaritalStatus(e.target.value)}
+                  >
+                    <option value="">Select marital status</option>
+                    {MARITAL_STATUS_OPTIONS.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
                 <div><Label>Place of Birth</Label><Input value={placeOfBirth} disabled={isLocked} onChange={(e) => setPlaceOfBirth(e.target.value)} /></div>
-                <div><Label>Phone Number</Label><Input value={phoneNumber} disabled={isLocked} onChange={(e) => setPhoneNumber(e.target.value)} /></div>
-                <div><Label>Mobile Number</Label><Input value={mobileNumber} disabled={isLocked} onChange={(e) => setMobileNumber(e.target.value)} /></div>
+                <div><Label>Contact Number</Label><Input value={phoneNumber} disabled={isLocked} onChange={(e) => setPhoneNumber(e.target.value)} /></div>
                 <div>
                   <Label>Email Address</Label>
                   <Input value={emailAddress} readOnly disabled={isLocked} onChange={(e) => setEmailAddress(e.target.value)} />
@@ -449,19 +476,17 @@ const CandidateJoiningForm: React.FC = () => {
 
               <div>
                 <Label>Accommodation Details</Label>
-                <div className="grid gap-2 pt-2 sm:grid-cols-2 md:grid-cols-4">
-                  {["Owned", "Rented", "Company Accommodation", "Relatives/Friends", "Paying Guest"].map((option) => (
-                    <button
-                      type="button"
-                      key={option}
-                      disabled={isLocked}
-                      onClick={() => setAccommodationDetails(option)}
-                      className={`rounded-md border px-3 py-2 text-sm ${accommodationDetails === option ? "border-primary bg-primary/10" : "border-border"}`}
-                    >
-                      {option}
-                    </button>
+                <select
+                  className="mt-2 flex h-12 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={accommodationDetails}
+                  disabled={isLocked}
+                  onChange={(e) => setAccommodationDetails(e.target.value)}
+                >
+                  <option value="">Select accommodation type</option>
+                  {ACCOMMODATION_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{option}</option>
                   ))}
-                </div>
+                </select>
               </div>
 
               <div className="space-y-2">
@@ -497,6 +522,7 @@ const CandidateJoiningForm: React.FC = () => {
                         onChange={(e) => handleFileChange(field, e.target.files?.[0] || null, e.target)}
                       />
                       {files[field] ? <p className="mt-1 text-xs text-muted-foreground">Selected: {files[field]?.name}</p> : null}
+                      <p className="mt-1 text-xs text-muted-foreground">This uploaded document will also be visible in the admin joining forms review portal.</p>
                       {filePreview[field] && files[field]?.type?.startsWith("image/") ? (
                         <img src={filePreview[field]} alt={field} className="mt-2 h-24 w-24 rounded border border-border object-cover" />
                       ) : null}

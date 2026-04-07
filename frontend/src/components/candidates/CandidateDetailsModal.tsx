@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React, { useEffect, useState } from "react";
+import { FileText, Printer, Video } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { ExternalLink, FileImage, FileSpreadsheet, FileText, Link2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import type { CandidateRecord, CandidateStatus } from "@/services/api";
 
 export interface CandidateDetailsModalProps {
@@ -16,7 +17,9 @@ export interface CandidateDetailsModalProps {
   loading: boolean;
   saving: boolean;
   candidate: CandidateRecord | null;
+  availableStatuses: CandidateStatus[];
   onSave: (payload: {
+    candidateId: string;
     evaluationRemarks: string;
     adminNotes?: string;
     rating: number | null;
@@ -27,113 +30,85 @@ export interface CandidateDetailsModalProps {
   }) => Promise<void>;
 }
 
-const REVIEWABLE_STATUSES: CandidateStatus[] = [
-  "Profile Completed",
-  "HR Review",
-  "Under Review",
-  "Interview",
-  "Interview Scheduled",
-  "Selected",
-  "Internship",
-  "Offered",
-  "Joining Form Requested",
-  "Joining Form Submitted",
-  "Joining Form Correction Requested",
-  "Employee Onboarding",
-  "Converted to Employee",
-  "Accepted",
-  "Rejected",
-];
-
-const labelize = (value: string) =>
-  value
-    .replace(/([A-Z])/g, " $1")
-    .replace(/[_-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^./, (x) => x.toUpperCase());
-
-const formatValue = (value: unknown): string => {
-  if (value === null || value === undefined) return "-";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "number") return String(value);
-  if (typeof value === "string") return value || "-";
-  if (value instanceof Date) return value.toLocaleString();
-  return JSON.stringify(value);
+const formatDateTime = (value?: string | Date | null) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleString("en-IN");
 };
 
-const getFileExtension = (url = "") => {
-  try {
-    const pathname = new URL(url).pathname;
-    return pathname.split(".").pop()?.toLowerCase() || "";
-  } catch {
-    return url.split("?")[0].split(".").pop()?.toLowerCase() || "";
-  }
-};
+const readText = (value: unknown) => (typeof value === "string" && value.trim() ? value : "-");
 
-const isImageUrl = (url: string) => ["jpg", "jpeg", "png", "gif", "webp"].includes(getFileExtension(url));
-const isPdfUrl = (url: string) => getFileExtension(url) === "pdf";
+const readNumber = (value: unknown) =>
+  typeof value === "number" && Number.isFinite(value) ? String(value) : "-";
 
-const getDocumentIcon = (url: string) => {
-  if (isImageUrl(url)) return FileImage;
-  if (isPdfUrl(url)) return FileText;
-  return FileSpreadsheet;
-};
+const normalizeSchedule = (value?: CandidateRecord["interviewSchedule"]) => ({
+  date: value?.date || "",
+  time: value?.time || "",
+  meetingLink: value?.meetingLink || "",
+  mode: value?.mode || "",
+  notes: value?.notes || "",
+});
 
-const extractDocumentUrls = (record: CandidateRecord | null): Array<{ key: string; url: string }> => {
-  if (!record) return [];
-  const docs: Array<{ key: string; url: string }> = [];
-  const seen = new Set<string>();
+const escapeHtml = (value: unknown) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
-  const visit = (obj: unknown, path: string) => {
-    if (!obj || typeof obj !== "object") return;
-    if (Array.isArray(obj)) {
-      obj.forEach((item, idx) => visit(item, `${path}[${idx}]`));
-      return;
-    }
+const collectUploads = (candidate: CandidateRecord | null) => {
+  if (!candidate) return [];
 
-    Object.entries(obj as Record<string, unknown>).forEach(([key, value]) => {
-      const nextPath = path ? `${path}.${key}` : key;
-      if (typeof value === "string" && /^https?:\/\//i.test(value) && /url|document|file|resume|attachment/i.test(key)) {
-        if (!seen.has(value)) {
-          docs.push({ key: nextPath, url: value });
-          seen.add(value);
-        }
-      } else {
-        visit(value, nextPath);
-      }
+  const uploads: Array<{ label: string; url: string; meta?: string; type: "document" | "video" }> = [];
+
+  if (candidate.resumeUrl) {
+    uploads.push({
+      label: candidate.resumeFileName || "Resume",
+      url: candidate.resumeUrl,
+      type: "document",
+      meta: "Resume",
     });
-  };
+  }
 
-  visit(record, "");
-  return docs;
-};
+  if (candidate.documents?.resume?.url) {
+    uploads.push({
+      label: candidate.documents.resume.originalName || "Resume Document",
+      url: candidate.documents.resume.url,
+      type: "document",
+      meta: "Resume document",
+    });
+  }
 
-const getDocumentTitle = (key: string) =>
-  labelize(
-    key
-      .split(".")
-      .pop()
-      ?.replace(/\[\d+\]/g, "")
-      .replace(/url$/i, "") || "document"
-  );
+  if (candidate.documents?.certificates?.url) {
+    uploads.push({
+      label: candidate.documents.certificates.originalName || "Certificate",
+      url: candidate.documents.certificates.url,
+      type: "document",
+      meta: "Certificate",
+    });
+  }
 
-const renderObjectFields = (value: unknown, prefix = ""): Array<{ label: string; value: string }> => {
-  if (!value || typeof value !== "object") return [];
-  if (Array.isArray(value)) return [];
-  return Object.entries(value as Record<string, unknown>).flatMap(([key, v]) => {
-    const label = prefix ? `${prefix} - ${labelize(key)}` : labelize(key);
-    if (v === null || v === undefined || v === "") return [{ label, value: "-" }];
-    if (Array.isArray(v)) {
-      if (!v.length) return [{ label, value: "-" }];
-      if (v.every((item) => typeof item !== "object")) return [{ label, value: v.map((item) => formatValue(item)).join(", ") }];
-      return v.flatMap((item, idx) => renderObjectFields(item, `${label} ${idx + 1}`));
-    }
-    if (typeof v === "object") {
-      return renderObjectFields(v, label);
-    }
-    return [{ label, value: formatValue(v) }];
+  (candidate.documents?.uploadedFiles || []).forEach((file, index) => {
+    if (!file?.url) return;
+    uploads.push({
+      label: file.originalName || `Uploaded File ${index + 1}`,
+      url: file.url,
+      type: "document",
+      meta: "Supporting document",
+    });
   });
+
+  if (candidate.videoIntroduction?.url) {
+    uploads.push({
+      label: candidate.videoIntroduction.originalName || "Video Introduction",
+      url: candidate.videoIntroduction.url,
+      type: "video",
+      meta: candidate.videoIntroduction.source ? `Video | ${candidate.videoIntroduction.source}` : "Video",
+    });
+  }
+
+  return uploads;
 };
 
 const CandidateDetailsModal: React.FC<CandidateDetailsModalProps> = ({
@@ -142,328 +117,348 @@ const CandidateDetailsModal: React.FC<CandidateDetailsModalProps> = ({
   loading,
   saving,
   candidate,
+  availableStatuses,
   onSave,
 }) => {
   const [status, setStatus] = useState<CandidateStatus>("Under Review");
   const [evaluationRemarks, setEvaluationRemarks] = useState("");
   const [adminNotes, setAdminNotes] = useState("");
   const [rating, setRating] = useState<number | null>(null);
-  const [interviewSchedule, setInterviewSchedule] = useState<CandidateRecord["interviewSchedule"]>({});
+  const [interviewSchedule, setInterviewSchedule] = useState<CandidateRecord["interviewSchedule"]>(normalizeSchedule());
   const [videoFeedback, setVideoFeedback] = useState("");
   const [videoRating, setVideoRating] = useState<number | null>(null);
 
-  const resetForm = () => {
-    setStatus("Under Review");
-    setEvaluationRemarks("");
-    setAdminNotes("");
-    setRating(null);
-    setInterviewSchedule({});
-    setVideoFeedback("");
-    setVideoRating(null);
-  };
-
   useEffect(() => {
     if (!candidate) return;
-    setStatus(REVIEWABLE_STATUSES.includes(candidate.status) ? candidate.status : "Under Review");
+    setStatus(candidate.status || "Under Review");
     setEvaluationRemarks(candidate.adminReview?.evaluationRemarks || "");
     setAdminNotes(candidate.adminReview?.adminNotes || "");
     setRating(candidate.adminReview?.rating ?? null);
-    setInterviewSchedule(candidate.interviewSchedule || {});
+    setInterviewSchedule(normalizeSchedule(candidate.interviewSchedule));
     setVideoFeedback(candidate.videoIntroduction?.adminFeedback || "");
     setVideoRating(candidate.videoIntroduction?.adminRating ?? null);
   }, [candidate]);
 
   useEffect(() => {
     if (!open) {
-      resetForm();
+      setStatus("Under Review");
+      setEvaluationRemarks("");
+      setAdminNotes("");
+      setRating(null);
+      setInterviewSchedule(normalizeSchedule());
+      setVideoFeedback("");
+      setVideoRating(null);
     }
   }, [open]);
 
-  const dynamicTimeline = useMemo(() => {
-    const entries = candidate?.activityTimeline ? [...candidate.activityTimeline] : [];
-    const keys = new Set(entries.map((item) => item.key));
-    const maybePush = (key: string, title: string, description: string, at?: string | Date | null) => {
-      if (!at || keys.has(key)) return;
-      entries.push({ key, title, description, at: new Date(at).toISOString() });
-      keys.add(key);
+  const submit = async () => {
+    console.log("BUTTON CLICKED");
+
+    const candidateId = candidate?._id || candidate?.id;
+
+    console.log("Candidate:", candidate);
+    console.log("CandidateId:", candidateId);
+    console.log("Status:", status);
+    console.log("Rating:", rating);
+
+    if (!candidateId) {
+      alert("Candidate ID missing");
+      return;
+    }
+
+    if (!status) {
+      alert("Status missing");
+      return;
+    }
+
+    if (!rating) {
+      alert("Rating missing");
+      return;
+    }
+
+    const payload = {
+      candidateId,
+      evaluationRemarks: evaluationRemarks.trim(),
+      adminNotes: adminNotes.trim(),
+      rating: Number(rating),
+      status,
+      interviewSchedule: interviewSchedule?.date ? normalizeSchedule(interviewSchedule) : undefined,
+      videoFeedback: videoFeedback.trim(),
+      videoRating,
     };
 
-    if (candidate) {
-      maybePush(
-        "stage1_completed",
-        "Stage 1 Completed",
-        "Candidate completed the Stage 1 application.",
-        candidate.stage1?.submittedAt || candidate.submittedAt || candidate.createdAt
-      );
-      maybePush(
-        "stage2_submitted",
-        "Stage 2 Submitted",
-        "Candidate submitted Stage 2 details.",
-        candidate.stage2SubmittedAt
-      );
-      if (candidate.resumeUrl) {
-        maybePush(
-          "documents_uploaded",
-          "Documents Uploaded",
-          "Candidate uploaded supporting documents.",
-          candidate.stage2SubmittedAt || candidate.updatedAt
-        );
-      }
-      if (candidate.adminReview?.reviewedAt || candidate.status === "Under Review" || candidate.status === "Interview Scheduled") {
-        maybePush(
-          "admin_review_started",
-          "Admin Review Started",
-          "Admin opened the application for review and decision.",
-          candidate.adminReview?.reviewedAt || candidate.lastUpdatedAt || candidate.updatedAt
-        );
-      }
-    }
+    console.log("FINAL PAYLOAD:", payload);
 
-    return entries.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
-  }, [candidate]);
-
-  const stage2Fields = useMemo(() => {
-    if (!candidate?.stage2Details) return [];
-    return renderObjectFields(candidate.stage2Details).filter((row) => row.label !== "References" && row.label !== "Employment History");
-  }, [candidate]);
-
-  const futureStageSections = useMemo(() => {
-    if (!candidate) return [];
-    const entries = Object.entries(candidate as Record<string, unknown>).filter(([key]) => /^stage\d+/i.test(key) && !/^stage1$/i.test(key));
-    return entries.map(([key, value]) => ({
-      key,
-      title: labelize(key),
-      fields: renderObjectFields(value),
-    }));
-  }, [candidate]);
-
-  const documents = useMemo(() => extractDocumentUrls(candidate), [candidate]);
-
-  const submit = async () => {
-    await onSave({
-      evaluationRemarks,
-      adminNotes,
-      rating,
-      status,
-      interviewSchedule,
-      videoFeedback,
-      videoRating,
-    });
+    await onSave(payload);
   };
 
-  const applyDecision = (action: "approve" | "reject" | "interview" | "request_info") => {
-    if (action === "approve") setStatus("Selected");
-    if (action === "reject") setStatus("Rejected");
-    if (action === "interview") setStatus("Interview");
-    if (action === "request_info") {
-      setStatus("HR Review");
-      if (!adminNotes.toLowerCase().includes("request more information")) {
-        setAdminNotes((prev) => `${prev ? `${prev}\n` : ""}Request more information from candidate.`);
-      }
+  const stage2 = (candidate?.stage2Details as Record<string, unknown> | undefined) ?? {};
+  const uploads = collectUploads(candidate);
+
+  const handlePrint = () => {
+    if (!candidate) return;
+
+    const summaryRows = [
+      ["Candidate", readText(candidate.fullName)],
+      ["Email", readText(candidate.email)],
+      ["Phone", readText(candidate.phone)],
+      ["Position", readText(candidate.positionApplied)],
+      ["Status", readText(candidate.status)],
+      ["Applied At", formatDateTime(candidate.submittedAt || candidate.createdAt)],
+      ["Candidate ID", readText(candidate._id)],
+      ["Experience", readText(stage2.experienceDetails)],
+      ["Expected Salary", readNumber(stage2.expectedSalary)],
+      ["Notice Period", readText(stage2.noticePeriod)],
+      ["Current Company", readText(stage2.currentCompany)],
+      ["Current Role", readText(stage2.currentRole)],
+    ];
+
+    const uploadRows =
+      uploads.length === 0
+        ? `<p class="muted">No uploaded files available.</p>`
+        : `
+          <div class="uploads">
+            ${uploads
+              .map(
+                (item) => `
+                  <div class="upload">
+                    <div>
+                      <p class="upload-title">${escapeHtml(item.label)}</p>
+                      <p class="muted">${escapeHtml(item.meta || "-")}</p>
+                    </div>
+                    <p class="upload-url">${escapeHtml(item.url)}</p>
+                  </div>
+                `,
+              )
+              .join("")}
+          </div>
+        `;
+
+    const html = `
+      <html>
+        <head>
+          <title>${escapeHtml(candidate.fullName)} Review</title>
+          <style>
+            body { font-family: Segoe UI, Arial, sans-serif; margin: 32px; color: #171717; }
+            h1 { font-size: 28px; margin: 0 0 8px; }
+            h2 { font-size: 18px; margin: 28px 0 12px; }
+            .muted { color: #666; margin: 0; }
+            .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+            .card { border: 1px solid #ddd; border-radius: 14px; padding: 14px 16px; break-inside: avoid; }
+            .label { font-size: 12px; color: #666; margin-bottom: 4px; }
+            .value { font-size: 14px; font-weight: 600; }
+            .block { border: 1px solid #ddd; border-radius: 14px; padding: 16px; white-space: pre-wrap; }
+            .uploads { display: grid; gap: 12px; }
+            .upload { border: 1px solid #ddd; border-radius: 14px; padding: 14px 16px; }
+            .upload-title { margin: 0 0 4px; font-weight: 600; }
+            .upload-url { margin: 10px 0 0; word-break: break-all; color: #333; font-size: 12px; }
+            @media print { body { margin: 16px; } }
+          </style>
+        </head>
+        <body>
+          <h1>Candidate Review</h1>
+          <p class="muted">${escapeHtml(candidate.fullName)} &middot; ${escapeHtml(candidate.positionApplied || "-")}</p>
+
+          <h2>Summary</h2>
+          <div class="grid">
+            ${summaryRows
+              .map(
+                ([label, value]) => `
+                  <div class="card">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value">${escapeHtml(value)}</div>
+                  </div>
+                `,
+              )
+              .join("")}
+          </div>
+
+          <h2>Uploads</h2>
+          ${uploadRows}
+
+          <h2>Admin Notes</h2>
+          <div class="block">${escapeHtml(adminNotes || "-")}</div>
+
+          <h2>Evaluation Remarks</h2>
+          <div class="block">${escapeHtml(evaluationRemarks || "-")}</div>
+
+          <h2>Review Meta</h2>
+          <div class="grid">
+            <div class="card"><div class="label">Rating</div><div class="value">${escapeHtml(rating ? String(rating) : "No rating")}</div></div>
+            <div class="card"><div class="label">Video Rating</div><div class="value">${escapeHtml(videoRating ? String(videoRating) : "No rating")}</div></div>
+            <div class="card"><div class="label">Video Feedback</div><div class="value">${escapeHtml(videoFeedback || "-")}</div></div>
+            <div class="card"><div class="label">Interview Date</div><div class="value">${escapeHtml(interviewSchedule.date || "-")}</div></div>
+            <div class="card"><div class="label">Interview Time</div><div class="value">${escapeHtml(interviewSchedule.time || "-")}</div></div>
+            <div class="card"><div class="label">Meeting Link</div><div class="value">${escapeHtml(interviewSchedule.meetingLink || "-")}</div></div>
+            <div class="card"><div class="label">Interview Mode</div><div class="value">${escapeHtml(interviewSchedule.mode || "-")}</div></div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.setAttribute("aria-hidden", "true");
+    document.body.appendChild(iframe);
+
+    const frameDoc = iframe.contentWindow?.document;
+    if (!frameDoc || !iframe.contentWindow) {
+      document.body.removeChild(iframe);
+      return;
     }
+
+    frameDoc.open();
+    frameDoc.write(html);
+    frameDoc.close();
+
+    window.setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      window.setTimeout(() => {
+        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+      }, 1000);
+    }, 250);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-5xl border-[#E7E5E4] bg-white text-slate-900 shadow-[0_24px_60px_rgba(15,14,13,0.14)] dark:!border-[#2A2623] dark:!bg-[linear-gradient(145deg,#050505,#111111)] dark:!text-white dark:shadow-[0_28px_70px_rgba(0,0,0,0.62)]">
         <DialogHeader>
-          <DialogTitle>Stage 3: Admin Review & Decision</DialogTitle>
+          <DialogTitle className="text-slate-900 dark:text-white">Stage 3: Admin Review & Decision</DialogTitle>
         </DialogHeader>
 
-        {loading ? (
-          <div className="py-8 text-sm text-muted-foreground">Loading candidate details...</div>
-        ) : !candidate ? (
-          <div className="py-8 text-sm text-muted-foreground">No candidate data available.</div>
+        {!candidate ? (
+          <div className="py-8 text-sm text-slate-500 dark:text-slate-300">Loading or no data found</div>
         ) : (
           <div className="max-h-[72vh] space-y-5 overflow-y-auto pr-1">
-            <div className="rounded-lg border border-border p-4">
-              <h3 className="mb-3 text-sm font-semibold">Candidate Profile Summary</h3>
-              <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
-                <div><p className="text-xs text-muted-foreground">Candidate</p><p className="font-medium">{candidate.fullName}</p></div>
-                <div><p className="text-xs text-muted-foreground">Position</p><p className="font-medium">{candidate.positionApplied || "-"}</p></div>
-                <div><p className="text-xs text-muted-foreground">Experience</p><p className="font-medium">{candidate.stage2Details?.experienceDetails || "-"}</p></div>
-                <div><p className="text-xs text-muted-foreground">Expected Salary</p><p className="font-medium">{candidate.stage2Details?.expectedSalary || "-"}</p></div>
-                <div><p className="text-xs text-muted-foreground">Status</p><Badge>{candidate.status}</Badge></div>
+            {loading ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-[#2A2623] dark:bg-[#111111] dark:text-white">
+                Loading full candidate details. Summary is available below.
               </div>
-            </div>
+            ) : null}
 
-            <div className="rounded-lg border border-border p-4">
-              <h3 className="mb-2 text-sm font-semibold">Stage 1 Details</h3>
-              <div className="grid gap-2 text-sm sm:grid-cols-2">
-                <p><span className="text-muted-foreground">Full Name:</span> {candidate.fullName}</p>
-                <p><span className="text-muted-foreground">Email:</span> {candidate.email}</p>
-                <p><span className="text-muted-foreground">Phone Number:</span> {candidate.phone || "-"}</p>
-                <p><span className="text-muted-foreground">Position Applied For:</span> {candidate.positionApplied || "-"}</p>
-                <p><span className="text-muted-foreground">Date of Application:</span> {new Date(candidate.submittedAt || candidate.createdAt).toLocaleString()}</p>
-                <p><span className="text-muted-foreground">Candidate ID:</span> {candidate._id}</p>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border p-4">
-              <h3 className="mb-2 text-sm font-semibold">Stage 2 Details</h3>
-              <div className="grid gap-2 text-sm sm:grid-cols-2">
-                <p><span className="text-muted-foreground">Notice Period:</span> {candidate.stage2Details?.noticePeriod || "-"}</p>
-                <p><span className="text-muted-foreground">Expected Salary:</span> {candidate.stage2Details?.expectedSalary || "-"}</p>
-                <p><span className="text-muted-foreground">Total Experience:</span> {candidate.stage2Details?.experienceDetails || "-"}</p>
-                <p><span className="text-muted-foreground">Current Company:</span> {(candidate.stage2Details as Record<string, unknown>)?.currentCompany as string || "-"}</p>
-                <p><span className="text-muted-foreground">Current Role:</span> {(candidate.stage2Details as Record<string, unknown>)?.currentRole as string || "-"}</p>
-                <p><span className="text-muted-foreground">Skills:</span> {(candidate.stage2Details as Record<string, unknown>)?.skills as string || "-"}</p>
-                <p><span className="text-muted-foreground">Location:</span> {(candidate.stage2Details as Record<string, unknown>)?.location as string || "-"}</p>
-              </div>
-              {stage2Fields.length ? (
-                <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-                  {stage2Fields.map((row, idx) => (
-                    <p key={`${row.label}-${idx}`}><span className="text-muted-foreground">{row.label}:</span> {row.value}</p>
-                  ))}
+            <div className="rounded-[28px] border border-[#E7E5E4] bg-white/90 p-5 shadow-sm dark:border-[#24201C] dark:bg-[#0B0B0B] dark:shadow-[0_18px_40px_rgba(0,0,0,0.38)]">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Candidate Summary</h3>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">Core details for quick review before decision.</p>
                 </div>
-              ) : null}
+                <Badge className="border-[#D6C3AD] bg-[#F5E8D8] text-[#6D4C2F] dark:border-[#2A2623] dark:bg-black dark:text-white">
+                  {candidate.status || "-"}
+                </Badge>
+              </div>
+              <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-300">Candidate</p>
+                  <p className="font-medium text-slate-900 dark:text-white">{readText(candidate.fullName)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-300">Email</p>
+                  <p className="font-medium text-slate-900 dark:text-white">{readText(candidate.email)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-300">Phone</p>
+                  <p className="font-medium text-slate-900 dark:text-white">{readText(candidate.phone)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-300">Position</p>
+                  <p className="font-medium text-slate-900 dark:text-white">{readText(candidate.positionApplied)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-300">Applied At</p>
+                  <p className="font-medium text-slate-900 dark:text-white">{formatDateTime(candidate.submittedAt || candidate.createdAt)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-300">Candidate ID</p>
+                  <p className="break-all font-medium text-slate-900 dark:text-white">{readText(candidate._id)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-300">Experience</p>
+                  <p className="font-medium text-slate-900 dark:text-white">{readText(stage2.experienceDetails)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-300">Expected Salary</p>
+                  <p className="font-medium text-slate-900 dark:text-white">{readNumber(stage2.expectedSalary)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-300">Notice Period</p>
+                  <p className="font-medium text-slate-900 dark:text-white">{readText(stage2.noticePeriod)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-300">Current Company</p>
+                  <p className="font-medium text-slate-900 dark:text-white">{readText(stage2.currentCompany)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-300">Current Role</p>
+                  <p className="font-medium text-slate-900 dark:text-white">{readText(stage2.currentRole)}</p>
+                </div>
+              </div>
             </div>
 
-            {futureStageSections.map((section) => (
-              <div key={section.key} className="rounded-lg border border-border p-4">
-                <h3 className="mb-2 text-sm font-semibold">{section.title} (Dynamic)</h3>
-                {!section.fields.length ? (
-                  <p className="text-sm text-muted-foreground">No additional fields yet.</p>
-                ) : (
-                  <div className="grid gap-2 text-xs sm:grid-cols-2">
-                    {section.fields.map((row, idx) => (
-                      <p key={`${row.label}-${idx}`}>
-                        <span className="text-muted-foreground">{row.label}:</span> {row.value}
-                      </p>
-                    ))}
-                  </div>
-                )}
+            <div className="rounded-[28px] border border-[#E7E5E4] bg-white/90 p-5 shadow-sm dark:border-[#24201C] dark:bg-[#0B0B0B] dark:shadow-[0_18px_40px_rgba(0,0,0,0.38)]">
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Uploaded Files</h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">Documents and videos shared by the candidate.</p>
               </div>
-            ))}
-
-            <div className="rounded-lg border border-border p-4">
-              <h3 className="mb-2 text-sm font-semibold">Documents</h3>
-              {documents.length ? (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {documents.map((doc) => {
-                    const Icon = getDocumentIcon(doc.url);
-                    const title = getDocumentTitle(doc.key);
-
-                    return (
-                      <div
-                        key={doc.key}
-                        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
-                      >
-                        <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-900">{title}</p>
-                            <p className="truncate text-xs text-slate-500">{getFileExtension(doc.url).toUpperCase() || "FILE"}</p>
-                          </div>
-                        </div>
-
-                        <div className="px-4 py-4">
-                          {isImageUrl(doc.url) ? (
-                            <a href={doc.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                              <img src={doc.url} alt={title} className="h-44 w-full object-cover" />
-                            </a>
-                          ) : isPdfUrl(doc.url) ? (
-                            <div className="flex h-44 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-center text-sm text-slate-500">
-                              PDF document ready for preview
-                            </div>
-                          ) : (
-                            <div className="flex h-44 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-center text-sm text-slate-500">
-                              File preview not available for this format
-                            </div>
-                          )}
-
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => window.open(doc.url, "_blank", "noopener,noreferrer")}>
-                              {isPdfUrl(doc.url) ? <FileText className="mr-2 h-4 w-4" /> : <ExternalLink className="mr-2 h-4 w-4" />}
-                              {isPdfUrl(doc.url) ? "View PDF" : "View File"}
-                            </Button>
-                            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => window.open(doc.url, "_blank", "noopener,noreferrer")}>
-                              <Link2 className="mr-2 h-4 w-4" />
-                              View URL
-                            </Button>
-                          </div>
-                        </div>
+              {uploads.length === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-300">No uploaded files available for this candidate.</p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {uploads.map((item, index) => (
+                    <a
+                      key={`${item.url}-${index}`}
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between rounded-2xl border border-[#E7E5E4] bg-white px-4 py-3 text-slate-900 shadow-sm transition-all hover:border-[#C8A27C] hover:shadow-md dark:border-[#2A2623] dark:bg-black dark:text-white dark:hover:border-[#5A4630]"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{item.label}</p>
+                        <p className="truncate text-xs text-slate-500 dark:text-slate-300">{item.meta || "-"}</p>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No documents have been uploaded yet.</p>
-              )}
-            </div>
-
-            <div className="rounded-lg border border-border p-4">
-              <h3 className="mb-3 text-sm font-semibold">Video Introduction</h3>
-              {candidate.videoIntroduction?.url ? (
-                <div className="space-y-4">
-                  <video
-                    controls
-                    preload="metadata"
-                    crossOrigin="anonymous"
-                    className="w-full rounded-xl border border-border bg-black"
-                    src={candidate.videoIntroduction.url}
-                  >
-                    Your browser does not support embedded video playback.
-                  </video>
-                  <div className="grid gap-2 text-xs sm:grid-cols-2">
-                    <p><span className="text-muted-foreground">File Name:</span> {candidate.videoIntroduction.originalName || "-"}</p>
-                    <p><span className="text-muted-foreground">Uploaded At:</span> {candidate.videoIntroduction.uploadedAt ? new Date(candidate.videoIntroduction.uploadedAt).toLocaleString() : "-"}</p>
-                    <p><span className="text-muted-foreground">Source:</span> {candidate.videoIntroduction.source || "-"}</p>
-                    <p><span className="text-muted-foreground">Size:</span> {candidate.videoIntroduction.size ? `${(candidate.videoIntroduction.size / (1024 * 1024)).toFixed(1)} MB` : "-"}</p>
-                  </div>
-                  <Button variant="outline" onClick={() => window.open(candidate.videoIntroduction?.url, "_blank")}>
-                    Play in New Tab
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No video introduction has been submitted yet.</p>
-              )}
-            </div>
-
-            <div className="rounded-lg border border-border p-4">
-              <h3 className="mb-2 text-sm font-semibold">Submission Timeline</h3>
-              {dynamicTimeline.length ? (
-                <div className="space-y-2">
-                  {dynamicTimeline.map((item) => (
-                    <div key={item.key} className="rounded border border-border p-2 text-xs">
-                      <p className="font-semibold">{item.title}</p>
-                      <p className="text-muted-foreground">{item.description}</p>
-                      <p className="text-muted-foreground">{new Date(item.at).toLocaleString()}</p>
-                    </div>
+                      <div className="ml-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E7E5E4] bg-[#F8F5F1] dark:border-[#2A2623] dark:bg-[#111111]">
+                        {item.type === "video" ? <Video className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                      </div>
+                    </a>
                   ))}
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No timeline activity available.</p>
               )}
             </div>
 
-            <div className="rounded-lg border border-border p-4">
-              <h3 className="mb-3 text-sm font-semibold">Admin Evaluation & Notes</h3>
+            <div className="rounded-[28px] border border-[#E7E5E4] bg-white/90 p-5 shadow-sm dark:border-[#24201C] dark:bg-[#0B0B0B] dark:shadow-[0_18px_40px_rgba(0,0,0,0.38)]">
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Admin Evaluation & Notes</h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">Review the profile, capture notes, and decide the next stage.</p>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Status</Label>
+                  <Label className="text-slate-700 dark:text-white">Status</Label>
                   <Select value={status} onValueChange={(value) => setStatus(value as CandidateStatus)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="border-[#D6D3D1] bg-white text-slate-900 shadow-sm dark:border-[#2A2623] dark:bg-black dark:text-white dark:shadow-none">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      {REVIEWABLE_STATUSES.map((item) => (
-                        <SelectItem key={item} value={item}>
+                    <SelectContent className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-black dark:text-white">
+                      {availableStatuses.map((item) => (
+                        <SelectItem key={item} value={item} className="dark:focus:bg-[#181818] dark:focus:text-white">
                           {item}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-1.5">
-                  <Label>Rating (1 to 5)</Label>
+                  <Label className="text-slate-700 dark:text-white">Rating (1 to 5)</Label>
                   <Select value={rating ? String(rating) : "none"} onValueChange={(value) => setRating(value === "none" ? null : Number(value))}>
-                    <SelectTrigger>
+                    <SelectTrigger className="border-[#D6D3D1] bg-white text-slate-900 shadow-sm dark:border-[#2A2623] dark:bg-black dark:text-white dark:shadow-none">
                       <SelectValue placeholder="Select rating" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-black dark:text-white">
                       <SelectItem value="none">No rating</SelectItem>
                       <SelectItem value="1">1</SelectItem>
                       <SelectItem value="2">2</SelectItem>
@@ -473,80 +468,100 @@ const CandidateDetailsModal: React.FC<CandidateDetailsModalProps> = ({
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label>HR/Admin Notes</Label>
-                  <Textarea rows={3} value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} placeholder="Add internal notes for this candidate..." />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Evaluation Remarks</Label>
-                  <Textarea rows={4} value={evaluationRemarks} onChange={(e) => setEvaluationRemarks(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Video Rating (1 to 5)</Label>
-                  <Select value={videoRating ? String(videoRating) : "none"} onValueChange={(value) => setVideoRating(value === "none" ? null : Number(value))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select video rating" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No rating</SelectItem>
-                      <SelectItem value="1">1</SelectItem>
-                      <SelectItem value="2">2</SelectItem>
-                      <SelectItem value="3">3</SelectItem>
-                      <SelectItem value="4">4</SelectItem>
-                      <SelectItem value="5">5</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Video Feedback</Label>
+                  <Label className="text-slate-700 dark:text-white">HR/Admin Notes</Label>
                   <Textarea
                     rows={3}
+                    className="border-[#D6D3D1] bg-white text-slate-900 placeholder:text-slate-400 shadow-sm dark:border-[#2A2623] dark:bg-black dark:text-white dark:placeholder:text-slate-400 dark:shadow-none"
+                    value={adminNotes}
+                    onChange={(event) => setAdminNotes(event.target.value)}
+                    placeholder="Add internal notes for this candidate..."
+                  />
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-slate-700 dark:text-white">Evaluation Remarks</Label>
+                  <Textarea
+                    rows={4}
+                    className="border-[#D6D3D1] bg-white text-slate-900 placeholder:text-slate-400 shadow-sm dark:border-[#2A2623] dark:bg-black dark:text-white dark:placeholder:text-slate-400 dark:shadow-none"
+                    value={evaluationRemarks}
+                    onChange={(event) => setEvaluationRemarks(event.target.value)}
+                    placeholder="Write your evaluation remarks..."
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-slate-700 dark:text-white">Video Rating (1 to 5)</Label>
+                  <Select value={videoRating ? String(videoRating) : "none"} onValueChange={(value) => setVideoRating(value === "none" ? null : Number(value))}>
+                    <SelectTrigger className="border-[#D6D3D1] bg-white text-slate-900 shadow-sm dark:border-[#2A2623] dark:bg-black dark:text-white dark:shadow-none">
+                      <SelectValue placeholder="Select video rating" />
+                    </SelectTrigger>
+                    <SelectContent className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-black dark:text-white">
+                      <SelectItem value="none">No rating</SelectItem>
+                      <SelectItem value="1">1</SelectItem>
+                      <SelectItem value="2">2</SelectItem>
+                      <SelectItem value="3">3</SelectItem>
+                      <SelectItem value="4">4</SelectItem>
+                      <SelectItem value="5">5</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-slate-700 dark:text-white">Video Feedback</Label>
+                  <Textarea
+                    rows={3}
+                    className="border-[#D6D3D1] bg-white text-slate-900 placeholder:text-slate-400 shadow-sm dark:border-[#2A2623] dark:bg-black dark:text-white dark:placeholder:text-slate-400 dark:shadow-none"
                     value={videoFeedback}
-                    onChange={(e) => setVideoFeedback(e.target.value)}
+                    onChange={(event) => setVideoFeedback(event.target.value)}
                     placeholder="Share feedback on the candidate's video introduction..."
                   />
                 </div>
+
                 {status === "Interview" || status === "Interview Scheduled" ? (
                   <>
                     <div className="space-y-1.5">
-                      <Label>Interview Date</Label>
-                      <DatePicker value={interviewSchedule?.date || ""} onChange={(e) => setInterviewSchedule((prev) => ({ ...prev, date: e.target.value }))} />
+                      <Label className="text-slate-700 dark:text-white">Interview Date</Label>
+                      <DatePicker className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-black dark:text-white" value={interviewSchedule.date || ""} onChange={(event) => setInterviewSchedule((prev) => ({ ...prev, date: event.target.value }))} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Interview Time</Label>
-                      <Input value={interviewSchedule?.time || ""} onChange={(e) => setInterviewSchedule((prev) => ({ ...prev, time: e.target.value }))} placeholder="11:00 AM" />
+                      <Label className="text-slate-700 dark:text-white">Interview Time</Label>
+                      <Input className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-black dark:text-white" value={interviewSchedule.time || ""} onChange={(event) => setInterviewSchedule((prev) => ({ ...prev, time: event.target.value }))} placeholder="11:00 AM" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Meeting Link</Label>
-                      <Input value={interviewSchedule?.meetingLink || ""} onChange={(e) => setInterviewSchedule((prev) => ({ ...prev, meetingLink: e.target.value }))} placeholder="https://meet.google.com/..." />
+                      <Label className="text-slate-700 dark:text-white">Meeting Link</Label>
+                      <Input
+                        className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-black dark:text-white"
+                        value={interviewSchedule.meetingLink || ""}
+                        onChange={(event) => setInterviewSchedule((prev) => ({ ...prev, meetingLink: event.target.value }))}
+                        placeholder="https://meet.google.com/..."
+                      />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Interview Mode</Label>
-                      <Input value={interviewSchedule?.mode || ""} onChange={(e) => setInterviewSchedule((prev) => ({ ...prev, mode: e.target.value }))} placeholder="Online / In-person" />
+                      <Label className="text-slate-700 dark:text-white">Interview Mode</Label>
+                      <Input className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-black dark:text-white" value={interviewSchedule.mode || ""} onChange={(event) => setInterviewSchedule((prev) => ({ ...prev, mode: event.target.value }))} placeholder="Online / In-person" />
                     </div>
                     <div className="space-y-1.5 sm:col-span-2">
-                      <Label>Interview Notes</Label>
-                      <Textarea rows={3} value={interviewSchedule?.notes || ""} onChange={(e) => setInterviewSchedule((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Panel, agenda, venue, or preparation notes..." />
+                      <Label className="text-slate-700 dark:text-white">Interview Notes</Label>
+                      <Textarea className="border-[#D6D3D1] bg-white text-slate-900 placeholder:text-slate-400 shadow-sm dark:border-[#2A2623] dark:bg-black dark:text-white dark:placeholder:text-slate-400 dark:shadow-none" rows={3} value={interviewSchedule.notes || ""} onChange={(event) => setInterviewSchedule((prev) => ({ ...prev, notes: event.target.value }))} placeholder="Panel, agenda, venue, or preparation notes..." />
                     </div>
                   </>
                 ) : null}
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={() => applyDecision("approve")}>Approve</Button>
-                <Button type="button" variant="outline" onClick={() => applyDecision("reject")}>Reject</Button>
-                <Button type="button" variant="outline" onClick={() => applyDecision("interview")}>Move to Interview</Button>
-                <Button type="button" variant="outline" onClick={() => applyDecision("request_info")}>Request More Information</Button>
               </div>
             </div>
           </div>
         )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="gap-2">
+          <Button type="button" variant="outline" onClick={handlePrint} disabled={!candidate || saving} className="dark:border-[#2A2623] dark:bg-black dark:text-white dark:hover:bg-[#141414] dark:hover:text-white">
+            <Printer className="mr-2 h-4 w-4" />
+            Print
+          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving} className="dark:border-[#2A2623] dark:bg-black dark:text-white dark:hover:bg-[#141414] dark:hover:text-white">
             Close
           </Button>
-          <Button disabled={loading || saving || !candidate} onClick={() => void submit()}>
+          <Button type="button" disabled={saving || !candidate} onClick={submit} className="dark:border-[#2A2623] dark:bg-black dark:text-white dark:hover:bg-[#141414] dark:hover:text-white">
             {saving ? "Saving..." : "Save Review"}
           </Button>
         </DialogFooter>

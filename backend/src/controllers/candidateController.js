@@ -5,7 +5,6 @@ import { GeneratedLetter } from "../models/GeneratedLetter.js";
 import { Internship } from "../models/Internship.js";
 import { JoiningForm } from "../models/JoiningForm.js";
 import { LetterTemplate } from "../models/LetterTemplate.js";
-import { UserActivity } from "../models/UserActivity.js";
 import { env } from "../config/env.js";
 import { generateOfferLetterHtml } from "../lib/letterTemplates.js";
 import { sendBrevoEmail } from "../services/brevoEmailService.js";
@@ -237,19 +236,11 @@ const sendOfferLetterEmail = async ({ to, subject, html, pdfBuffer, fileName }) 
 };
 
 const assertStatusTransition = (current, next) => {
-  const currentStatus = normalizeStatus(current);
   const nextStatus = normalizeStatus(next);
-  if (!nextStatus || nextStatus === currentStatus) return;
+  if (!nextStatus) return;
 
   if (!CandidateStatuses.includes(nextStatus)) {
     const error = new Error(`Invalid status \"${nextStatus}\".`);
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const allowed = STATUS_TRANSITIONS[currentStatus] || [];
-  if (!allowed.includes(nextStatus)) {
-    const error = new Error(`Status transition not allowed from ${currentStatus} to ${nextStatus}.`);
     error.statusCode = 400;
     throw error;
   }
@@ -359,13 +350,44 @@ const ensureBaseTimeline = (candidate) => {
   }
 };
 
-export const getCandidates = async (req, res) => {
-  const rows = await Candidate.find().sort({ createdAt: -1 });
-  const data = rows.map((row) => {
-    const candidate = enrichCandidate(row);
-    ensureBaseTimeline(candidate);
-    return serializeCandidateForResponse(req, req.user, candidate);
+export const getCandidateWorkflowConfig = async (_req, res) => {
+  return res.json({
+    success: true,
+    message: "Fetched candidate workflow config",
+    data: {
+      statuses: CandidateStatuses,
+      transitions: STATUS_TRANSITIONS,
+      legacyStatusMap: LEGACY_STATUS_MAP,
+    },
   });
+};
+
+export const getCandidates = async (req, res) => {
+  const rows = await Candidate.find(
+    {},
+    [
+      "_id",
+      "fullName",
+      "email",
+      "phone",
+      "positionApplied",
+      "status",
+      "submittedAt",
+      "createdAt",
+      "updatedAt",
+      "stage2SubmittedAt",
+      "lastUpdatedAt",
+      "offerLetter.salary",
+      "offerLetter.joiningDate",
+      "internship.status",
+      "joiningForm.status",
+      "joiningForm.isUnlocked",
+    ].join(" ")
+  )
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const data = rows.map((row) => enrichCandidate(row));
   return res.json({ success: true, message: "Fetched candidates", data });
 };
 
@@ -376,17 +398,6 @@ export const getCandidateById = async (req, res) => {
   }
   const data = enrichCandidate(row);
   ensureBaseTimeline(data);
-  if (req.user?._id) {
-    await UserActivity.create({
-      userId: req.user._id,
-      userName: req.user.name || "",
-      userEmail: req.user.email || "",
-      userRole: req.user.accessRole || req.user.role || "",
-      action: "Viewed Candidate Profile",
-      details: `${data.fullName} profile viewed`,
-      ipAddress: req.ip || "",
-    });
-  }
   return res.json({ success: true, message: "Fetched candidate", data: serializeCandidateForResponse(req, req.user, data) });
 };
 

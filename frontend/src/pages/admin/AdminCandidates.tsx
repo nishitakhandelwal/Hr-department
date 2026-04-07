@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { MoreHorizontal, Trash2, UserCheck, BriefcaseBusiness, Send, FileCheck } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useToast } from "@/hooks/use-toast";
-import { apiService, type CandidateRecord, type CandidateStatus } from "@/services/api";
+import { apiService, type CandidateRecord, type CandidateStatus, type CandidateWorkflowConfig } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/DatePicker";
 import {
@@ -27,6 +27,7 @@ import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import { ExportButton } from "@/components/common/ExportButton";
 import type { ExportColumn } from "@/utils/export";
 import { EmptyState } from "@/components/EmptyState";
+import { useLabel } from "@/context/SystemSettingsContext";
 
 type CandidateExportRow = {
   candidateName: string;
@@ -46,16 +47,92 @@ const candidateExportColumns: ExportColumn<CandidateExportRow>[] = [
   { key: "appliedAt", label: "Applied At" },
 ];
 
+const formatCandidateDate = (value?: string | null) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleString("en-IN");
+};
+
+type CandidateEvaluationPayload = {
+  candidateId: string;
+  evaluationRemarks: string;
+  adminNotes?: string;
+  rating: number | null;
+  status: CandidateStatus;
+  interviewSchedule?: CandidateRecord["interviewSchedule"];
+  videoFeedback?: string;
+  videoRating?: number | null;
+};
+
+const resolveCandidateId = (candidate?: CandidateRecord | null) => candidate?.id || candidate?._id || "";
+
+const normalizeCandidateState = (candidate: CandidateRecord): CandidateRecord => {
+  const normalizedId = resolveCandidateId(candidate);
+  return {
+    ...candidate,
+    _id: normalizedId,
+    id: normalizedId,
+  };
+};
+
 const AdminCandidates: React.FC = () => {
   const { toast } = useToast();
+  const pageTitle = useLabel("admin.candidates.title");
+  const pageSubtitle = useLabel("admin.candidates.subtitle");
+  const searchPlaceholder = useLabel("admin.candidates.search");
+  const allStatusesLabel = useLabel("admin.candidates.filter.all");
+  const foundLabel = useLabel("admin.candidates.found");
+  const nameLabel = useLabel("admin.candidates.table.name");
+  const emailLabel = useLabel("admin.candidates.table.email");
+  const phoneLabel = useLabel("admin.candidates.table.phone");
+  const positionLabel = useLabel("admin.candidates.table.position");
+  const statusLabel = useLabel("admin.candidates.table.status");
+  const appliedAtLabel = useLabel("admin.candidates.table.appliedAt");
+  const actionsLabel = useLabel("admin.candidates.table.actions");
+  const evaluateLabel = useLabel("admin.candidates.action.evaluate");
+  const moveToEmployeeLabel = useLabel("admin.candidates.action.moveToEmployee");
+  const assignInternshipLabel = useLabel("admin.candidates.action.assignInternship");
+  const sendOfferLabel = useLabel("admin.candidates.action.sendOffer");
+  const sendJoiningFormLabel = useLabel("admin.candidates.action.sendJoiningForm");
+  const deleteLabel = useLabel("admin.candidates.action.delete");
+  const emptyTitle = useLabel("admin.candidates.empty.title");
+  const emptyDescription = useLabel("admin.candidates.empty.description");
+  const refreshListLabel = useLabel("admin.candidates.empty.refresh");
+  const loadingLabel = useLabel("admin.candidates.loading");
+  const emptyTableLabel = useLabel("admin.candidates.empty.table");
+  const showingLabel = useLabel("admin.candidates.pagination.showing");
+  const ofLabel = useLabel("admin.candidates.pagination.of");
+  const previousLabel = useLabel("admin.candidates.pagination.previous");
+  const nextLabel = useLabel("admin.candidates.pagination.next");
+  const moreActionsLabel = useLabel("admin.candidates.action.more");
+  const movingLabel = useLabel("admin.candidates.action.moving");
+  const deletingLabel = useLabel("admin.candidates.action.deleting");
+  const internshipTitle = useLabel("admin.candidates.internship.title");
+  const internshipStartDateLabel = useLabel("admin.candidates.internship.startDate");
+  const internshipEndDateLabel = useLabel("admin.candidates.internship.endDate");
+  const assigningLabel = useLabel("admin.candidates.internship.assigning");
+  const offerTitle = useLabel("admin.candidates.offer.title");
+  const offerRoleLabel = useLabel("admin.candidates.offer.role");
+  const offerSalaryLabel = useLabel("admin.candidates.offer.salary");
+  const offerJoiningDateLabel = useLabel("admin.candidates.offer.joiningDate");
+  const offerRolePlaceholder = useLabel("admin.candidates.offer.placeholder.role");
+  const offerSalaryPlaceholder = useLabel("admin.candidates.offer.placeholder.salary");
+  const sendingLabel = useLabel("admin.candidates.offer.sending");
+  const generateOfferLabel = useLabel("admin.candidates.offer.generate");
+  const deleteDialogTitle = useLabel("admin.candidates.delete.title");
+  const moveDialogTitle = useLabel("admin.candidates.move.title");
+  const moveDialogConfirmLabel = useLabel("admin.candidates.move.confirm");
+  const cancelLabel = useLabel("common.cancel");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<CandidateRecord[]>([]);
+  const [workflowConfig, setWorkflowConfig] = useState<CandidateWorkflowConfig | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalSaving, setModalSaving] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateRecord | null>(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [candidateToDelete, setCandidateToDelete] = useState<CandidateRecord | null>(null);
   const [candidateToMove, setCandidateToMove] = useState<CandidateRecord | null>(null);
@@ -75,7 +152,7 @@ const AdminCandidates: React.FC = () => {
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiService.list<CandidateRecord>("candidates");
+      const data = await apiService.listCandidates();
       setCandidates(data);
       setError(null);
     } catch (err) {
@@ -87,21 +164,55 @@ const AdminCandidates: React.FC = () => {
     }
   }, [toast]);
 
+  const fetchWorkflowConfig = useCallback(async () => {
+    try {
+      const data = await apiService.getCandidateWorkflowConfig();
+      setWorkflowConfig(data);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load candidate workflow";
+      toast({ title: "Workflow unavailable", description: message, variant: "destructive" });
+    }
+  }, [toast]);
+
   useEffect(() => {
     void fetchCandidates();
   }, [fetchCandidates]);
 
-  const handleView = async (id: string) => {
+  useEffect(() => {
+    void fetchWorkflowConfig();
+  }, [fetchWorkflowConfig]);
+
+  const handleView = async (candidateId: string, candidate?: CandidateRecord) => {
+    if (!candidateId || typeof candidateId !== "string") {
+      console.error("Invalid candidate ID:", candidateId);
+      toast({
+        title: "Invalid candidate",
+        description: "Candidate details could not be opened because the candidate ID is invalid.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setModalOpen(true);
     setModalLoading(true);
-    setSelectedCandidate(null);
+    setSelectedCandidateId(candidateId);
+    setSelectedCandidate(candidate ? normalizeCandidateState(candidate) : null);
     try {
-      const data = await apiService.getCandidateById(id);
-      setSelectedCandidate(data);
-    } catch (err) {
+      const data = await Promise.race([
+        apiService.getCandidateById(candidateId),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error("Candidate details request timed out")), 8000);
+        }),
+      ]);
+      setSelectedCandidate(normalizeCandidateState(data));
+    } catch (error) {
+      console.error("Evaluation error:", error);
       toast({
-        title: "Error",
-        description: err instanceof Error ? err.message : "Failed to load candidate details",
+        title: "Details unavailable",
+        description:
+          error instanceof Error
+            ? `${error.message}. Showing available candidate data.`
+            : "Failed to load full candidate details",
         variant: "destructive",
       });
     } finally {
@@ -109,27 +220,59 @@ const AdminCandidates: React.FC = () => {
     }
   };
 
-  const handleSaveEvaluation = async (payload: {
-    evaluationRemarks: string;
-    adminNotes?: string;
-    rating: number | null;
-    status: CandidateStatus;
-    interviewSchedule?: CandidateRecord["interviewSchedule"];
-    videoFeedback?: string;
-    videoRating?: number | null;
-  }) => {
-    if (!selectedCandidate) return;
-    setModalSaving(true);
+  
+  const handleSaveEvaluation = async (payload: CandidateEvaluationPayload) => {
+    console.log("Received payload:", payload);
+
+    const candidateToSave =
+      selectedCandidate ||
+      candidates.find((item) => resolveCandidateId(item) === selectedCandidateId) ||
+      null;
+    const candidateId =
+      payload.candidateId ||
+      resolveCandidateId(candidateToSave) ||
+      selectedCandidateId;
+
+    if (!candidateId) {
+      console.error("Candidate ID missing");
+      toast({
+        title: "Update failed",
+        description: "Candidate ID is missing, so the review could not be saved.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!payload.status) {
+      toast({
+        title: "Status required",
+        description: "Please choose a candidate status before saving the review.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const updated = await apiService.reviewCandidateByAdmin(selectedCandidate._id, payload);
-      setCandidates((prev) => prev.map((item) => (item._id === updated._id ? updated : item)));
+      setModalSaving(true);
+      const updated = normalizeCandidateState(await apiService.reviewCandidateByAdmin(candidateId, payload));
+
+      setCandidates((prev) =>
+        prev.map((item) => (resolveCandidateId(item) === candidateId ? updated : item))
+      );
+      setSelectedCandidate(updated);
+      await fetchCandidates();
       setModalOpen(false);
       setSelectedCandidate(null);
-      toast({ title: "Saved", description: "Admin review updated successfully." });
+      setSelectedCandidateId("");
+
+      toast({
+        title: "Review saved",
+        description: "Candidate review and status were updated successfully.",
+      });
     } catch (err) {
       toast({
         title: "Update failed",
-        description: err instanceof Error ? err.message : "Could not save admin review",
+        description: err instanceof Error ? err.message : "Could not save the candidate review.",
         variant: "destructive",
       });
     } finally {
@@ -137,16 +280,26 @@ const AdminCandidates: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    setDeletingId(id);
+  const handleDelete = async (candidateId: string) => {
+    if (!candidateId) return;
+
+    setDeletingId(candidateId);
     try {
-      await apiService.deleteCandidate(id);
-      setCandidates((prev) => prev.filter((candidate) => candidate._id !== id));
-      toast({ title: "Candidate deleted", description: "Candidate removed successfully." });
+      await apiService.deleteCandidate(candidateId);
+      setCandidates((prev) => prev.filter((candidate) => resolveCandidateId(candidate) !== candidateId));
+      if (resolveCandidateId(selectedCandidate) === candidateId) {
+        setSelectedCandidate(null);
+        setSelectedCandidateId("");
+        setModalOpen(false);
+      }
+      toast({
+        title: "Candidate deleted",
+        description: "The candidate record has been removed successfully.",
+      });
     } catch (err) {
       toast({
-        title: "Error",
-        description: err instanceof Error ? err.message : "Failed to delete candidate",
+        title: "Delete failed",
+        description: err instanceof Error ? err.message : "Could not delete the candidate.",
         variant: "destructive",
       });
     } finally {
@@ -283,13 +436,19 @@ const AdminCandidates: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(filteredCandidates.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageCandidates = filteredCandidates.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const modalCandidate =
+    selectedCandidate ||
+    candidates.find((candidate) => resolveCandidateId(candidate) === selectedCandidateId) ||
+    null;
+  const availableStatuses = workflowConfig?.statuses || (modalCandidate ? [modalCandidate.status] : []);
+  const filterStatuses = workflowConfig?.statuses || [...new Set(candidates.map((c) => c.status))];
   const exportRows: CandidateExportRow[] = filteredCandidates.map((candidate) => ({
     candidateName: candidate.fullName || "-",
     email: candidate.email || "-",
     phone: candidate.phone || "-",
     position: candidate.positionApplied || "-",
     status: candidate.status || "-",
-    appliedAt: candidate.createdAt ? new Date(candidate.createdAt).toLocaleString("en-IN") : "-",
+    appliedAt: formatCandidateDate(candidate.submittedAt || candidate.createdAt),
   }));
   const fallbackExportRows: CandidateExportRow[] = candidates.map((candidate) => ({
     candidateName: candidate.fullName || "-",
@@ -297,14 +456,14 @@ const AdminCandidates: React.FC = () => {
     phone: candidate.phone || "-",
     position: candidate.positionApplied || "-",
     status: candidate.status || "-",
-    appliedAt: candidate.createdAt ? new Date(candidate.createdAt).toLocaleString("en-IN") : "-",
+    appliedAt: formatCandidateDate(candidate.submittedAt || candidate.createdAt),
   }));
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Candidates"
-        subtitle="Stage-based workflow with real-time status updates"
+        title={pageTitle}
+        subtitle={pageSubtitle}
         action={
           <ExportButton
             moduleName="candidates"
@@ -314,14 +473,14 @@ const AdminCandidates: React.FC = () => {
             filters={{ search, status: statusFilter === "all" ? "" : statusFilter }}
             className="rounded-xl"
             loading={loading}
-            emptyMessage="No data to export"
+            emptyMessage={emptyTableLabel}
             preferServerExport={false}
           />
         }
       />
       <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
         <Input
-          placeholder="Search candidate by name, email, position"
+          placeholder={searchPlaceholder}
           value={search}
           onChange={(event) => {
             setSearch(event.target.value);
@@ -336,53 +495,53 @@ const AdminCandidates: React.FC = () => {
             setPage(1);
           }}
         >
-          <option value="all">All Statuses</option>
-          {[...new Set(candidates.map((c) => c.status))].map((status) => (
+          <option value="all">{allStatusesLabel}</option>
+          {filterStatuses.map((status) => (
             <option key={status} value={status}>
               {status}
             </option>
           ))}
         </select>
         <div className="text-sm text-muted-foreground md:text-right md:self-center">
-          {filteredCandidates.length} candidate{filteredCandidates.length === 1 ? "" : "s"} found
+          {filteredCandidates.length} {foundLabel}
         </div>
       </div>
 
       {loading ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-sm text-slate-500">
-          Loading candidates...
+          {loadingLabel}
         </div>
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-10 text-sm text-rose-700">{error}</div>
       ) : filteredCandidates.length === 0 ? (
         <EmptyState
-          title="No candidates available"
-          description="No data available for the current search or status filter."
+          title={emptyTitle}
+          description={emptyDescription}
           action={
             <Button variant="outline" className="rounded-xl" onClick={() => void fetchCandidates()}>
-              Refresh list
+              {refreshListLabel}
             </Button>
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <table className="min-w-[980px] w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">Name</th>
-                <th className="px-4 py-3 text-left font-medium">Email</th>
-                <th className="px-4 py-3 text-left font-medium">Phone</th>
-                <th className="px-4 py-3 text-left font-medium">Position</th>
-                <th className="px-4 py-3 text-left font-medium">Status</th>
-                <th className="px-4 py-3 text-left font-medium">Applied At</th>
-                <th className="px-4 py-3 text-left font-medium">Actions</th>
+                <th className="px-4 py-3 text-left font-medium">{nameLabel}</th>
+                <th className="px-4 py-3 text-left font-medium">{emailLabel}</th>
+                <th className="px-4 py-3 text-left font-medium">{phoneLabel}</th>
+                <th className="px-4 py-3 text-left font-medium">{positionLabel}</th>
+                <th className="px-4 py-3 text-left font-medium">{statusLabel}</th>
+                <th className="px-4 py-3 text-left font-medium">{appliedAtLabel}</th>
+                <th className="px-4 py-3 text-right font-medium">{actionsLabel}</th>
               </tr>
             </thead>
             <tbody>
               {pageCandidates.length === 0 ? (
                 <tr>
                   <td className="px-4 py-4 text-muted-foreground" colSpan={7}>
-                    No data available.
+                    {emptyTableLabel}
                   </td>
                 </tr>
               ) : (
@@ -393,15 +552,16 @@ const AdminCandidates: React.FC = () => {
                     <td className="px-4 py-3">{candidate.phone || "-"}</td>
                     <td className="px-4 py-3">{candidate.positionApplied || "-"}</td>
                     <td className="px-4 py-3"><CandidateStatusBadge status={candidate.status} /></td>
-                    <td className="px-4 py-3">{new Date(candidate.createdAt).toLocaleString()}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3">{formatCandidateDate(candidate.submittedAt || candidate.createdAt)}</td>
+                    <td className="px-4 py-3 min-w-[150px]">
                       <div className="flex items-center justify-end gap-2">
                         <Button
+                          type="button"
                           size="sm"
                           className="h-9 min-w-[92px] rounded-xl bg-slate-900 px-4 text-white hover:bg-slate-800"
-                          onClick={() => void handleView(candidate._id)}
+                          onClick={() => void handleView(candidate._id || candidate.id || "", candidate)}
                         >
-                          Evaluate
+                          {evaluateLabel}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -409,7 +569,7 @@ const AdminCandidates: React.FC = () => {
                               size="icon"
                               variant="outline"
                               className="h-9 w-9 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                              aria-label={`More actions for ${candidate.fullName}`}
+                              aria-label={`${moreActionsLabel}: ${candidate.fullName}`}
                             >
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
@@ -422,7 +582,7 @@ const AdminCandidates: React.FC = () => {
                                 onClick={() => setCandidateToMove(candidate)}
                               >
                                 <UserCheck className="mr-2 h-4 w-4" />
-                                {movingId === candidate._id ? "Moving..." : "Move to Employee"}
+                                {movingId === candidate._id ? movingLabel : moveToEmployeeLabel}
                               </DropdownMenuItem>
                             ) : null}
                             {candidate.status === "Selected" ? (
@@ -433,7 +593,7 @@ const AdminCandidates: React.FC = () => {
                                   onClick={() => void handleAssignInternship(candidate)}
                                 >
                                   <BriefcaseBusiness className="mr-2 h-4 w-4" />
-                                  Assign Internship
+                                  {assignInternshipLabel}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className="rounded-xl px-3 py-2.5"
@@ -441,7 +601,7 @@ const AdminCandidates: React.FC = () => {
                                   onClick={() => handleOpenOfferDialog(candidate)}
                                 >
                                   <Send className="mr-2 h-4 w-4" />
-                                  Send Offer
+                                  {sendOfferLabel}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className="rounded-xl px-3 py-2.5"
@@ -449,7 +609,7 @@ const AdminCandidates: React.FC = () => {
                                   onClick={() => void handleSendJoiningForm(candidate)}
                                 >
                                   <FileCheck className="mr-2 h-4 w-4" />
-                                  Send Joining Form
+                                  {sendJoiningFormLabel}
                                 </DropdownMenuItem>
                               </>
                             ) : null}
@@ -460,7 +620,7 @@ const AdminCandidates: React.FC = () => {
                                 onClick={() => void handleSendJoiningForm(candidate)}
                               >
                                 <FileCheck className="mr-2 h-4 w-4" />
-                                Send Joining Form
+                                {sendJoiningFormLabel}
                               </DropdownMenuItem>
                             ) : null}
                             {(
@@ -474,7 +634,7 @@ const AdminCandidates: React.FC = () => {
                               onClick={() => setCandidateToDelete(candidate)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              {deletingId === candidate._id ? "Deleting..." : "Delete"}
+                              {deletingId === candidate._id ? deletingLabel : deleteLabel}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -490,43 +650,51 @@ const AdminCandidates: React.FC = () => {
 
       <div className="flex items-center justify-between text-sm">
         <p className="text-muted-foreground">
-          Showing {filteredCandidates.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-
-          {Math.min(currentPage * pageSize, filteredCandidates.length)} of {filteredCandidates.length}
+          {showingLabel} {filteredCandidates.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-
+          {Math.min(currentPage * pageSize, filteredCandidates.length)} {ofLabel} {filteredCandidates.length}
         </p>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>
-            Previous
+            {previousLabel}
           </Button>
           <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}>
-            Next
+            {nextLabel}
           </Button>
         </div>
       </div>
 
       <CandidateDetailsModal
         open={modalOpen}
-        onOpenChange={setModalOpen}
+        onOpenChange={(open) => {
+          setModalOpen(open);
+          if (!open) {
+            setSelectedCandidate(null);
+            setSelectedCandidateId("");
+            setModalLoading(false);
+          }
+        }}
         loading={modalLoading}
         saving={modalSaving}
-        candidate={selectedCandidate}
+        candidate={modalCandidate}
+        availableStatuses={availableStatuses}
         onSave={handleSaveEvaluation}
       />
 
       <Dialog open={internshipDialogOpen} onOpenChange={setInternshipDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Internship</DialogTitle>
+            <DialogTitle>{internshipTitle}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Start Date</Label>
+              <Label>{internshipStartDateLabel}</Label>
               <DatePicker
                 value={internshipDates.startDate}
                 onChange={(event) => setInternshipDates((prev) => ({ ...prev, startDate: event.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>End Date</Label>
+              <Label>{internshipEndDateLabel}</Label>
               <DatePicker
                 value={internshipDates.endDate}
                 onChange={(event) => setInternshipDates((prev) => ({ ...prev, endDate: event.target.value }))}
@@ -535,13 +703,13 @@ const AdminCandidates: React.FC = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setInternshipDialogOpen(false)}>
-              Cancel
+              {cancelLabel}
             </Button>
             <Button
               onClick={() => void submitInternshipAssignment()}
               disabled={!internshipCandidate || actionId === internshipCandidate?._id}
             >
-              {actionId === internshipCandidate?._id ? "Assigning..." : "Assign Internship"}
+              {actionId === internshipCandidate?._id ? assigningLabel : assignInternshipLabel}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -556,29 +724,29 @@ const AdminCandidates: React.FC = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send Offer Letter</DialogTitle>
+            <DialogTitle>{offerTitle}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Role</Label>
+              <Label>{offerRoleLabel}</Label>
               <Input
                 value={offerDetails.role}
                 onChange={(event) => setOfferDetails((prev) => ({ ...prev, role: event.target.value }))}
-                placeholder="Senior Executive"
+                placeholder={offerRolePlaceholder}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Salary</Label>
+              <Label>{offerSalaryLabel}</Label>
               <Input
                 type="number"
                 min="1"
                 value={offerDetails.salary}
                 onChange={(event) => setOfferDetails((prev) => ({ ...prev, salary: event.target.value }))}
-                placeholder="25000"
+                placeholder={offerSalaryPlaceholder}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Joining Date</Label>
+              <Label>{offerJoiningDateLabel}</Label>
               <DatePicker
                 value={offerDetails.joiningDate}
                 onChange={(event) => setOfferDetails((prev) => ({ ...prev, joiningDate: event.target.value }))}
@@ -587,10 +755,10 @@ const AdminCandidates: React.FC = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOfferDialogOpen(false)}>
-              Cancel
+              {cancelLabel}
             </Button>
             <Button onClick={() => void handleSendOffer()} disabled={!offerCandidate || actionId === offerCandidate?._id}>
-              {actionId === offerCandidate?._id ? "Sending..." : "Generate & Send Offer"}
+              {actionId === offerCandidate?._id ? sendingLabel : generateOfferLabel}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -600,7 +768,7 @@ const AdminCandidates: React.FC = () => {
         onOpenChange={(open) => {
           if (!open) setCandidateToDelete(null);
         }}
-        title="Delete Candidate"
+        title={deleteDialogTitle}
         description={`Are you sure you want to permanently delete ${candidateToDelete?.fullName || "this candidate"}? This action cannot be undone.`}
         onConfirm={() => {
           if (!candidateToDelete?._id) return;
@@ -613,9 +781,9 @@ const AdminCandidates: React.FC = () => {
         onOpenChange={(open) => {
           if (!open) setCandidateToMove(null);
         }}
-        title="Move Candidate To Employee"
+        title={moveDialogTitle}
         description={`Move ${candidateToMove?.fullName || "this candidate"} to Employee? This will continue the onboarding workflow.`}
-        confirmLabel="Move"
+        confirmLabel={moveDialogConfirmLabel}
         onConfirm={() => {
           if (!candidateToMove) return;
           void handleMoveToEmployee(candidateToMove);

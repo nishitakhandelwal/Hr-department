@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/context/AuthContext";
+import { useSystemSettings } from "@/context/SystemSettingsContext";
 import { useToast } from "@/hooks/use-toast";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import { destructiveIconButtonClass } from "@/lib/destructive";
@@ -74,6 +75,7 @@ const toInputDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString
 
 const AdminUserManagement: React.FC = () => {
   const { user: currentUser } = useAuth();
+  const { theme } = useSystemSettings();
   const { toast } = useToast();
   const [users, setUsers] = React.useState<ManagedUser[]>([]);
   const [usersPagination, setUsersPagination] = React.useState<PaginationMeta>({ page: 1, limit: 10, total: 0, totalPages: 1 });
@@ -387,6 +389,7 @@ const AdminUserManagement: React.FC = () => {
   const activePageStart = (usersPagination.page - 1) * usersPagination.limit + 1;
   const activePageEnd = Math.min(usersPagination.page * usersPagination.limit, usersPagination.total);
   const activeFilterCount = [userSearch, roleFilter, departmentFilter, statusFilter, activityFilter].filter(Boolean).length;
+  const isDarkMode = theme === "dark";
 
   return (
     <div className="space-y-6">
@@ -410,63 +413,87 @@ const AdminUserManagement: React.FC = () => {
         </TabsList>
 
         <TabsContent value="users" className="space-y-4">
-          <Card>
+          <Card className={isDarkMode
+            ? "border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] shadow-[0_20px_50px_rgba(166,124,82,0.16)]"
+            : "border-[#E7E5E4] bg-white shadow-[0_18px_45px_rgba(15,14,13,0.08)]"}>
             <CardHeader>
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <CardTitle>User Directory</CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">A cleaner directory with edit controls moved into the user profile modal.</p>
+                  <CardTitle className={isDarkMode ? "text-[#F5F5F5]" : "text-[#18181B]"}>User Directory</CardTitle>
+                  <p className={`mt-1 text-sm ${isDarkMode ? "text-[#A1A1AA]" : "text-[#3F3F46]"}`}>A cleaner directory with edit controls moved into the user profile modal.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button variant="outline" className="gap-2 rounded-xl border-slate-200 bg-white/90" onClick={() => setUserFiltersOpen(true)}>
+                  <Button
+                    variant="outline"
+                    className={isDarkMode
+                      ? "gap-2 rounded-xl border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]"
+                      : "gap-2 rounded-xl border-[#D6D3D1] bg-white text-[#18181B] hover:border-[#A67C52] hover:bg-[#F8F5F1] hover:text-[#18181B]"}
+                    onClick={() => setUserFiltersOpen(true)}
+                  >
                     <Filter className="h-4 w-4" />
                     Filters
                   </Button>
-                  <p className="text-sm text-muted-foreground">
+                  <p className={`text-sm ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>
                     {activeFilterCount > 0 ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied` : "No filters applied"}
                   </p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="overflow-x-auto rounded-3xl border border-white/80 bg-white/90 shadow-card">
+              <div className={isDarkMode
+                ? "overflow-x-auto rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] shadow-[0_20px_50px_rgba(166,124,82,0.16)]"
+                : "overflow-x-auto rounded-3xl border border-[#E7E5E4] bg-white shadow-[0_18px_45px_rgba(15,14,13,0.06)]"}>
                 <table className="w-full border-separate border-spacing-y-2">
-                  <thead className="bg-muted/30">
-                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                      <th className="px-3 py-2">User Name</th>
-                      <th className="px-3 py-2">Email</th>
-                      <th className="px-3 py-2">
+                  <thead className={isDarkMode ? "bg-[rgba(230,199,163,0.08)]" : "bg-[#F8F5F1]"}>
+                    <tr className={isDarkMode
+                      ? "border-b border-[#2A2623] text-left text-xs uppercase tracking-wide text-[#A1A1AA]"
+                      : "border-b border-[#E7E5E4] text-left text-xs uppercase tracking-wide text-[#52525B]"}>
+                      <th className="px-3 py-3">User Name</th>
+                      <th className="px-3 py-3">Email</th>
+                      <th className="px-3 py-3">
                         <button onClick={() => handleSort("accessRole")}>Role</button>
                       </th>
-                      <th className="px-3 py-2">Department</th>
-                      <th className="px-3 py-2">
+                      <th className="px-3 py-3">Department</th>
+                      <th className="px-3 py-3">
                         <button onClick={() => handleSort("accountStatus")}>Account Status</button>
                       </th>
-                      <th className="px-3 py-2">
+                      <th className="px-3 py-3">
                         <button onClick={() => handleSort("lastLoginAt")}>Last Login</button>
                       </th>
-                      <th className="px-3 py-2 text-right">Actions</th>
+                      <th className="px-3 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.map((user) => (
-                      <tr key={user._id} className="text-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50/80">
+                      <tr
+                        key={user._id}
+                        className={isDarkMode
+                          ? "text-sm text-[#F5F5F5] transition-all duration-200 hover:bg-[rgba(230,199,163,0.08)]"
+                          : "text-sm text-[#18181B] transition-all duration-200 hover:bg-[#FAF7F2]"}
+                      >
                         <td className="px-3 py-3 font-medium">{user.name}</td>
-                        <td className="px-3 py-2">{user.email}</td>
-                        <td className="px-3 py-2">
+                        <td className={`px-3 py-3 ${isDarkMode ? "text-[#D4D4D8]" : "text-[#27272A]"}`}>{user.email}</td>
+                        <td className="px-3 py-3">
                           <StatusBadge status={ROLE_LABELS[user.accessRole]} />
                         </td>
-                        <td className="px-3 py-2">{user.department || "-"}</td>
-                        <td className="px-3 py-2">
+                        <td className={`px-3 py-3 ${isDarkMode ? "text-[#D4D4D8]" : "text-[#27272A]"}`}>{user.department || "-"}</td>
+                        <td className="px-3 py-3">
                           <StatusBadge status={user.accountStatus === "disabled" ? "Inactive" : user.accountStatus} />
                         </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">{toInputDate(user.lastLoginAt)}</td>
-                        <td className="px-3 py-2">
+                        <td className={`px-3 py-3 text-xs ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>{toInputDate(user.lastLoginAt)}</td>
+                        <td className="px-3 py-3">
                           <TooltipProvider delayDuration={100}>
                             <div className="flex items-center justify-end gap-1">
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full bg-slate-100/70 hover:bg-slate-200/80" onClick={() => handleEditClick(user)}>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className={isDarkMode
+                                      ? "h-9 w-9 rounded-full border border-[#2A2623] bg-[rgba(35,32,29,0.72)] text-[#E6C7A3] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#F5F5F5]"
+                                      : "h-9 w-9 rounded-full border border-[#E7E5E4] bg-white text-[#18181B] hover:bg-[#F8F5F1] hover:text-[#18181B]"}
+                                    onClick={() => handleEditClick(user)}
+                                  >
                                     <Edit className="h-4 w-4" />
                                   </Button>
                                 </TooltipTrigger>
@@ -494,7 +521,7 @@ const AdminUserManagement: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between text-sm">
-                <p className="text-muted-foreground">
+                <p className={isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}>
                   {usersPagination.total === 0 ? "No users found" : `Showing ${activePageStart}-${activePageEnd} of ${usersPagination.total}`}
                 </p>
                 <div className="flex gap-2">
@@ -506,7 +533,7 @@ const AdminUserManagement: React.FC = () => {
                   </Button>
                 </div>
               </div>
-              {loadingUsers && <p className="text-xs text-muted-foreground">Loading users...</p>}
+              {loadingUsers && <p className={`text-xs ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>Loading users...</p>}
             </CardContent>
           </Card>
         </TabsContent>

@@ -5,11 +5,11 @@ import { Candidate } from "../models/Candidate.js";
 import { Department } from "../models/Department.js";
 import { Employee } from "../models/Employee.js";
 import { JoiningForm } from "../models/JoiningForm.js";
-import { Notification } from "../models/Notification.js";
 import { User } from "../models/User.js";
 import { sendEmail } from "./emailService.js";
 import { maybeSendEmailBySettings } from "./runtimeBehaviorService.js";
 import { buildMessageEmailLayout } from "../layouts/email/index.js";
+import { createNotificationBatch, createNotificationRecord } from "./notificationService.js";
 
 const toString = (value) => String(value ?? "").trim();
 const toLowerEmail = (value) => String(value ?? "").toLowerCase().trim();
@@ -102,21 +102,13 @@ const mapEmployeeSnapshot = ({ candidate, joiningForm, mappedDepartment, designa
 
 export const createNotificationForUser = async ({ userId, title, message, type = "general" }) => {
   if (!userId) return null;
-  return Notification.create({ userId, title, message, type, read: false });
+  return createNotificationRecord({ userId, title, message, type, dedupeScope: `workflow:${type}` });
 };
 
 export const createNotificationsForUsers = async ({ userIds, title, message, type = "general" }) => {
   const uniqueUserIds = [...new Set((userIds || []).map(toUserId).filter(Boolean))];
   if (!uniqueUserIds.length) return [];
-  return Notification.insertMany(
-    uniqueUserIds.map((userId) => ({
-      userId,
-      title,
-      message,
-      type,
-      read: false,
-    }))
-  );
+  return createNotificationBatch({ userIds: uniqueUserIds, title, message, type, dedupeScope: `workflow:${type}` });
 };
 
 export const getCandidateNotificationUserId = async (candidate) => {

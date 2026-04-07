@@ -19,14 +19,10 @@ const normalizeDateValue = (value: string | undefined) => {
 export type DatePickerProps = React.ComponentProps<typeof Input>;
 
 const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
-  ({ value, onClick, onFocus, ...props }, ref) => {
+  ({ value, ...props }, ref) => {
     const inputRef = React.useRef<HTMLInputElement | null>(null);
 
     React.useImperativeHandle(ref, () => inputRef.current as HTMLInputElement);
-
-    const openNativePicker = React.useCallback(() => {
-      inputRef.current?.showPicker?.();
-    }, []);
 
     return (
       <Input
@@ -36,14 +32,6 @@ const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
         inputMode="numeric"
         pattern="\d{4}-\d{2}-\d{2}"
         value={typeof value === "string" ? normalizeDateValue(value) : value}
-        onClick={(event) => {
-          openNativePicker();
-          onClick?.(event);
-        }}
-        onFocus={(event) => {
-          openNativePicker();
-          onFocus?.(event);
-        }}
       />
     );
   },

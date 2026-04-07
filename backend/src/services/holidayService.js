@@ -1,5 +1,6 @@
 import axios from "axios";
 import { Holiday } from "../models/Holiday.js";
+import { normalizeHolidayDate } from "./dataLifecycleService.js";
 
 const NAGER_DATE_API = "https://date.nager.at/api/v3";
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
@@ -35,20 +36,9 @@ export const holidayService = {
 
       const holidays = response.data || [];
       
-      // Delete old entries for this country/year to avoid duplicates
-      await Holiday.deleteMany({
-        country,
-        date: {
-          $gte: new Date(targetYear, 0, 1),
-          $lte: new Date(targetYear, 11, 31),
-        },
-        source: "api",
-      });
-
-      // Insert new holidays
       const holidaysToInsert = holidays.map((holiday) => ({
         title: holiday.name,
-        date: new Date(holiday.date),
+        date: normalizeHolidayDate(holiday.date),
         country,
         type: holiday.types?.includes("Public") ? "public" : "optional",
         source: "api",
@@ -56,7 +46,15 @@ export const holidayService = {
       }));
 
       if (holidaysToInsert.length > 0) {
-        await Holiday.insertMany(holidaysToInsert);
+        await Holiday.bulkWrite(
+          holidaysToInsert.map((holiday) => ({
+            updateOne: {
+              filter: { date: holiday.date },
+              update: { $set: holiday },
+              upsert: true,
+            },
+          }))
+        );
         console.log(`Cached ${holidaysToInsert.length} holidays for ${country} ${targetYear}`);
       }
 
@@ -125,34 +123,27 @@ export const holidayService = {
     const targetYear = year || new Date().getFullYear();
     const defaultData = this.getDefaultHolidaysData(country);
 
-    // Check if default holidays are already cached
-    const existing = await Holiday.countDocuments({
-      country,
-      date: {
-        $gte: new Date(targetYear, 0, 1),
-        $lte: new Date(targetYear, 11, 31),
-      },
-      source: "system",
-    });
-
-    if (existing > 0) {
-      return await this.getHolidaysByCountryAndYear(country, targetYear);
-    }
-
-    // Insert default holidays
     const holidaysToInsert = defaultData.map((holiday) => ({
       title: holiday.title,
-      date: new Date(targetYear, holiday.month, holiday.day),
+      date: normalizeHolidayDate(new Date(targetYear, holiday.month, holiday.day)),
       country,
       type: "public",
       source: "system",
     }));
 
     if (holidaysToInsert.length > 0) {
-      await Holiday.insertMany(holidaysToInsert);
+      await Holiday.bulkWrite(
+        holidaysToInsert.map((holiday) => ({
+          updateOne: {
+            filter: { date: holiday.date },
+            update: { $setOnInsert: holiday },
+            upsert: true,
+          },
+        }))
+      );
     }
 
-    return holidaysToInsert;
+    return await this.getHolidaysByCountryAndYear(country, targetYear);
   },
 
   /**
@@ -211,17 +202,21 @@ export const holidayService = {
    * Add a custom holiday (admin only)
    */
   async addCustomHoliday(title, date, country = "IN") {
-    const holiday = new Holiday({
-      title,
-      date: new Date(date),
-      country,
-      type: "public",
-      source: "manual",
-      isCustom: true,
-    });
-
-    await holiday.save();
-    return holiday;
+    const normalizedDate = normalizeHolidayDate(date);
+    return Holiday.findOneAndUpdate(
+      { date: normalizedDate },
+      {
+        $set: {
+          title,
+          date: normalizedDate,
+          country,
+          type: "public",
+          source: "manual",
+          isCustom: true,
+        },
+      },
+      { new: true, upsert: true }
+    );
   },
 
   /**
@@ -259,7 +254,7 @@ export const holidayService = {
 export const initializeDefaultHolidays = async () => {
   try {
     const currentYear = new Date().getFullYear();
-    const countries = ["IN", "US", "UK"];
+    const countries = ["IN"];
     
     for (const country of countries) {
       for (const year of [currentYear, currentYear + 1]) {

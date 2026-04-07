@@ -28,7 +28,7 @@ const HrDashboard: React.FC = () => {
     void (async () => {
       setLoading(true);
       try {
-        const data = await apiService.list<CandidateRecord>("candidates");
+        const data = await apiService.listCandidates();
         React.startTransition(() => setRows(data));
       } catch (error) {
         toast({

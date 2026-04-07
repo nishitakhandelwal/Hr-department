@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiService, authStorage, type OtpChannel } from "@/services/api";
 
-export type Role = "admin" | "employee" | "candidate";
+export type Role = "super_admin" | "admin" | "employee" | "candidate";
 
 export interface AuthUser {
   id: string;

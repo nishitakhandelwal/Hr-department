@@ -109,6 +109,14 @@ const systemSettingsSchema = new mongoose.Schema(
       loggingEnabled: { type: Boolean, default: true },
       retentionDays: { type: Number, min: 1, max: 3650, default: 180 },
     },
+    runtimeConfig: {
+      features: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+      labels: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+      theme: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+      navigation: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+      portalVisibility: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+      routes: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+    },
     payroll: {
       type: payrollSettingsSchema,
       default: () => ({}),

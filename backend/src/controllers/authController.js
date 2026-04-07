@@ -3,7 +3,6 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { User } from "../models/User.js";
-import { UserActivity } from "../models/UserActivity.js";
 import { sendBrevoOtpEmail } from "../services/brevoEmailService.js";
 import { ensureEmployeeProfileForUser } from "../services/employeeProfileService.js";
 import { getSystemSettings, resolveRoleKeyForUser } from "../services/systemSettingsService.js";
@@ -11,6 +10,7 @@ import { generateSecureToken, hashSha256 } from "../utils/token.js";
 import { createDefaultPermissions, normalizePermissions } from "../utils/permissions.js";
 import { buildUploadsPublicPath } from "../utils/uploadUrls.js";
 import { clearUserProfileImage, setUserProfileImage } from "../services/profileImageService.js";
+import { recordUserActivity } from "../services/activityLogService.js";
 
 const LOCK_MINUTES = 15;
 const TWO_FACTOR_TTL_MINUTES = 10;
@@ -219,11 +219,8 @@ const finalizeAuthenticatedSession = async ({ user, req, settings, message = "Su
     await ensureEmployeeProfileForUser(user);
   }
 
-  await UserActivity.create({
-    userId: user._id,
-    userName: user.name,
-    userEmail: user.email,
-    userRole: user.accessRole || user.role,
+  await recordUserActivity({
+    user,
     action: "User Logged In",
     details: message,
     ipAddress: req.ip || "",
@@ -620,16 +617,6 @@ export const verifyRegistrationOtp = async (req, res) => {
   clearEmailVerificationState(user);
   await user.save();
 
-  await UserActivity.create({
-    userId: user._id,
-    userName: user.name,
-    userEmail: user.email,
-    userRole: user.accessRole || user.role,
-    action: "Email Verified",
-    details: "User completed registration email verification",
-    ipAddress: req.ip || "",
-  });
-
   return res.json({ success: true, message: "Email verified successfully." });
 };
 
@@ -746,11 +733,8 @@ export const resetPassword = async (req, res) => {
   user.lockUntil = null;
   await user.save();
 
-  await UserActivity.create({
-    userId: user._id,
-    userName: user.name,
-    userEmail: user.email,
-    userRole: user.accessRole || user.role,
+  await recordUserActivity({
+    user,
     action: "Password Reset",
     details: "User reset password via secure token",
     ipAddress: req.ip || "",
@@ -848,11 +832,8 @@ export const removeProfileImage = async (req, res) => {
 
 export const logout = async (req, res) => {
   if (req.user?._id) {
-    await UserActivity.create({
-      userId: req.user._id,
-      userName: req.user.name,
-      userEmail: req.user.email,
-      userRole: req.user.accessRole || req.user.role,
+    await recordUserActivity({
+      user: req.user,
       action: "User Logged Out",
       details: "Session ended",
       ipAddress: req.ip || "",

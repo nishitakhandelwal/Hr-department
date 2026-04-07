@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import InlineStatusMessage from "@/components/InlineStatusMessage";
+import { resolveDefaultRedirect } from "@/config/navigation.config";
 
 const Login: React.FC = () => {
   const { login } = useAuth();
@@ -26,13 +27,7 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const getRedirectPath = (user: { role: string; accessRole?: string }) => {
-    if (user.accessRole === "super_admin" || user.accessRole === "admin" || user.role === "admin") {
-      return publicSettings?.preferences?.defaultDashboardPage || "/admin/dashboard";
-    }
-    if (user.accessRole === "hr_manager") return "/hr/dashboard";
-    if (user.accessRole === "recruiter") return "/recruiter/dashboard";
-    if (user.role === "employee") return "/employee/dashboard";
-    return "/candidate/dashboard";
+    return resolveDefaultRedirect(user, publicSettings?.preferences?.defaultDashboardPage);
   };
 
   const handleEmailLogin = async (event: React.FormEvent) => {

@@ -14,7 +14,7 @@ const RecruiterDashboard: React.FC = () => {
   useEffect(() => {
     void (async () => {
       try {
-        const data = await apiService.list<CandidateRecord>("candidates");
+        const data = await apiService.listCandidates();
         setRows(data);
       } catch (error) {
         toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to load recruiter dashboard", variant: "destructive" });

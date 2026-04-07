@@ -317,7 +317,11 @@ export const submitMyJoiningForm = async (req, res) => {
       return res.status(400).json({ success: false, message: "Declaration must be accepted before submission." });
     }
 
-    const existing = await JoiningForm.findOne({ userId: user._id });
+    const employee = await Employee.findOne({ userId: user._id }).select("candidateId");
+    const linkedCandidateId = employee?.candidateId || null;
+    const existing =
+      (await JoiningForm.findOne({ userId: user._id })) ||
+      (linkedCandidateId ? await JoiningForm.findOne({ candidateId: linkedCandidateId }) : null);
     const payload = buildJoiningFormPayload({
       req,
       existing,
@@ -325,20 +329,28 @@ export const submitMyJoiningForm = async (req, res) => {
       emailFallback: user.email,
     });
 
-    const data = await JoiningForm.findOneAndUpdate(
-      { userId: user._id },
-      {
-        $set: {
-          userId: user._id,
-          status: "Submitted",
-          ...payload,
-        },
-        $setOnInsert: {
-          requestedAt: new Date(),
-        },
+    const selector = existing?._id ? { _id: existing._id } : { userId: user._id };
+    const update = {
+      $set: {
+        userId: user._id,
+        status: "Submitted",
+        ...payload,
       },
-      { upsert: true, new: true, runValidators: true }
-    );
+      $setOnInsert: {
+        requestedAt: new Date(),
+      },
+    };
+
+    if (linkedCandidateId) {
+      update.$set.candidateId = linkedCandidateId;
+      update.$setOnInsert.candidateId = linkedCandidateId;
+    }
+
+    const data = await JoiningForm.findOneAndUpdate(selector, update, {
+      upsert: true,
+      new: true,
+      runValidators: true,
+    });
 
     user.joiningFormCompleted = true;
     user.status = "active_employee";

@@ -13,6 +13,7 @@ import { buildUploadsPublicPath } from "../utils/uploadUrls.js";
 import { clearUserProfileImage, setUserProfileImage } from "../services/profileImageService.js";
 import { buildInvitationEmailLayout } from "../layouts/email/index.js";
 import { deleteUserCompletely } from "../services/userDeletionService.js";
+import { recordUserActivity } from "../services/activityLogService.js";
 
 const ACCESS_ROLES = ["super_admin", "admin", "hr_manager", "recruiter", "employee", "candidate"];
 const ACCOUNT_STATUSES = ["active", "disabled", "pending"];
@@ -79,16 +80,7 @@ const sanitizeUser = (user) => {
 };
 
 const logUserActivity = async ({ user, action, details = "", ipAddress = "" }) => {
-  if (!user?._id) return;
-  await UserActivity.create({
-    userId: user._id,
-    userName: toString(user.name),
-    userEmail: toString(user.email),
-    userRole: toString(user.accessRole || user.role),
-    action: toString(action),
-    details: toString(details),
-    ipAddress: toString(ipAddress),
-  });
+  return recordUserActivity({ user, action, details, ipAddress });
 };
 
 const logAudit = async ({ actor, action, targetType = "", targetId = "", metadata = {} }) => {
@@ -379,6 +371,12 @@ export const updateUser = async (req, res) => {
     targetId: user._id,
     metadata: payload,
   });
+  await logUserActivity({
+    user: req.user,
+    action: "Updated user",
+    details: `${user.name} (${user.email}) updated`,
+    ipAddress: req.ip,
+  });
   res.json({ success: true, message: "User updated", data: user });
 };
 
@@ -451,6 +449,12 @@ export const updateUserRole = async (req, res) => {
     targetType: "User",
     targetId: user._id,
     metadata: { accessRole: user.accessRole },
+  });
+  await logUserActivity({
+    user: req.user,
+    action: "Changed user role",
+    details: `${user.name} role changed to ${user.accessRole}`,
+    ipAddress: req.ip,
   });
 
   return res.json({ success: true, message: "User role updated", data: user });
