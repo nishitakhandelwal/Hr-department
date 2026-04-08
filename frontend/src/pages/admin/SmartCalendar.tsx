@@ -30,18 +30,18 @@ import { apiService, type CalendarEvent, type CalendarMonth, type UpcomingEvents
 
 const EVENT_COLOR_CLASSES = {
   holiday: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  meeting: "border-[#2A2623] bg-[rgba(230,199,163,0.2)] text-[#E6C7A3] dark:text-[#E6C7A3]",
-  birthday: "border-[#2A2623] bg-[rgba(230,199,163,0.2)] text-[#E6C7A3] dark:text-[#E6C7A3]",
+  meeting: "border-[#D8B58E] bg-[linear-gradient(135deg,#FAE8CF_0%,#F3DFC2_100%)] text-[#6E4A27] dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.2)] dark:text-[#E6C7A3]",
+  birthday: "border-[#D7C3A4] bg-[linear-gradient(135deg,#F7EBD9_0%,#F1E2CC_100%)] text-[#725332] dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.2)] dark:text-[#E6C7A3]",
   reminder: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
 } as const;
 
 const DARK_PANEL =
-  "border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#2A211B)] shadow-[0_22px_60px_rgba(166,124,82,0.4)]";
+  "dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)] dark:shadow-[0_22px_60px_rgba(166,124,82,0.4)]";
 
 const EVENT_DOT_CLASSES = {
   holiday: "bg-emerald-500",
-  meeting: "bg-[#A67C52]",
-  birthday: "bg-[#E6C7A3]",
+  meeting: "bg-[#B87A3B]",
+  birthday: "bg-[#B88952]",
   reminder: "bg-amber-500",
 } as const;
 
@@ -60,9 +60,12 @@ const toDateKey = (value: Date | string) =>
   typeof value === "string" ? format(parseISO(value), "yyyy-MM-dd") : format(value, "yyyy-MM-dd");
 
 const toMonthKey = (value: Date) => format(value, "yyyy-MM");
+const filterCalendarEvents = (events: CalendarEvent[], hideHolidays: boolean) =>
+  hideHolidays ? events.filter((event) => event.type !== "holiday") : events;
 
 const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
   const { toast } = useToast();
+  const hideHolidayEvents = embedded;
 
   const today = useMemo(() => startOfDay(new Date()), []);
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(today));
@@ -111,9 +114,9 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
   const loadSelectedDateEvents = useCallback(
     async (dateKey: string) => {
       const selectedDateRes = await apiService.getEventsByDate(dateKey, { country });
-      setSelectedDateEvents(selectedDateRes.events);
+      setSelectedDateEvents(filterCalendarEvents(selectedDateRes.events, hideHolidayEvents));
     },
-    [country]
+    [country, hideHolidayEvents]
   );
 
   const loadCalendarData = useCallback(async () => {
@@ -128,8 +131,29 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
         apiService.getUpcomingCalendarEvents({ days: 30, country }),
       ]);
 
-      setCalendarData(calendarRes);
-      setUpcomingData(upcomingRes);
+      const filteredCalendarEvents = filterCalendarEvents(calendarRes.events, hideHolidayEvents);
+      const filteredUpcomingEvents = filterCalendarEvents(upcomingRes.allEvents, hideHolidayEvents);
+
+      setCalendarData({
+        ...calendarRes,
+        events: filteredCalendarEvents,
+        totalEvents: filteredCalendarEvents.length,
+      });
+      setUpcomingData({
+        ...upcomingRes,
+        allEvents: filteredUpcomingEvents,
+        upcomingDays: upcomingRes.upcomingDays
+          .map((day) => {
+            const filteredDayEvents = filterCalendarEvents(day.events, hideHolidayEvents);
+            return {
+              ...day,
+              events: filteredDayEvents,
+              totalEvents: filteredDayEvents.length,
+            };
+          })
+          .filter((day) => day.events.length > 0),
+        totalEvents: filteredUpcomingEvents.length,
+      });
       await loadSelectedDateEvents(selectedDateKey);
     } catch (error) {
       toast({
@@ -140,7 +164,7 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
     } finally {
       setLoading(false);
     }
-  }, [country, loadSelectedDateEvents, selectedDateKey, toast, visibleMonth]);
+  }, [country, hideHolidayEvents, loadSelectedDateEvents, selectedDateKey, toast, visibleMonth]);
 
   useEffect(() => {
     void loadCalendarData();

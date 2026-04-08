@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React from "react";
-import { BadgeIndianRupee, Edit2, Trash2 } from "lucide-react";
+import { BadgeIndianRupee, CreditCard, Edit2, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DataTable, DataTableColumn, StatusBadge } from "@/components/DataTable";
@@ -40,9 +40,10 @@ interface EmployeeTableProps {
   onEdit: (email: string) => void;
   onDelete: (email: string) => void;
   onCompensation: (email: string) => void;
+  onGenerateIdCard: (email: string) => void;
 }
 
-const EmployeeTable: React.FC<EmployeeTableProps> = ({ data, onEdit, onDelete, onCompensation }) => {
+const EmployeeTable: React.FC<EmployeeTableProps> = ({ data, onEdit, onDelete, onCompensation, onGenerateIdCard }) => {
   const columns: DataTableColumn<EmployeeRow>[] = [
     {
       key: "name",
@@ -77,6 +78,10 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({ data, onEdit, onDelete, o
           </Button>
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary" onClick={(e) => { e.stopPropagation(); onCompensation(String(item.email)); }}>
             <BadgeIndianRupee className="w-3.5 h-3.5" />
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 gap-1 rounded-lg px-2 text-[#E6C7A3]" onClick={(e) => { e.stopPropagation(); onGenerateIdCard(String(item.email)); }}>
+            <CreditCard className="w-3.5 h-3.5" />
+            <span className="text-[11px]">ID Card</span>
           </Button>
           <Button size="sm" className={`h-7 w-7 p-0 ${destructiveIconButtonClass}`} onClick={(e) => { e.stopPropagation(); onDelete(String(item.email)); }}>
             <Trash2 className="w-3.5 h-3.5" />

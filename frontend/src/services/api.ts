@@ -140,6 +140,28 @@ const normalizeCandidateRecord = (candidate: CandidateRecord): CandidateRecord =
   };
 };
 
+const normalizeJoiningFormRecord = (form: JoiningFormRecord): JoiningFormRecord => {
+  const normalizedId = resolveEntityId(form._id) || "";
+  const normalizedCandidate =
+    form.candidateId && typeof form.candidateId === "object"
+      ? normalizeCandidateRecord(form.candidateId as CandidateRecord)
+      : resolveEntityId(form.candidateId);
+  const normalizedUserId =
+    form.userId && typeof form.userId === "object"
+      ? {
+          ...(form.userId as { _id?: string; name?: string; email?: string }),
+          _id: resolveEntityId((form.userId as { _id?: unknown })._id) || resolveEntityId(form.userId),
+        }
+      : resolveEntityId(form.userId);
+
+  return {
+    ...form,
+    _id: normalizedId,
+    candidateId: normalizedCandidate,
+    userId: normalizedUserId,
+  };
+};
+
 type ApiResponse<T> = {
   success: boolean;
   message: string;
@@ -358,6 +380,8 @@ export type AttendanceRecord = {
   checkOut?: string;
   hoursWorked?: number;
   status?: string;
+  isManual?: boolean;
+  updatedBy?: string | { _id?: string; name?: string; email?: string } | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -399,6 +423,10 @@ export type EmployeeRecord = {
   fullName: string;
   email: string;
   phone?: string;
+  photoUrl?: string;
+  profileImage?: string;
+  bloodGroup?: string;
+  dateOfBirth?: string | null;
   department?: string;
   designation: string;
   salary: number;
@@ -421,6 +449,13 @@ export type EmployeeRecord = {
     yearOfPassing?: string;
     percentage?: string;
   }>;
+  documents?: {
+    photograph?: {
+      url?: string;
+      originalName?: string;
+      uploadedAt?: string | null;
+    };
+  };
   status?: "active" | "inactive";
   createdAt: string;
   updatedAt: string;
@@ -698,6 +733,11 @@ export type ManagedUser = {
   updatedAt?: string;
 };
 
+export type DeleteManagedUserResult = {
+  user: ManagedUser | Record<string, unknown>;
+  deletionSummary: Record<string, number>;
+};
+
 export type PaginationMeta = {
   page: number;
   limit: number;
@@ -941,6 +981,16 @@ export const apiService = {
     const { data } = await api.delete<{ success: boolean; message: string; data: ManagedUser }>(`/users/${userId}/profile-image`);
     return data.data;
   },
+  async uploadEmployeePhoto(employeeId: string, file: File) {
+    const formData = new FormData();
+    formData.append("photo", file);
+    const { data } = await api.put<ApiResponse<EmployeeRecord>>(`/employee/${employeeId}/photo`, formData);
+    return data.data;
+  },
+  async removeEmployeePhoto(employeeId: string) {
+    const { data } = await api.delete<ApiResponse<EmployeeRecord>>(`/employee/${employeeId}/photo`);
+    return data.data;
+  },
   async logout() {
     const { data } = await api.post<{ success: boolean; message: string }>("/auth/logout");
     return data;
@@ -1060,6 +1110,10 @@ export const apiService = {
   },
   async listEmployees() {
     const { data } = await api.get<ApiResponse<EmployeeRecord[]>>("/employee");
+    return data.data;
+  },
+  async getEmployeeById(employeeId: string) {
+    const { data } = await api.get<ApiResponse<EmployeeRecord>>(`/employee/${employeeId}`);
     return data.data;
   },
   async createEmployee(payload: unknown) {
@@ -1210,6 +1264,16 @@ export const apiService = {
     }
   ) {
     const { data } = await api.patch<ApiResponse<AttendanceCorrectionRequestRecord>>(`/attendance/correction/${id}`, payload);
+    return data.data;
+  },
+  async adminOverrideAttendance(payload: {
+    employeeId: string;
+    date: string;
+    checkIn?: string;
+    checkOut?: string;
+    status?: "present" | "late" | "absent" | "leave";
+  }) {
+    const { data } = await api.post<ApiResponse<AttendanceRecord>>("/attendance/override", payload);
     return data.data;
   },
   async createCandidateApplication(payload: {
@@ -1413,7 +1477,9 @@ export const apiService = {
       joiningDate: string;
     }
   ) {
-    const { data } = await api.post<ApiResponse<CandidateRecord>>(`/candidate/${candidateId}/send-offer`, payload);
+    const { data } = await api.post<ApiResponse<CandidateRecord>>(`/candidate/${candidateId}/send-offer`, payload, {
+      timeout: 120000,
+    });
     return data.data;
   },
   async sendJoiningForm(candidateId: string) {
@@ -1496,15 +1562,15 @@ export const apiService = {
   },
   async listJoiningForms(params?: { status?: string; candidateId?: string }) {
     const { data } = await api.get<ApiResponse<JoiningFormRecord[]>>("/joining-forms", { params });
-    return data.data;
+    return data.data.map(normalizeJoiningFormRecord);
   },
   async getJoiningFormById(id: string) {
     const { data } = await api.get<ApiResponse<JoiningFormRecord>>(`/joining-forms/${id}`);
-    return data.data;
+    return normalizeJoiningFormRecord(data.data);
   },
   async getMyJoiningForm() {
     const { data } = await api.get<ApiResponse<JoiningFormRecord | null>>("/joining-forms/me");
-    return data.data;
+    return data.data ? normalizeJoiningFormRecord(data.data) : null;
   },
   async getMyJoiningFormLoadData() {
     const { data } = await api.get<
@@ -1513,7 +1579,10 @@ export const apiService = {
         prefillData: JoiningFormPrefillData;
       }>
     >("/joining-forms/me");
-    return data.data;
+    return {
+      ...data.data,
+      form: data.data.form ? normalizeJoiningFormRecord(data.data.form) : null,
+    };
   },
   async sendJoiningFormRequest(candidateId: string) {
     const { data } = await api.post<ApiResponse<JoiningFormRecord>>(`/joining-forms/send/${candidateId}`);
@@ -1567,7 +1636,7 @@ export const apiService = {
     if (payload.files?.certificates) formData.append("certificates", payload.files.certificates);
     if (payload.files?.idProof) formData.append("idProof", payload.files.idProof);
     const { data } = await api.post<ApiResponse<JoiningFormRecord>>("/joining-forms/me/submit", formData);
-    return data.data;
+    return normalizeJoiningFormRecord(data.data);
   },
   async reviewJoiningForm(
     id: string,
@@ -1646,6 +1715,10 @@ export const apiService = {
   },
   async updateUserPermissions(userId: string, permissions: NonNullable<ManagedUser["permissions"]>) {
     const { data } = await api.patch<ApiResponse<ManagedUser>>(`/users/${userId}/permissions`, { permissions });
+    return data.data;
+  },
+  async deleteManagedUser(userId: string) {
+    const { data } = await api.delete<ApiResponse<DeleteManagedUserResult>>(`/users/${userId}`);
     return data.data;
   },
   async getSettings() {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, MoreHorizontal } from "lucide-react";
+import { CheckCircle2, MoreHorizontal, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -32,6 +32,9 @@ const getInternshipActions = (status: InternshipRecord["status"]): InternshipAct
       { key: "reject", label: "Reject" },
     ];
   }
+  if (status === "Approved") {
+    return [{ key: "extend", label: "Extend" }];
+  }
   return [];
 };
 
@@ -40,6 +43,10 @@ const actionLabelMap: Record<InternshipDecision, string> = {
   reject: "rejected",
   extend: "extended",
 };
+
+const resolveCandidateId = (candidate?: CandidateRecord | null) => candidate?.id || candidate?._id || "";
+const isEligibleForInternship = (candidate: CandidateRecord) =>
+  ["Selected", "Internship", "Offered"].includes(String(candidate.status || "").trim());
 
 const AdminInternships: React.FC = () => {
   const { toast } = useToast();
@@ -56,11 +63,12 @@ const AdminInternships: React.FC = () => {
   const [decisionNote, setDecisionNote] = useState("");
   const [decisionEndDate, setDecisionEndDate] = useState("");
   const [decisionSaving, setDecisionSaving] = useState(false);
+  const [deletingInternshipId, setDeletingInternshipId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const [candidateRows, internshipRows] = await Promise.all([
-        apiService.list<CandidateRecord>("candidates"),
+        apiService.listCandidates(),
         apiService.listInternships(),
       ]);
       setCandidates(candidateRows);
@@ -73,6 +81,8 @@ const AdminInternships: React.FC = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const eligibleCandidates = candidates.filter(isEligibleForInternship);
 
   const assign = async () => {
     if (!candidateId || !startDate || !endDate) {
@@ -128,6 +138,19 @@ const AdminInternships: React.FC = () => {
     }
   };
 
+  const handleDeleteInternship = async (internshipId: string) => {
+    setDeletingInternshipId(internshipId);
+    try {
+      await apiService.deleteInternship(internshipId);
+      toast({ title: "Deleted", description: "Internship record removed successfully." });
+      await load();
+    } catch (error) {
+      toast({ title: "Delete failed", description: error instanceof Error ? error.message : "Failed to delete internship", variant: "destructive" });
+    } finally {
+      setDeletingInternshipId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader title="Internships" subtitle="Assign internship/probation and track completion decisions" />
@@ -140,18 +163,23 @@ const AdminInternships: React.FC = () => {
             value={candidateId}
             onChange={(e) => setCandidateId(e.target.value)}
           >
-            <option value="">Select candidate</option>
-            {candidates
-              .filter((c) => ["Selected", "Internship", "Offered"].includes(c.status))
-              .map((candidate) => (
-                <option key={candidate._id} value={candidate._id}>{candidate.fullName} ({candidate.status})</option>
-              ))}
+            <option value="">{eligibleCandidates.length ? "Select candidate" : "No eligible candidates available"}</option>
+            {eligibleCandidates.map((candidate) => {
+              const id = resolveCandidateId(candidate);
+              if (!id) return null;
+              return <option key={id} value={id}>{candidate.fullName} ({candidate.status})</option>;
+            })}
           </select>
           <DatePicker value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           <DatePicker value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           <Input placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
-        <Button className="mt-3" onClick={() => void assign()} disabled={saving}>{saving ? "Assigning..." : "Assign Internship"}</Button>
+        {eligibleCandidates.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            No candidates are currently eligible for internship assignment. Use the Applicants workflow to move a candidate into `Selected`, `Internship`, or `Offered`.
+          </p>
+        ) : null}
+        <Button className="mt-3" onClick={() => void assign()} disabled={saving || eligibleCandidates.length === 0}>{saving ? "Assigning..." : "Assign Internship"}</Button>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-card">
@@ -179,11 +207,34 @@ const AdminInternships: React.FC = () => {
                       const secondaryActions = actions.slice(1);
 
                       if (!primaryAction) {
-                        return <span className="text-sm text-muted-foreground">No actions</span>;
+                        return (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-9 w-9 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                aria-label={`More internship actions for ${candidate?.fullName || "candidate"}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40 rounded-2xl border-slate-200 p-2 shadow-lg">
+                              <DropdownMenuItem
+                                className="rounded-xl px-3 py-2.5 text-red-600 focus:bg-red-50 focus:text-red-700"
+                                disabled={deletingInternshipId === item._id}
+                                onClick={() => void handleDeleteInternship(item._id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                {deletingInternshipId === item._id ? "Deleting..." : "Delete"}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        );
                       }
 
                       return (
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-start gap-2">
                           <Button
                             size="sm"
                             className="h-9 rounded-xl bg-slate-900 px-4 text-white hover:bg-slate-800"
@@ -215,6 +266,14 @@ const AdminInternships: React.FC = () => {
                                     {action.label}
                                   </DropdownMenuItem>
                                 ))}
+                                <DropdownMenuItem
+                                  className="rounded-xl px-3 py-2.5 text-red-600 focus:bg-red-50 focus:text-red-700"
+                                  disabled={deletingInternshipId === item._id}
+                                  onClick={() => void handleDeleteInternship(item._id)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  {deletingInternshipId === item._id ? "Deleting..." : "Delete"}
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           ) : null}

@@ -144,6 +144,14 @@ export const uploadProfileImage = multer({
   },
 }).single("profileImage");
 
+export const uploadEmployeePhoto = multer({
+  storage: createTimestampedStorage("profile"),
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 2 * 1024 * 1024,
+  },
+}).single("photo");
+
 export const uploadCompanyLogo = multer({
   storage: createStorage("settings"),
   fileFilter: imageFileFilter,

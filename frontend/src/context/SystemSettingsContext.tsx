@@ -10,10 +10,20 @@ export type AppTheme = "light" | "dark";
 const THEME_STORAGE_KEY = "hr_theme";
 const missingLabelKeys = new Set<string>();
 const DEFAULT_ADMIN_DASHBOARD_PATH = "/admin/dashboard";
+const DEFAULT_COMPANY_NAME = "Arihant Dream Infra Project Ltd.";
+const HIDDEN_NAVIGATION_IDS = new Set(["admin.calendar"]);
+
+const normalizeCompanyName = (value?: string | null) => {
+  const trimmedValue = value?.trim();
+  if (!trimmedValue || trimmedValue.toLowerCase() === "hr harmony hub") {
+    return DEFAULT_COMPANY_NAME;
+  }
+  return trimmedValue;
+};
 
 const safeDefaultConfig: RuntimeConfigPayload = {
   company: {
-    companyName: "HR Harmony Hub",
+    companyName: DEFAULT_COMPANY_NAME,
     companyLogoUrl: "",
     address: "",
     contactEmail: "",
@@ -106,10 +116,21 @@ const resolveInitialTheme = (): AppTheme => {
 
 const normalizeConfig = (value: RuntimeConfigPayload | null | undefined): RuntimeConfigPayload => {
   if (!value || typeof value !== "object") return safeDefaultConfig;
+  const mergedNavigation = { ...SIDEBAR, ...(typeof value.navigation === "object" && value.navigation ? value.navigation : {}) };
+  const filteredNavigation = Object.fromEntries(
+    Object.entries(mergedNavigation).map(([scope, items]) => [
+      scope,
+      Array.isArray(items) ? items.filter((item) => !HIDDEN_NAVIGATION_IDS.has(item.id)) : [],
+    ])
+  );
   return {
     ...safeDefaultConfig,
     ...value,
-    company: { ...safeDefaultConfig.company, ...(value.company || {}) },
+    company: {
+      ...safeDefaultConfig.company,
+      ...(value.company || {}),
+      companyName: normalizeCompanyName(value.company?.companyName),
+    },
     preferences: { ...safeDefaultConfig.preferences, ...(value.preferences || {}) },
     security: { ...safeDefaultConfig.security, ...(value.security || {}) },
     features: typeof value.features === "object" && value.features ? value.features : {},
@@ -117,7 +138,7 @@ const normalizeConfig = (value: RuntimeConfigPayload | null | undefined): Runtim
     permissions: typeof value.permissions === "object" && value.permissions ? value.permissions : {},
     theme: { ...safeDefaultConfig.theme, ...(value.theme || {}) },
     portalVisibility: { ...safeDefaultConfig.portalVisibility, ...(value.portalVisibility || {}) },
-    navigation: { ...SIDEBAR, ...(typeof value.navigation === "object" && value.navigation ? value.navigation : {}) },
+    navigation: filteredNavigation,
     routes: typeof value.routes === "object" && value.routes ? value.routes : {},
   };
 };

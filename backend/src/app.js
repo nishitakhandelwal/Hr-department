@@ -32,7 +32,6 @@ import { sendEmail } from "./services/emailService.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { uploadCandidateVideo as uploadCandidateVideoFile } from "./middleware/uploadMiddleware.js";
 import { uploadsDir } from "./utils/paths.js";
-import path from "path";
 
 const app = express();
 
@@ -80,8 +79,7 @@ app.post(
   asyncHandler(uploadCandidateVideoController)
 );
 
-app.use("/uploads/profile", express.static(path.join(uploadsDir, "profile")));
-app.use("/uploads/settings", express.static(path.join(uploadsDir, "settings")));
+app.use("/uploads", express.static(uploadsDir));
 
 app.get("/test", (_req, res) => {
   res.send("Backend working");

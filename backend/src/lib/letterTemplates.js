@@ -8,6 +8,90 @@ const CIN = 'U70101RJ2011PLC035322';
 const GST = '08AAJCA5226A1Z3';
 const ISO_LINE = 'An ISO 9001:2008 Certified Company';
 
+const buildLetterDocument = ({ title, companyName, headerContent, footerContent, bodyContent }) => `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${title}</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+    body {
+      font-family: 'Georgia', 'Times New Roman', serif;
+      font-size: 12pt;
+      line-height: 1.6;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .letter-shell {
+      position: relative;
+      min-height: 100%;
+      padding: 44mm 0 24mm;
+    }
+    .fixed-letter-header,
+    .fixed-letter-footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      background: #fff;
+      z-index: 2;
+    }
+    .fixed-letter-header {
+      top: 0;
+      padding: 0 0 8mm;
+    }
+    .fixed-letter-footer {
+      bottom: 0;
+      padding: 6mm 0 0;
+    }
+    .header-line,
+    .footer-line {
+      border: none;
+      border-top: 1px solid #d4d4d8;
+      margin: 0 0 8px;
+    }
+    .footer-line {
+      margin: 0 0 6px;
+    }
+    .letter-page { max-width: 210mm; margin: 0 auto; }
+    .letter-header { text-align: center; }
+    .letter-logo { width: 80px; height: auto; margin-bottom: 10px; }
+    .company-name { font-size: 18pt; font-weight: bold; margin: 0 0 5px 0; }
+    .company-meta { font-size: 10pt; margin: 2px 0; color: #555; }
+    .letter-title { text-align: center; font-size: 16pt; font-weight: bold; margin: 0 0 20px; text-transform: uppercase; letter-spacing: 1px; }
+    .letter-date { text-align: right; margin-bottom: 20px; font-weight: bold; }
+    .recipient-block p { margin: 0 0 3px 0; }
+    .subject-line { font-weight: bold; margin: 20px 0 15px 0; padding-left: 20px; border-left: 4px solid #4a5568; }
+    .body-block p { text-align: justify; margin-bottom: 12px; }
+    .signature-block { margin-top: 40px; text-align: right; }
+    .signature-space { height: 40px; border-bottom: 1px solid #333; margin: 10px 0; }
+    .footer-block { text-align: center; font-size: 10pt; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="fixed-letter-header">
+    <div class="letter-page">
+      ${headerContent}
+      <hr class="header-line" />
+    </div>
+  </div>
+  <div class="fixed-letter-footer">
+    <div class="letter-page">
+      <hr class="footer-line" />
+      ${footerContent}
+    </div>
+  </div>
+  <div class="letter-shell">
+    <div class="letter-page">
+      <h2 class="letter-title">${title}</h2>
+      ${bodyContent}
+    </div>
+  </div>
+</body>
+</html>`;
+
 const generateOfferLetterHtml = (data) => {
   const {
     candidateName = 'Candidate Name',
@@ -22,36 +106,7 @@ const generateOfferLetterHtml = (data) => {
     address = ''
   } = data;
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Offer Letter</title>
-  <style>
-    @page { size: A4; margin: 20mm 15mm 20mm 20mm; }
-    body { font-family: 'Georgia', 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-    .letter-page { max-width: 210mm; margin: 0 auto; }
-    .letter-header { text-align: center; margin-bottom: 20px; }
-    .letter-logo { width: 80px; height: auto; margin-bottom: 10px; }
-    .company-name { font-size: 18pt; font-weight: bold; margin: 0 0 5px 0; }
-    .company-meta { font-size: 10pt; margin: 2px 0; color: #555; }
-    .letter-title { text-align: center; font-size: 16pt; font-weight: bold; margin: 20px 0; text-transform: uppercase; letter-spacing: 1px; }
-    .letter-date { text-align: right; margin-bottom: 20px; font-weight: bold; }
-    .recipient-block p { margin: 0 0 3px 0; }
-    .subject-line { font-weight: bold; margin: 20px 0 15px 0; padding-left: 20px; border-left: 4px solid #4a5568; }
-    .body-block p { text-align: justify; margin-bottom: 12px; }
-    .details-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 11pt; }
-    .details-table td { padding: 8px 12px; border-bottom: 1px solid #ddd; vertical-align: top; }
-    .details-table td:first-child { font-weight: bold; width: 40%; background: #f8f9fa; }
-    .signature-block { margin-top: 40px; text-align: right; }
-    .signature-space { height: 40px; border-bottom: 1px solid #333; margin: 10px 0; }
-    .footer-divider { margin: 30px 0; border: none; border-top: 1px solid #ccc; }
-    .footer-block { text-align: center; font-size: 10pt; color: #666; }
-  </style>
-</head>
-<body>
-  <div class="letter-page">
+  const headerContent = `
     <header class="letter-header">
       <img src="${LOGO_URL}" alt="Company Logo" class="letter-logo" />
       <div class="company-name">${companyName}</div>
@@ -60,9 +115,18 @@ const generateOfferLetterHtml = (data) => {
       <div class="company-meta">CIN: ${CIN} | GST: ${GST}</div>
       <div class="company-meta">${COMPANY_CONTACT}</div>
     </header>
+  `;
 
-    <h2 class="letter-title">OFFER LETTER</h2>
+  const footerContent = `
+    <footer class="footer-block">
+      <p><strong>${COMPANY_LEGAL}</strong></p>
+      <p>${COMPANY_ADDRESS}</p>
+      <p>${COMPANY_CONTACT}</p>
+      <p>CIN: ${CIN} | GST: ${GST}</p>
+    </footer>
+  `;
 
+  const bodyContent = `
     <div class="letter-date">Date: ${date}</div>
 
     <section class="recipient-block">
@@ -89,17 +153,15 @@ const generateOfferLetterHtml = (data) => {
       <p>${hrName}</p>
       <p>${hrDesignation}</p>
     </section>
+  `;
 
-    <hr class="footer-divider" />
-    <footer class="footer-block">
-      <p><strong>${COMPANY_LEGAL}</strong></p>
-      <p>${COMPANY_ADDRESS}</p>
-      <p>${COMPANY_CONTACT}</p>
-      <p>CIN: ${CIN} | GST: ${GST}</p>
-    </footer>
-  </div>
-</body>
-</html>`;
+  return buildLetterDocument({
+    title: "OFFER LETTER",
+    companyName,
+    headerContent,
+    footerContent,
+    bodyContent,
+  });
 };
 
 const generateInternshipLetterHtml = (data) => {
@@ -116,36 +178,7 @@ const generateInternshipLetterHtml = (data) => {
     address = ''
   } = data;
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Internship Letter</title>
-  <style>
-    @page { size: A4; margin: 20mm 15mm 20mm 20mm; }
-    body { font-family: 'Georgia', 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-    .letter-page { max-width: 210mm; margin: 0 auto; }
-    .letter-header { text-align: center; margin-bottom: 20px; }
-    .letter-logo { width: 80px; height: auto; margin-bottom: 10px; }
-    .company-name { font-size: 18pt; font-weight: bold; margin: 0 0 5px 0; }
-    .company-meta { font-size: 10pt; margin: 2px 0; color: #555; }
-    .letter-title { text-align: center; font-size: 16pt; font-weight: bold; margin: 20px 0; text-transform: uppercase; letter-spacing: 1px; }
-    .letter-date { text-align: right; margin-bottom: 20px; font-weight: bold; }
-    .recipient-block p { margin: 0 0 3px 0; }
-    .subject-line { font-weight: bold; margin: 20px 0 15px 0; padding-left: 20px; border-left: 4px solid #4a5568; }
-    .body-block p { text-align: justify; margin-bottom: 12px; }
-    .details-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 11pt; }
-    .details-table td { padding: 8px 12px; border-bottom: 1px solid #ddd; vertical-align: top; }
-    .details-table td:first-child { font-weight: bold; width: 40%; background: #f8f9fa; }
-    .signature-block { margin-top: 40px; text-align: right; }
-    .signature-space { height: 40px; border-bottom: 1px solid #333; margin: 10px 0; }
-    .footer-divider { margin: 30px 0; border: none; border-top: 1px solid #ccc; }
-    .footer-block { text-align: center; font-size: 10pt; color: #666; }
-  </style>
-</head>
-<body>
-  <div class="letter-page">
+  const headerContent = `
     <header class="letter-header">
       <img src="${LOGO_URL}" alt="Company Logo" class="letter-logo" />
       <div class="company-name">${companyName}</div>
@@ -154,9 +187,18 @@ const generateInternshipLetterHtml = (data) => {
       <div class="company-meta">CIN: ${CIN} | GST: ${GST}</div>
       <div class="company-meta">${COMPANY_CONTACT}</div>
     </header>
+  `;
 
-    <h2 class="letter-title">INTERNSHIP OFFER LETTER</h2>
+  const footerContent = `
+    <footer class="footer-block">
+      <p><strong>${COMPANY_LEGAL}</strong></p>
+      <p>${COMPANY_ADDRESS}</p>
+      <p>${COMPANY_CONTACT}</p>
+      <p>CIN: ${CIN} | GST: ${GST}</p>
+    </footer>
+  `;
 
+  const bodyContent = `
     <div class="letter-date">Date: ${date}</div>
 
     <section class="recipient-block">
@@ -183,17 +225,15 @@ const generateInternshipLetterHtml = (data) => {
       <p>${hrName}</p>
       <p>${hrDesignation}</p>
     </section>
+  `;
 
-    <hr class="footer-divider" />
-    <footer class="footer-block">
-      <p><strong>${COMPANY_LEGAL}</strong></p>
-      <p>${COMPANY_ADDRESS}</p>
-      <p>${COMPANY_CONTACT}</p>
-      <p>CIN: ${CIN} | GST: ${GST}</p>
-    </footer>
-  </div>
-</body>
-</html>`;
+  return buildLetterDocument({
+    title: "INTERNSHIP OFFER LETTER",
+    companyName,
+    headerContent,
+    footerContent,
+    bodyContent,
+  });
 };
 
 export { generateOfferLetterHtml, generateInternshipLetterHtml };

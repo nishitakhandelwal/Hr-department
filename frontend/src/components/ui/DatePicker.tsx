@@ -32,6 +32,13 @@ const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
         inputMode="numeric"
         pattern="\d{4}-\d{2}-\d{2}"
         value={typeof value === "string" ? normalizeDateValue(value) : value}
+        className={[
+          "date-picker-input",
+          "dark:[color-scheme:dark]",
+          props.className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
       />
     );
   },

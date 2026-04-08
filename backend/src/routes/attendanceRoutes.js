@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { body, param } from "express-validator";
 import {
+  adminOverrideAttendance,
   createAttendance,
   deleteAttendance,
   getAttendance,
@@ -18,6 +19,21 @@ router.use(protect, authorize("admin", "employee"));
 
 router.get("/", asyncHandler(getAttendance));
 router.post("/", authorize("admin", "employee"), authorizeModule("attendance"), asyncHandler(createAttendance));
+router.post(
+  "/override",
+  authorize("admin"),
+  authorizeModule("attendance"),
+  [
+    body("employeeId").isMongoId().withMessage("Valid employee is required."),
+    body("date").notEmpty().withMessage("Date is required."),
+    body("checkIn").optional({ nullable: true }).isString().withMessage("Check-in time must be text."),
+    body("checkOut").optional({ nullable: true }).isString().withMessage("Check-out time must be text."),
+    body("status").optional().isIn(["present", "late", "absent", "leave"]).withMessage("Invalid attendance status."),
+    body("hoursWorked").optional().isNumeric().withMessage("Hours worked must be numeric."),
+  ],
+  validateRequest,
+  asyncHandler(adminOverrideAttendance)
+);
 router.put(
   "/:id",
   authorizeModule("attendance"),

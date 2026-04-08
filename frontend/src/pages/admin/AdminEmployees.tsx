@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Filter, Loader2, Plus } from "lucide-react";
+import { CreditCard, Filter, Loader2, Plus } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,12 @@ import {
 import FilterDrawer from "@/components/common/FilterDrawer";
 import EmployeeTable, { employeeExportColumns } from "@/components/tables/EmployeeTable";
 import { ExportButton } from "@/components/common/ExportButton";
-import { apiService } from "@/services/api";
+import { apiService, type EmployeeRecord } from "@/services/api";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/EmptyState";
+import EmployeeIdCardModal from "@/components/employees/EmployeeIdCardModal";
+import ProfileImageManager from "@/components/profile/ProfileImageManager";
 
 type SalaryStructure = {
   employeeId?: string;
@@ -55,6 +57,11 @@ interface Employee {
   employeeId?: string;
   name: string;
   email: string;
+  phone?: string;
+  photoUrl?: string;
+  profileImage?: string;
+  bloodGroup?: string;
+  dateOfBirth?: string;
   department: string;
   designation: string;
   joined: string;
@@ -74,6 +81,11 @@ type EmployeeApiRow = {
   fullName?: string;
   name?: string;
   email?: string;
+  phone?: string;
+  photoUrl?: string;
+  profileImage?: string;
+  bloodGroup?: string;
+  dateOfBirth?: string | null;
   department?: string;
   departmentName?: string;
   designation?: string;
@@ -82,6 +94,7 @@ type EmployeeApiRow = {
   salary?: number;
   salaryStructure?: SalaryStructure;
   bankDetails?: Partial<BankDetails>;
+  documents?: EmployeeRecord["documents"];
 };
 
 const isUserRef = (
@@ -101,6 +114,11 @@ const emptyBankDetails: BankDetails = {
 const emptyEmployee: Employee = {
   name: "",
   email: "",
+  phone: "",
+  photoUrl: "",
+  profileImage: "",
+  bloodGroup: "",
+  dateOfBirth: "",
   department: "",
   designation: "",
   joined: "",
@@ -130,6 +148,7 @@ const emptySalary: SalaryStructure = {
 };
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+const formLabelClassName = "text-[#8E6B4C]";
 
 const mapEmployeeRow = (row: EmployeeApiRow): Employee => ({
   _id: row._id,
@@ -137,6 +156,11 @@ const mapEmployeeRow = (row: EmployeeApiRow): Employee => ({
   employeeId: row.employeeId,
   name: isUserRef(row.userId) ? row.userId.name || row.fullName || row.name || "" : row.fullName || row.name || "",
   email: isUserRef(row.userId) ? row.userId.email || row.email || "" : row.email || "",
+  phone: row.phone || "",
+  photoUrl: row.photoUrl || row.profileImage || row.documents?.photograph?.url || "",
+  profileImage: row.profileImage || row.photoUrl || row.documents?.photograph?.url || "",
+  bloodGroup: row.bloodGroup || "",
+  dateOfBirth: row.dateOfBirth ? new Date(row.dateOfBirth).toISOString().slice(0, 10) : "",
   department: isUserRef(row.userId)
     ? row.userId.department || row.department || row.departmentName || ""
     : row.department || row.departmentName || "",
@@ -169,6 +193,10 @@ const AdminEmployees: React.FC = () => {
   const [salaryForm, setSalaryForm] = useState<SalaryStructure>(emptySalary);
   const [salarySaving, setSalarySaving] = useState(false);
   const [savingEmployee, setSavingEmployee] = useState(false);
+  const [idCardOpen, setIdCardOpen] = useState(false);
+  const [idCardLoading, setIdCardLoading] = useState(false);
+  const [selectedIdCardEmployee, setSelectedIdCardEmployee] = useState<EmployeeRecord | null>(null);
+  const [selectedIdCardEmployeeIndex, setSelectedIdCardEmployeeIndex] = useState<number | null>(null);
 
   const loadEmployees = useCallback(async () => {
     setLoading(true);
@@ -219,6 +247,8 @@ const AdminEmployees: React.FC = () => {
   const openEdit = (index: number) => {
     setForm({
       ...employees[index],
+      photoUrl: employees[index].photoUrl || employees[index].profileImage || "",
+      profileImage: employees[index].profileImage || employees[index].photoUrl || "",
       bankDetails: { ...emptyBankDetails, ...employees[index].bankDetails },
     });
     setEditIndex(index);
@@ -251,6 +281,74 @@ const AdminEmployees: React.FC = () => {
     setSalaryDialogOpen(true);
   };
 
+  const openIdCard = (index: number) => {
+    const employee = employees[index];
+    if (!employee?._id) return;
+
+    void (async () => {
+      setIdCardOpen(true);
+      setIdCardLoading(true);
+      setSelectedIdCardEmployeeIndex(index);
+      try {
+        const details = await apiService.getEmployeeById(employee._id);
+        setSelectedIdCardEmployee(details);
+      } catch (error) {
+        setIdCardOpen(false);
+        toast({
+          title: "Unable to load ID card",
+          description: error instanceof Error ? error.message : "Employee details could not be loaded.",
+          variant: "destructive",
+        });
+      } finally {
+        setIdCardLoading(false);
+      }
+    })();
+  };
+
+  const syncEmployeePhotoState = (updatedEmployee: EmployeeRecord) => {
+    const normalized = mapEmployeeRow(updatedEmployee as EmployeeApiRow);
+    setEmployees((current) =>
+      current.map((item) =>
+        item._id === normalized._id
+          ? {
+              ...item,
+              ...normalized,
+              photoUrl: normalized.photoUrl || normalized.profileImage || "",
+              profileImage: normalized.profileImage || normalized.photoUrl || "",
+            }
+          : item
+      )
+    );
+    setSelectedIdCardEmployee((current) => (current?._id === updatedEmployee._id ? updatedEmployee : current));
+    setForm((current) =>
+      current._id === updatedEmployee._id
+        ? {
+            ...current,
+            photoUrl: updatedEmployee.photoUrl || updatedEmployee.profileImage || "",
+            profileImage: updatedEmployee.profileImage || updatedEmployee.photoUrl || "",
+          }
+        : current
+    );
+  };
+
+  const handleEmployeePhotoUpload = async (file: File) => {
+    if (!form._id) {
+      throw new Error("Save the employee first, then upload a photo.");
+    }
+
+    const updatedEmployee = await apiService.uploadEmployeePhoto(form._id, file);
+    syncEmployeePhotoState(updatedEmployee);
+  };
+
+  const handleEmployeePhotoRemove = async () => {
+    if (!form._id) {
+      throw new Error("Save the employee first, then manage the photo.");
+    }
+
+    const updatedEmployee = await apiService.removeEmployeePhoto(form._id);
+    syncEmployeePhotoState(updatedEmployee);
+  };
+
   const handleSave = () => {
     if (!form.name.trim() || !form.email.trim() || !form.department.trim() || !form.designation.trim()) {
       toast({ title: "Missing details", description: "Please fill all required employee fields.", variant: "destructive" });
@@ -268,6 +366,9 @@ const AdminEmployees: React.FC = () => {
           const employee = employees[editIndex];
           const updated = await apiService.updateEmployee(employee._id!, {
             designation: form.designation,
+            phone: form.phone,
+            bloodGroup: form.bloodGroup,
+            dateOfBirth: form.dateOfBirth || null,
             joiningDate: form.joiningDate || new Date().toISOString(),
             bankDetails: form.bankDetails,
             status: form.status.toLowerCase(),
@@ -288,6 +389,11 @@ const AdminEmployees: React.FC = () => {
                     ...mapEmployeeRow(updated as EmployeeApiRow),
                     name: form.name,
                     email: form.email,
+                    phone: form.phone,
+                    bloodGroup: form.bloodGroup,
+                    dateOfBirth: form.dateOfBirth,
+                    photoUrl: form.photoUrl,
+                    profileImage: form.profileImage,
                     department: form.department,
                     designation: form.designation,
                     status: form.status,
@@ -296,10 +402,17 @@ const AdminEmployees: React.FC = () => {
                 : item
             )
           );
+          if (selectedIdCardEmployeeIndex === editIndex && employee._id) {
+            const refreshedEmployee = await apiService.getEmployeeById(employee._id);
+            setSelectedIdCardEmployee(refreshedEmployee);
+          }
         } else {
           const created = await apiService.createEmployee({
             name: form.name,
             email: form.email,
+            phone: form.phone,
+            bloodGroup: form.bloodGroup,
+            dateOfBirth: form.dateOfBirth || null,
             password: form.password,
             department: form.department,
             departmentName: form.department,
@@ -314,6 +427,11 @@ const AdminEmployees: React.FC = () => {
             ...mapEmployeeRow(created as EmployeeApiRow),
             name: form.name,
             email: form.email,
+            phone: form.phone,
+            bloodGroup: form.bloodGroup,
+            dateOfBirth: form.dateOfBirth,
+            photoUrl: form.photoUrl,
+            profileImage: form.profileImage,
             department: form.department,
             designation: form.designation,
             status: form.status,
@@ -471,6 +589,10 @@ const AdminEmployees: React.FC = () => {
             const index = employees.findIndex((employee) => employee.email === email);
             if (index >= 0) openCompensation(index);
           }}
+          onGenerateIdCard={(email) => {
+            const index = employees.findIndex((employee) => employee.email === email);
+            if (index >= 0) openIdCard(index);
+          }}
         />
       )}
 
@@ -480,30 +602,54 @@ const AdminEmployees: React.FC = () => {
             <DialogTitle className="text-[#F5F5F5]">{editIndex !== null ? "Edit Employee" : "Add Employee"}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[calc(92vh-140px)] overflow-y-auto px-6 py-4">
+          <div className="mb-5">
+            <ProfileImageManager
+              name={form.name || "Employee"}
+              imageUrl={form.photoUrl || form.profileImage || ""}
+              onUpload={handleEmployeePhotoUpload}
+              onRemove={handleEmployeePhotoRemove}
+              disabled={savingEmployee || editIndex === null}
+            />
+            {editIndex === null ? (
+              <p className="mt-2 text-xs font-medium text-[#8E6B4C]">Create the employee first, then upload the photo for the ID card.</p>
+            ) : null}
+          </div>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Full Name *</Label>
+              <Label className={formLabelClassName}>Full Name *</Label>
               <Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="John Doe" />
             </div>
             <div className="space-y-1.5">
-              <Label>Email *</Label>
+              <Label className={formLabelClassName}>Email *</Label>
               <Input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="john@company.com" />
             </div>
             <div className="space-y-1.5">
-              <Label>Department *</Label>
+              <Label className={formLabelClassName}>Phone</Label>
+              <Input value={form.phone || ""} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+91 9876543210" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={formLabelClassName}>Department *</Label>
               <Input value={form.department} onChange={(event) => setForm({ ...form, department: event.target.value })} placeholder="Engineering" />
             </div>
             <div className="space-y-1.5">
-              <Label>Designation *</Label>
+              <Label className={formLabelClassName}>Designation *</Label>
               <Input value={form.designation} onChange={(event) => setForm({ ...form, designation: event.target.value })} placeholder="Software Engineer" />
             </div>
             <div className="space-y-1.5">
-              <Label>Joining Date</Label>
+              <Label className={formLabelClassName}>Date of Birth</Label>
+              <Input type="date" value={form.dateOfBirth || ""} onChange={(event) => setForm({ ...form, dateOfBirth: event.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={formLabelClassName}>Blood Group</Label>
+              <Input value={form.bloodGroup || ""} onChange={(event) => setForm({ ...form, bloodGroup: event.target.value.toUpperCase() })} placeholder="O+" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className={formLabelClassName}>Joining Date</Label>
               <Input type="date" value={form.joiningDate || ""} onChange={(event) => setForm({ ...form, joiningDate: event.target.value })} />
             </div>
             {editIndex === null ? (
               <div className="space-y-1.5">
-                <Label>Password *</Label>
+                <Label className={formLabelClassName}>Password *</Label>
                 <Input
                   type="password"
                   value={form.password || ""}
@@ -513,7 +659,7 @@ const AdminEmployees: React.FC = () => {
               </div>
             ) : null}
             <div className="space-y-1.5">
-              <Label>Status</Label>
+              <Label className={formLabelClassName}>Status</Label>
               <Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -523,27 +669,27 @@ const AdminEmployees: React.FC = () => {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Bank Name</Label>
+              <Label className={formLabelClassName}>Bank Name</Label>
               <Input value={form.bankDetails.bankName} onChange={(event) => setForm({ ...form, bankDetails: { ...form.bankDetails, bankName: event.target.value } })} placeholder="HDFC Bank" />
             </div>
             <div className="space-y-1.5">
-              <Label>Account Holder</Label>
+              <Label className={formLabelClassName}>Account Holder</Label>
               <Input value={form.bankDetails.accountHolderName} onChange={(event) => setForm({ ...form, bankDetails: { ...form.bankDetails, accountHolderName: event.target.value } })} placeholder="John Doe" />
             </div>
             <div className="space-y-1.5">
-              <Label>Account Number</Label>
+              <Label className={formLabelClassName}>Account Number</Label>
               <Input value={form.bankDetails.accountNumber} onChange={(event) => setForm({ ...form, bankDetails: { ...form.bankDetails, accountNumber: event.target.value } })} placeholder="000012345678" />
             </div>
             <div className="space-y-1.5">
-              <Label>IFSC Code</Label>
+              <Label className={formLabelClassName}>IFSC Code</Label>
               <Input value={form.bankDetails.ifscCode} onChange={(event) => setForm({ ...form, bankDetails: { ...form.bankDetails, ifscCode: event.target.value.toUpperCase() } })} placeholder="HDFC0001234" />
             </div>
             <div className="space-y-1.5">
-              <Label>Branch Name</Label>
+              <Label className={formLabelClassName}>Branch Name</Label>
               <Input value={form.bankDetails.branchName} onChange={(event) => setForm({ ...form, bankDetails: { ...form.bankDetails, branchName: event.target.value } })} placeholder="Jaipur Main" />
             </div>
             <div className="space-y-1.5">
-              <Label>Payment Mode</Label>
+              <Label className={formLabelClassName}>Payment Mode</Label>
               <Input value={form.bankDetails.paymentMode} onChange={(event) => setForm({ ...form, bankDetails: { ...form.bankDetails, paymentMode: event.target.value } })} placeholder="Bank Transfer" />
             </div>
           </div>
@@ -683,6 +829,28 @@ const AdminEmployees: React.FC = () => {
         title="Delete Employee"
         description={`Are you sure you want to remove ${deleteIndex !== null ? employees[deleteIndex]?.name : "this employee"}? This action cannot be undone.`}
         onConfirm={handleDelete}
+      />
+
+      <EmployeeIdCardModal
+        open={idCardOpen}
+        onOpenChange={(open) => {
+          setIdCardOpen(open);
+          if (!open) {
+            setSelectedIdCardEmployee(null);
+            setIdCardLoading(false);
+            setSelectedIdCardEmployeeIndex(null);
+          }
+        }}
+        employee={selectedIdCardEmployee}
+        loading={idCardLoading}
+        onEdit={
+          selectedIdCardEmployeeIndex !== null
+            ? () => {
+                setIdCardOpen(false);
+                openEdit(selectedIdCardEmployeeIndex);
+              }
+            : undefined
+        }
       />
 
       <FilterDrawer

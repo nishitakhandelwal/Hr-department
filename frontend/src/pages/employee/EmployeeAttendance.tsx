@@ -69,6 +69,7 @@ const EmployeeAttendance: React.FC = () => {
   const [openCorrectionModal, setOpenCorrectionModal] = useState(false);
   const [attendanceRows, setAttendanceRows] = useState<AttendanceTableRow[]>([]);
   const [requestRows, setRequestRows] = useState<CorrectionTableRow[]>([]);
+  const [correctionError, setCorrectionError] = useState("");
   const [form, setForm] = useState({
     date: todayValue(),
     type: "check-in" as "check-in" | "check-out",
@@ -192,10 +193,12 @@ const EmployeeAttendance: React.FC = () => {
   const handleSubmitCorrection = async () => {
     const validationError = validateCorrectionForm();
     if (validationError) {
+      setCorrectionError(validationError);
       toast({ title: "Validation error", description: validationError, variant: "destructive" });
       return;
     }
 
+    setCorrectionError("");
     setSubmitLoading(true);
     try {
       await apiService.submitAttendanceCorrection({
@@ -210,9 +213,11 @@ const EmployeeAttendance: React.FC = () => {
         description: "Your attendance correction request is now pending admin approval.",
       });
       setOpenCorrectionModal(false);
+      setCorrectionError("");
       resetForm();
       await loadAttendance();
     } catch (error) {
+      setCorrectionError(error instanceof Error ? error.message : "Failed to submit correction request");
       toast({
         title: "Submission failed",
         description: error instanceof Error ? error.message : "Failed to submit correction request",
@@ -230,6 +235,7 @@ const EmployeeAttendance: React.FC = () => {
     const total = attendanceRows.reduce((sum, row) => sum + Number(row.hours.replace("h", "") || 0), 0);
     return `${(total / attendanceRows.length).toFixed(1)}h`;
   }, [attendanceRows]);
+  const isCorrectionFormComplete = Boolean(form.date && form.type && form.time && form.reason.trim());
 
   return (
     <div className="space-y-6">
@@ -241,7 +247,7 @@ const EmployeeAttendance: React.FC = () => {
             <Button
               variant="outline"
               onClick={() => setOpenCorrectionModal(true)}
-              className="gap-2 rounded-xl border-slate-200 bg-white/90"
+              className="gap-2 rounded-xl border-slate-200 bg-white/90 dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#23201D)] dark:text-[#E6C7A3] dark:hover:border-[rgba(230,199,163,0.22)] dark:hover:bg-[rgba(230,199,163,0.12)] dark:hover:text-[#F5F5F5]"
             >
               <FileClock className="h-4 w-4" />
               Missed Check-in/Out
@@ -274,15 +280,15 @@ const EmployeeAttendance: React.FC = () => {
       </div>
 
       {errorMessage ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
           {errorMessage}
         </div>
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <section className="space-y-4 rounded-[28px] border bg-white p-5 shadow-card sm:p-6">
+        <section className="space-y-4 rounded-[28px] border bg-white p-5 shadow-card sm:p-6 dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#111111,#1A1816)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Attendance Log</h2>
+            <h2 className="text-lg font-semibold text-slate-950 dark:text-[#F5F5F5]">Attendance Log</h2>
             <p className="mt-1 text-sm text-muted-foreground">Your recorded check-in, check-out, and working hours.</p>
           </div>
           {loading ? (
@@ -301,9 +307,9 @@ const EmployeeAttendance: React.FC = () => {
           )}
         </section>
 
-        <section className="space-y-4 rounded-[28px] border bg-white p-5 shadow-card sm:p-6">
+        <section className="space-y-4 rounded-[28px] border bg-white p-5 shadow-card sm:p-6 dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#111111,#1A1816)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Correction Requests</h2>
+            <h2 className="text-lg font-semibold text-slate-950 dark:text-[#F5F5F5]">Correction Requests</h2>
             <p className="mt-1 text-sm text-muted-foreground">Past requests stay read-only until an admin approves or rejects them.</p>
           </div>
           {loading ? (
@@ -328,68 +334,81 @@ const EmployeeAttendance: React.FC = () => {
         open={openCorrectionModal}
         onOpenChange={(open) => {
           setOpenCorrectionModal(open);
-          if (!open && !submitLoading) resetForm();
+          if (!open && !submitLoading) {
+            resetForm();
+            setCorrectionError("");
+          }
         }}
       >
-        <DialogContent className="max-w-2xl rounded-[30px] border-slate-200 bg-gradient-to-b from-white to-slate-50/80 p-0">
-          <div className="rounded-[30px] p-6 sm:p-7">
+        <DialogContent className="max-w-2xl rounded-[30px] border-slate-200 bg-gradient-to-b from-white to-slate-50/80 p-0 dark:border-[#2A2623] dark:bg-[linear-gradient(145deg,#050505,#111111)]">
+          <div className="rounded-[30px] p-6 sm:p-7 dark:text-[#F5F5F5]">
             <DialogHeader>
-              <DialogTitle>Request Attendance Correction</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="dark:text-[#F5F5F5]">Request Attendance Correction</DialogTitle>
+              <DialogDescription className="dark:text-[#A1A1AA]">
                 Submit a missed check-in or check-out for admin approval. Direct edits to past attendance are not allowed.
               </DialogDescription>
             </DialogHeader>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Date</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-[#F5F5F5]">Date</label>
                 <DatePicker
                   value={form.date}
                   max={todayValue()}
                   onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
-                  className="h-11 rounded-2xl"
+                  className="h-11 rounded-2xl dark:border-[#2A2623] dark:bg-[#111111] dark:text-[#F5F5F5]"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Type</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-[#F5F5F5]">Type</label>
                 <Select value={form.type} onValueChange={(value: "check-in" | "check-out") => setForm((prev) => ({ ...prev, type: value }))}>
-                  <SelectTrigger className="h-11 rounded-2xl">
+                  <SelectTrigger className="h-11 rounded-2xl dark:border-[#2A2623] dark:bg-[#111111] dark:text-[#F5F5F5]">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="check-in">Check-in</SelectItem>
-                    <SelectItem value="check-out">Check-out</SelectItem>
+                  <SelectContent className="dark:border-[#2A2623] dark:bg-[#111111] dark:text-[#F5F5F5]">
+                    <SelectItem value="check-in" className="dark:text-[#F5F5F5]">Check-in</SelectItem>
+                    <SelectItem value="check-out" className="dark:text-[#F5F5F5]">Check-out</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium text-slate-700">Time</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-[#F5F5F5]">Time</label>
                 <Input
                   type="time"
                   value={form.time}
                   onChange={(event) => setForm((prev) => ({ ...prev, time: event.target.value }))}
-                  className="h-11 rounded-2xl"
+                  className="h-11 rounded-2xl dark:border-[#2A2623] dark:bg-[#111111] dark:text-[#F5F5F5]"
                 />
               </div>
 
               <div className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium text-slate-700">Reason</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-[#F5F5F5]">Reason</label>
                 <Textarea
                   value={form.reason}
                   onChange={(event) => setForm((prev) => ({ ...prev, reason: event.target.value }))}
                   placeholder="Explain what happened and why this attendance entry is missing."
-                  className="min-h-[120px] rounded-2xl"
+                  className="min-h-[120px] rounded-2xl dark:border-[#2A2623] dark:bg-[#111111] dark:text-[#F5F5F5]"
                 />
               </div>
             </div>
 
+            {correctionError ? (
+              <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                {correctionError}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-muted-foreground">
+                Fill date, type, time, and reason before submitting the request.
+              </p>
+            )}
+
             <DialogFooter className="mt-6 gap-2 sm:justify-end">
-              <Button variant="outline" disabled={submitLoading} onClick={() => setOpenCorrectionModal(false)} className="rounded-xl">
+              <Button variant="outline" disabled={submitLoading} onClick={() => setOpenCorrectionModal(false)} className="rounded-xl dark:border-[#2A2623] dark:bg-black dark:text-white dark:hover:bg-[#141414] dark:hover:text-white">
                 Cancel
               </Button>
-              <Button disabled={submitLoading} onClick={() => void handleSubmitCorrection()} className="rounded-xl">
+              <Button disabled={submitLoading || !isCorrectionFormComplete} onClick={() => void handleSubmitCorrection()} className="rounded-xl dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] dark:text-[#1A1816] dark:hover:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)]">
                 {submitLoading ? "Submitting..." : "Submit Request"}
               </Button>
             </DialogFooter>

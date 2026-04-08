@@ -79,7 +79,10 @@ const employeeSchema = new mongoose.Schema(
     fullName: { type: String, trim: true, default: "" },
     email: { type: String, trim: true, lowercase: true, default: "" },
     phone: { type: String, trim: true, default: "" },
+    photoUrl: { type: String, trim: true, default: "" },
     profileImage: { type: String, trim: true, default: "" },
+    bloodGroup: { type: String, trim: true, default: "" },
+    dateOfBirth: { type: Date, default: null },
     department: { type: String, trim: true, default: "" },
     designation: { type: String, required: true, trim: true },
     salary: { type: Number, required: true },
@@ -104,6 +107,19 @@ const employeeSchema = new mongoose.Schema(
 );
 
 employeeSchema.index({ candidateId: 1 }, { sparse: true });
+
+employeeSchema.pre("validate", function syncPhotoFields(next) {
+  const normalizedPhotoUrl = String(this.photoUrl || "").trim();
+  const normalizedProfileImage = String(this.profileImage || "").trim();
+
+  if (normalizedPhotoUrl && normalizedProfileImage !== normalizedPhotoUrl) {
+    this.profileImage = normalizedPhotoUrl;
+  } else if (normalizedProfileImage && normalizedPhotoUrl !== normalizedProfileImage) {
+    this.photoUrl = normalizedProfileImage;
+  }
+
+  next();
+});
 
 export const Employee = mongoose.model("Employee", employeeSchema);
 

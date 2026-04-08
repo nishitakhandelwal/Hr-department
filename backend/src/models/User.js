@@ -100,11 +100,9 @@ userSchema.pre("save", function saveHook(next) {
   if (this.role !== "employee" && this.joiningFormCompleted === false) {
     this.joiningFormCompleted = true;
   }
-  if (this.role === "employee" && this.status === "active_employee") {
-    this.joiningFormCompleted = true;
-  }
-  if (this.role === "employee" && this.joiningFormCompleted) {
-    this.status = "active_employee";
+  if (this.role === "employee") {
+    this.joiningFormCompleted = Boolean(this.joiningFormCompleted);
+    this.status = this.joiningFormCompleted ? "active_employee" : "pending_form";
   }
   const normalizedPhone = String(this.phone || "").trim();
   const normalizedPhoneNumber = String(this.phoneNumber || "").trim();
@@ -143,10 +141,16 @@ userSchema.pre("findOneAndUpdate", function updateHook(next) {
     setPayload.status = "active_employee";
     setPayload.joiningFormCompleted = true;
   }
-  if (nextEmployeeStatus === "active_employee") {
-    setPayload.joiningFormCompleted = true;
-  }
-  if (nextJoiningFormCompleted === true) {
+  if (nextRole === "employee") {
+    if (nextJoiningFormCompleted === true) {
+      setPayload.status = "active_employee";
+    } else if (nextJoiningFormCompleted === false) {
+      setPayload.status = "pending_form";
+    } else if (nextEmployeeStatus === "pending_form") {
+      setPayload.joiningFormCompleted = false;
+      setPayload.status = "pending_form";
+    }
+  } else if (nextJoiningFormCompleted === true) {
     setPayload.status = "active_employee";
   }
   if (typeof nextPhone === "string" && !nextPhoneNumber) {

@@ -53,6 +53,48 @@ const formatCandidateDate = (value?: string | null) => {
   return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleString("en-IN");
 };
 
+const normalizeIsoDateInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+
+  const dayMonthYearMatch = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dayMonthYearMatch) {
+    const [, day, month, year] = dayMonthYearMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return trimmed;
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const buildOfferMailtoLink = (candidate: CandidateRecord, role: string, salary: number, joiningDate: string) => {
+  const normalizedJoiningDate = normalizeIsoDateInput(joiningDate);
+  const formattedJoiningDate = normalizedJoiningDate
+    ? new Date(`${normalizedJoiningDate}T00:00:00`).toLocaleDateString("en-IN")
+    : joiningDate;
+  const subject = `Offer Letter - ${role}`;
+  const body = [
+    `Dear ${candidate.fullName},`,
+    "",
+    `Your offer for the role of ${role} has been generated.`,
+    `Salary: ${salary}`,
+    `Joining Date: ${formattedJoiningDate}`,
+    "",
+    "Please check your inbox for the official offer letter attachment.",
+    "",
+    "Regards,",
+    "HR Team",
+  ].join("\n");
+
+  return `mailto:${encodeURIComponent(candidate.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
 type CandidateEvaluationPayload = {
   candidateId: string;
   evaluationRemarks: string;
@@ -74,6 +116,9 @@ const normalizeCandidateState = (candidate: CandidateRecord): CandidateRecord =>
     id: normalizedId,
   };
 };
+
+const canMoveCandidateToEmployee = (candidate: CandidateRecord) =>
+  candidate.joiningForm?.status === "Approved" || candidate.status === "Employee Onboarding";
 
 const AdminCandidates: React.FC = () => {
   const { toast } = useToast();
@@ -144,6 +189,7 @@ const AdminCandidates: React.FC = () => {
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [offerCandidate, setOfferCandidate] = useState<CandidateRecord | null>(null);
   const [offerDetails, setOfferDetails] = useState({ role: "", salary: "", joiningDate: "" });
+  const [offerDialogError, setOfferDialogError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -368,6 +414,7 @@ const AdminCandidates: React.FC = () => {
 
   const handleOpenOfferDialog = (candidate: CandidateRecord) => {
     setOfferCandidate(candidate);
+    setOfferDialogError(null);
     setOfferDetails({
       role: candidate.positionApplied || "",
       salary: candidate.offerLetter?.salary ? String(candidate.offerLetter.salary) : "",
@@ -379,6 +426,7 @@ const AdminCandidates: React.FC = () => {
   const handleSendOffer = async () => {
     if (!offerCandidate) return;
     if (!offerDetails.role.trim() || !offerDetails.salary.trim() || !offerDetails.joiningDate) {
+      setOfferDialogError("Role, salary, and joining date are required before sending the offer letter.");
       toast({
         title: "Missing offer details",
         description: "Role, salary, and joining date are required before sending the offer letter.",
@@ -387,21 +435,34 @@ const AdminCandidates: React.FC = () => {
       return;
     }
 
+    const normalizedJoiningDate = normalizeIsoDateInput(offerDetails.joiningDate);
+    setOfferDialogError(null);
     setActionId(offerCandidate._id);
     try {
       const updated = await apiService.sendOfferLetter(offerCandidate._id, {
         role: offerDetails.role.trim(),
         salary: Number(offerDetails.salary),
-        joiningDate: offerDetails.joiningDate,
+        joiningDate: normalizedJoiningDate,
       });
       setCandidates((prev) => prev.map((item) => (item._id === offerCandidate._id ? updated : item)));
+      void fetchCandidates();
       toast({ title: "Offer letter sent", description: `${offerCandidate.fullName} has been notified.` });
+      if (typeof window !== "undefined" && offerCandidate.email) {
+        window.location.href = buildOfferMailtoLink(
+          offerCandidate,
+          offerDetails.role.trim(),
+          Number(offerDetails.salary),
+          normalizedJoiningDate
+        );
+      }
       setOfferDialogOpen(false);
       setOfferCandidate(null);
     } catch (err) {
+      const description = err instanceof Error ? err.message : "Could not send offer letter";
+      setOfferDialogError(description);
       toast({
         title: "Action failed",
-        description: err instanceof Error ? err.message : "Could not send offer letter",
+        description,
         variant: "destructive",
       });
     } finally {
@@ -575,7 +636,7 @@ const AdminCandidates: React.FC = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-52 rounded-2xl border-slate-200 p-2 shadow-lg">
-                            {["Offered", "Joining Form Submitted", "Employee Onboarding", "Accepted"].includes(candidate.status) ? (
+                            {canMoveCandidateToEmployee(candidate) ? (
                               <DropdownMenuItem
                                 className="rounded-xl px-3 py-2.5"
                                 disabled={movingId === candidate._id}
@@ -623,11 +684,7 @@ const AdminCandidates: React.FC = () => {
                                 {sendJoiningFormLabel}
                               </DropdownMenuItem>
                             ) : null}
-                            {(
-                              ["Offered", "Joining Form Submitted", "Employee Onboarding", "Accepted"].includes(candidate.status) ||
-                              candidate.status === "Selected" ||
-                              candidate.status === "Internship"
-                            ) ? <DropdownMenuSeparator /> : null}
+                            {(canMoveCandidateToEmployee(candidate) || candidate.status === "Selected" || candidate.status === "Internship") ? <DropdownMenuSeparator /> : null}
                             <DropdownMenuItem
                               className="rounded-xl bg-red-600 px-3 py-2.5 text-white focus:bg-red-700 focus:text-white"
                               disabled={deletingId === candidate._id}
@@ -676,36 +733,40 @@ const AdminCandidates: React.FC = () => {
         loading={modalLoading}
         saving={modalSaving}
         candidate={modalCandidate}
+        candidateId={selectedCandidateId}
         availableStatuses={availableStatuses}
         onSave={handleSaveEvaluation}
       />
 
       <Dialog open={internshipDialogOpen} onOpenChange={setInternshipDialogOpen}>
-        <DialogContent>
+        <DialogContent className="border-[#E7E5E4] bg-white text-slate-900 shadow-[0_24px_60px_rgba(166,124,82,0.16)] dark:border-[#2A2623] dark:bg-[linear-gradient(145deg,#050505,#111111)] dark:text-white dark:shadow-[0_28px_70px_rgba(0,0,0,0.62)]">
           <DialogHeader>
-            <DialogTitle>{internshipTitle}</DialogTitle>
+            <DialogTitle className="text-slate-900 dark:text-white">{internshipTitle}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>{internshipStartDateLabel}</Label>
+              <Label className="text-slate-700 dark:text-white">{internshipStartDateLabel}</Label>
               <DatePicker
+                className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-[#111111] dark:text-white"
                 value={internshipDates.startDate}
                 onChange={(event) => setInternshipDates((prev) => ({ ...prev, startDate: event.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>{internshipEndDateLabel}</Label>
+              <Label className="text-slate-700 dark:text-white">{internshipEndDateLabel}</Label>
               <DatePicker
+                className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-[#111111] dark:text-white"
                 value={internshipDates.endDate}
                 onChange={(event) => setInternshipDates((prev) => ({ ...prev, endDate: event.target.value }))}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setInternshipDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setInternshipDialogOpen(false)} className="dark:border-[#2A2623] dark:bg-black dark:text-white dark:hover:bg-[#141414] dark:hover:text-white">
               {cancelLabel}
             </Button>
             <Button
+              className="dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] dark:text-[#1A1816] dark:hover:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)]"
               onClick={() => void submitInternshipAssignment()}
               disabled={!internshipCandidate || actionId === internshipCandidate?._id}
             >
@@ -719,25 +780,30 @@ const AdminCandidates: React.FC = () => {
         open={offerDialogOpen}
         onOpenChange={(open) => {
           setOfferDialogOpen(open);
-          if (!open) setOfferCandidate(null);
+          if (!open) {
+            setOfferCandidate(null);
+            setOfferDialogError(null);
+          }
         }}
       >
-        <DialogContent>
+        <DialogContent className="border-[#E7E5E4] bg-white text-slate-900 shadow-[0_24px_60px_rgba(166,124,82,0.16)] dark:border-[#2A2623] dark:bg-[linear-gradient(145deg,#050505,#111111)] dark:text-white dark:shadow-[0_28px_70px_rgba(0,0,0,0.62)]">
           <DialogHeader>
-            <DialogTitle>{offerTitle}</DialogTitle>
+            <DialogTitle className="text-slate-900 dark:text-white">{offerTitle}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>{offerRoleLabel}</Label>
+              <Label className="text-slate-700 dark:text-white">{offerRoleLabel}</Label>
               <Input
+                className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-[#111111] dark:text-white"
                 value={offerDetails.role}
                 onChange={(event) => setOfferDetails((prev) => ({ ...prev, role: event.target.value }))}
                 placeholder={offerRolePlaceholder}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>{offerSalaryLabel}</Label>
+              <Label className="text-slate-700 dark:text-white">{offerSalaryLabel}</Label>
               <Input
+                className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-[#111111] dark:text-white"
                 type="number"
                 min="1"
                 value={offerDetails.salary}
@@ -746,18 +812,32 @@ const AdminCandidates: React.FC = () => {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>{offerJoiningDateLabel}</Label>
+              <Label className="text-slate-700 dark:text-white">{offerJoiningDateLabel}</Label>
               <DatePicker
+                className="border-[#D6D3D1] bg-white text-slate-900 dark:border-[#2A2623] dark:bg-[#111111] dark:text-white"
                 value={offerDetails.joiningDate}
-                onChange={(event) => setOfferDetails((prev) => ({ ...prev, joiningDate: event.target.value }))}
+                onChange={(event) => {
+                  setOfferDialogError(null);
+                  setOfferDetails((prev) => ({ ...prev, joiningDate: event.target.value }));
+                }}
               />
             </div>
+            {offerDialogError ? (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                {offerDialogError}
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOfferDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setOfferDialogOpen(false)} className="dark:border-[#2A2623] dark:bg-black dark:text-white dark:hover:bg-[#141414] dark:hover:text-white">
               {cancelLabel}
             </Button>
-            <Button onClick={() => void handleSendOffer()} disabled={!offerCandidate || actionId === offerCandidate?._id}>
+            <Button
+              type="button"
+              className="dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] dark:text-[#1A1816] dark:hover:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)]"
+              onClick={() => void handleSendOffer()}
+              disabled={!offerCandidate || actionId === offerCandidate?._id}
+            >
               {actionId === offerCandidate?._id ? sendingLabel : generateOfferLabel}
             </Button>
           </DialogFooter>

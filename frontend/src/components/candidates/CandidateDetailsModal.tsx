@@ -17,6 +17,7 @@ export interface CandidateDetailsModalProps {
   loading: boolean;
   saving: boolean;
   candidate: CandidateRecord | null;
+  candidateId?: string;
   availableStatuses: CandidateStatus[];
   onSave: (payload: {
     candidateId: string;
@@ -117,6 +118,7 @@ const CandidateDetailsModal: React.FC<CandidateDetailsModalProps> = ({
   loading,
   saving,
   candidate,
+  candidateId,
   availableStatuses,
   onSave,
 }) => {
@@ -152,42 +154,26 @@ const CandidateDetailsModal: React.FC<CandidateDetailsModalProps> = ({
   }, [open]);
 
   const submit = async () => {
-    console.log("BUTTON CLICKED");
+    const resolvedCandidateId = candidateId || candidate?._id || candidate?.id || "";
 
-    const candidateId = candidate?._id || candidate?.id;
-
-    console.log("Candidate:", candidate);
-    console.log("CandidateId:", candidateId);
-    console.log("Status:", status);
-    console.log("Rating:", rating);
-
-    if (!candidateId) {
-      alert("Candidate ID missing");
+    if (!resolvedCandidateId) {
       return;
     }
 
     if (!status) {
-      alert("Status missing");
-      return;
-    }
-
-    if (!rating) {
-      alert("Rating missing");
       return;
     }
 
     const payload = {
-      candidateId,
+      candidateId: resolvedCandidateId,
       evaluationRemarks: evaluationRemarks.trim(),
       adminNotes: adminNotes.trim(),
-      rating: Number(rating),
+      rating: rating == null ? null : Number(rating),
       status,
       interviewSchedule: interviewSchedule?.date ? normalizeSchedule(interviewSchedule) : undefined,
       videoFeedback: videoFeedback.trim(),
       videoRating,
     };
-
-    console.log("FINAL PAYLOAD:", payload);
 
     await onSave(payload);
   };

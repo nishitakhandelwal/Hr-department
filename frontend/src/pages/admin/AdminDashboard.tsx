@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import CircularStatsWidget from "@/components/dashboard/CircularStatsWidget";
-import PortalCalendarCard, { type PortalCalendarEvent } from "@/components/dashboard/PortalCalendarCard";
 import PortalDashboardSkeleton from "@/components/dashboard/PortalDashboardSkeleton";
 import { PortalDataTable, type PortalTableColumn } from "@/components/dashboard/PortalDataTable";
 import PortalHeroPanel from "@/components/dashboard/PortalHeroPanel";
@@ -16,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useLabel } from "@/context/SystemSettingsContext";
 import { useToast } from "@/hooks/use-toast";
+import SmartCalendar from "@/pages/admin/SmartCalendar";
 import { apiService, type EmployeeRecord } from "@/services/api";
 
 type AdminDashboardSummary = Awaited<ReturnType<typeof apiService.getAdminDashboardSummary>>;
@@ -44,8 +44,6 @@ const AdminDashboard: React.FC = () => {
   const prioritySubtitle = useLabel("admin.dashboard.widget.priority.subtitle");
   const rosterTitle = useLabel("admin.dashboard.table.title");
   const rosterSubtitle = useLabel("admin.dashboard.table.subtitle");
-  const calendarTitle = useLabel("admin.dashboard.calendar.title");
-  const calendarSubtitle = useLabel("admin.dashboard.calendar.subtitle");
   const employeeHeaderLabel = useLabel("admin.dashboard.table.employee");
   const departmentHeaderLabel = useLabel("admin.dashboard.table.department");
   const compensationHeaderLabel = useLabel("admin.dashboard.table.compensation");
@@ -85,14 +83,13 @@ const AdminDashboard: React.FC = () => {
     events: [],
   });
   const [employees, setEmployees] = React.useState<EmployeeRecord[]>([]);
-
-  React.useEffect(() => {
-    void (async () => {
+  const refreshDashboard = React.useCallback(
+    async (showErrorToast = true) => {
       setLoading(true);
       try {
         const [dashboardSummary, employeeRows] = await Promise.all([
           apiService.getAdminDashboardSummary(),
-          apiService.list<EmployeeRecord>("employees"),
+          apiService.listEmployees(),
         ]);
 
         React.startTransition(() => {
@@ -100,33 +97,42 @@ const AdminDashboard: React.FC = () => {
           setEmployees(employeeRows);
         });
       } catch (error) {
-        toast({
-          title: errorTitle,
-          description: error instanceof Error ? error.message : `${errorTitle}: dashboard data unavailable`,
-          variant: "destructive",
-        });
+        if (showErrorToast) {
+          toast({
+            title: errorTitle,
+            description: error instanceof Error ? error.message : `${errorTitle}: dashboard data unavailable`,
+            variant: "destructive",
+          });
+        }
       } finally {
         setLoading(false);
       }
-    })();
-  }, [toast]);
+    },
+    [errorTitle, toast]
+  );
+
+  React.useEffect(() => {
+    void refreshDashboard();
+
+    const intervalId = window.setInterval(() => {
+      void refreshDashboard(false);
+    }, 30000);
+
+    const handleWindowFocus = () => {
+      void refreshDashboard(false);
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleWindowFocus);
+    };
+  }, [refreshDashboard]);
 
   const workforceHealth = summary.totalEmployees
     ? Math.round((summary.activeEmployeesCount / summary.totalEmployees) * 100)
     : 0;
-
-  const calendarEvents = React.useMemo<PortalCalendarEvent[]>(
-    () =>
-      summary.events.map((event) => ({
-        id: event.id,
-        title: event.title,
-        date: event.date,
-        type: event.type,
-        time: event.time,
-        note: event.note,
-      })),
-    [summary.events]
-  );
 
   const employeeColumns = React.useMemo<PortalTableColumn<EmployeeRecord>[]>(
     () => [
@@ -167,7 +173,14 @@ const AdminDashboard: React.FC = () => {
         render: (employee) => <div className="flex justify-end"><StatusBadge status={employee.status || "inactive"} /></div>,
       },
     ],
-    []
+    [
+      compensationHeaderLabel,
+      departmentHeaderLabel,
+      employeeHeaderLabel,
+      employeeIdLabel,
+      statusHeaderLabel,
+      unassignedLabel,
+    ]
   );
 
   const employeeRows = React.useMemo(() => employees.slice(0, 12), [employees]);
@@ -323,11 +336,7 @@ const AdminDashboard: React.FC = () => {
         onRowClick={() => navigate("/admin/employees")}
       />
 
-      <PortalCalendarCard
-        title={calendarTitle}
-        subtitle={calendarSubtitle}
-        events={calendarEvents}
-      />
+      <SmartCalendar embedded />
     </div>
   );
 };

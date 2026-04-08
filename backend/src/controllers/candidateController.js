@@ -171,7 +171,7 @@ const generateOfferPdfBuffer = async (htmlContent) => {
     const pdfRaw = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "16mm", right: "12mm", bottom: "16mm", left: "12mm" },
+      margin: { top: "18mm", right: "12mm", bottom: "18mm", left: "12mm" },
     });
     return Buffer.isBuffer(pdfRaw) ? pdfRaw : Buffer.from(pdfRaw);
   } catch (error) {
@@ -1358,7 +1358,7 @@ export const convertCandidateToEmployee = async (req, res) => {
     designation,
     salary,
     joiningDate,
-    enforceJoiningFormApproved: false,
+    enforceJoiningFormApproved: true,
   });
 
   return res.status(result.alreadyExists ? 200 : 201).json({
@@ -1396,7 +1396,7 @@ export const acceptOffer = async (req, res) => {
   const result = await convertCandidateToEmployeeRecord({
     candidateId: req.params.candidateId,
     actor: req.user,
-    enforceJoiningFormApproved: false,
+    enforceJoiningFormApproved: true,
   });
 
   return res.status(result.alreadyExists ? 200 : 201).json({

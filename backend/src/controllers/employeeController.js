@@ -8,6 +8,8 @@ import { ensureEmployeeProfileForUser } from "../services/employeeProfileService
 import { createDefaultPermissions } from "../utils/permissions.js";
 import { deleteEntity, updateEntity } from "./crudFactory.js";
 import { secureUploadUrls } from "../utils/uploadAccess.js";
+import { buildUploadsPublicPath } from "../utils/uploadUrls.js";
+import { clearUserProfileImage, setUserProfileImage } from "../services/profileImageService.js";
 
 const createError = (message, statusCode) => {
   const error = new Error(message);
@@ -19,6 +21,9 @@ const toPositiveNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 };
+
+const populateEmployeeRecord = (employeeId) =>
+  Employee.findById(employeeId).populate("userId", "name email role department isActive");
 
 export const getMyEmployeeProfile = async (req, res) => {
   if (!req.user) {
@@ -40,6 +45,19 @@ export const getMyEmployeeProfile = async (req, res) => {
 export const getEmployees = async (_req, res) => {
   const data = await Employee.find().populate("userId", "name email role department isActive").sort({ createdAt: -1 });
   res.json({ success: true, message: "Fetched employees", data });
+};
+
+export const getEmployeeById = async (req, res) => {
+  const employee = await Employee.findById(req.params.id).populate("userId", "name email role department isActive");
+  if (!employee) {
+    return res.status(404).json({ success: false, message: "Employee not found", data: null });
+  }
+
+  return res.json({
+    success: true,
+    message: "Fetched employee",
+    data: secureUploadUrls(employee, req, req.user),
+  });
 };
 
 const buildEmployeeId = () => `EMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -141,6 +159,58 @@ export const createEmployee = async (req, res) => {
 };
 export const updateEmployee = updateEntity(Employee);
 export const deleteEmployee = deleteEntity(Employee);
+
+export const uploadEmployeePhoto = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "Please upload an employee photo." });
+  }
+
+  const employee = await populateEmployeeRecord(req.params.id);
+  if (!employee) {
+    return res.status(404).json({ success: false, message: "Employee not found.", data: null });
+  }
+
+  const imageUrl = buildUploadsPublicPath("profile", req.file.filename);
+
+  if (employee.userId?._id) {
+    await setUserProfileImage({ userId: employee.userId._id, imageUrl });
+  } else {
+    employee.profileImage = imageUrl;
+    employee.photoUrl = imageUrl;
+    await employee.save();
+  }
+
+  const refreshedEmployee = await populateEmployeeRecord(employee._id);
+
+  return res.json({
+    success: true,
+    message: "Employee photo updated successfully.",
+    data: secureUploadUrls(refreshedEmployee, req, req.user),
+  });
+};
+
+export const removeEmployeePhoto = async (req, res) => {
+  const employee = await populateEmployeeRecord(req.params.id);
+  if (!employee) {
+    return res.status(404).json({ success: false, message: "Employee not found.", data: null });
+  }
+
+  if (employee.userId?._id) {
+    await clearUserProfileImage({ userId: employee.userId._id });
+  } else {
+    employee.profileImage = "";
+    employee.photoUrl = "";
+    await employee.save();
+  }
+
+  const refreshedEmployee = await populateEmployeeRecord(employee._id);
+
+  return res.json({
+    success: true,
+    message: "Employee photo removed successfully.",
+    data: secureUploadUrls(refreshedEmployee, req, req.user),
+  });
+};
 
 export const updateEmployeeSalaryStructure = async (req, res) => {
   const employee = await Employee.findById(req.params.id).populate("userId", "name email role department isActive");

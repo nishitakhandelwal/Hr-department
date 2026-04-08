@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { CheckCircle2, Filter, FileClock, XCircle } from "lucide-react";
+import { CheckCircle2, Filter, FileClock, PencilLine, XCircle } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -24,16 +24,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type { EmployeeRecord } from "@/services/api";
 
 type AttendanceRow = {
   _id: string;
+  employeeId: string;
   name: string;
   date: string;
+  dateISO: string;
   checkIn: string;
   checkOut: string;
   hours: string;
   status: string;
+  entryType?: string;
+  isManual: boolean;
 };
 
 type CorrectionRow = {
@@ -54,8 +62,40 @@ const formatDateLabel = (value: string) =>
     year: "numeric",
   });
 
+const formatDateInput = (value: string) => {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatTimeInput = (value?: string) => {
+  const text = String(value || "").trim().toUpperCase();
+  if (!text) return "";
+
+  const twentyFourHour = text.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (twentyFourHour) {
+    return `${String(Number(twentyFourHour[1])).padStart(2, "0")}:${twentyFourHour[2]}`;
+  }
+
+  const twelveHour = text.match(/^(0?\d|1[0-2]):([0-5]\d)\s?(AM|PM)$/);
+  if (!twelveHour) return "";
+
+  let hours = Number(twelveHour[1]) % 12;
+  if (twelveHour[3] === "PM") hours += 12;
+  return `${String(hours).padStart(2, "0")}:${twelveHour[2]}`;
+};
+
+const getEmployeeNameFromRecord = (row: AttendanceRecord) =>
+  typeof row.employeeId === "object" ? row.employeeId?.userId?.name || row.employeeId?.fullName || "" : "";
+
 const AdminAttendance: React.FC = () => {
   const [rows, setRows] = useState<AttendanceRow[]>([]);
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [correctionRequests, setCorrectionRequests] = useState<AttendanceCorrectionRequestRecord[]>([]);
   const [correctionRows, setCorrectionRows] = useState<CorrectionRow[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -67,27 +107,40 @@ const AdminAttendance: React.FC = () => {
   const [reviewTarget, setReviewTarget] = useState<AttendanceCorrectionRequestRecord | null>(null);
   const [reviewAction, setReviewAction] = useState<"approved" | "rejected">("approved");
   const [reviewRemarks, setReviewRemarks] = useState("");
+  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
+  const [overrideLoading, setOverrideLoading] = useState(false);
+  const [overrideMode, setOverrideMode] = useState<"create" | "edit">("create");
+  const [overrideError, setOverrideError] = useState("");
+  const [overrideForm, setOverrideForm] = useState({
+    employeeId: "",
+    date: "",
+    checkIn: "",
+    checkOut: "",
+    status: "present" as "present" | "late" | "absent" | "leave",
+  });
   const { toast } = useToast();
 
   const loadAttendance = useCallback(async () => {
     setLoading(true);
     try {
-      const [attendanceData, correctionData] = await Promise.all([
+      const [attendanceData, correctionData, employeeData] = await Promise.all([
         apiService.list<AttendanceRecord>("attendance"),
         apiService.listAttendanceCorrectionRequests(),
+        apiService.listEmployees(),
       ]);
 
       const mappedAttendance: AttendanceRow[] = attendanceData.map((row) => ({
         _id: row._id,
-        name:
-          typeof row.employeeId === "object"
-            ? row.employeeId?.userId?.name || row.employeeId?.fullName || ""
-            : "",
+        employeeId: typeof row.employeeId === "object" ? row.employeeId?._id || "" : row.employeeId || "",
+        name: getEmployeeNameFromRecord(row),
         date: row.date ? formatDateLabel(row.date) : "",
+        dateISO: formatDateInput(row.date),
         checkIn: row.checkIn || "-",
         checkOut: row.checkOut || "-",
         hours: row.hoursWorked ? `${row.hoursWorked}h` : "-",
         status: row.status ? String(row.status).charAt(0).toUpperCase() + String(row.status).slice(1) : "Present",
+        entryType: row.isManual ? "Manual Entry" : "",
+        isManual: Boolean(row.isManual),
       }));
 
       const mappedCorrections: CorrectionRow[] = correctionData.map((request) => ({
@@ -107,6 +160,7 @@ const AdminAttendance: React.FC = () => {
       }));
 
       setRows(mappedAttendance);
+      setEmployees(employeeData);
       setCorrectionRequests(correctionData);
       setCorrectionRows(mappedCorrections);
     } catch (error) {
@@ -142,6 +196,96 @@ const AdminAttendance: React.FC = () => {
     () => correctionRows.filter((row) => row.status === "Approved").length,
     [correctionRows]
   );
+
+  const employeeOptions = useMemo(
+    () =>
+      employees
+        .map((employee) => ({
+          id: employee._id,
+          name:
+            typeof employee.userId === "object"
+              ? employee.userId?.name || employee.fullName || employee.email || "Employee"
+              : employee.fullName || employee.email || "Employee",
+          email:
+            typeof employee.userId === "object"
+              ? employee.userId?.email || employee.email || ""
+              : employee.email || "",
+        }))
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    [employees]
+  );
+
+  const openOverrideDialog = (row?: AttendanceRow) => {
+    if (row) {
+      setOverrideMode("edit");
+      setOverrideForm({
+        employeeId: row.employeeId,
+        date: row.dateISO,
+        checkIn: formatTimeInput(row.checkIn === "-" ? "" : row.checkIn),
+        checkOut: formatTimeInput(row.checkOut === "-" ? "" : row.checkOut),
+        status: row.status.toLowerCase() as "present" | "late" | "absent" | "leave",
+      });
+    } else {
+      setOverrideMode("create");
+      setOverrideForm({
+        employeeId: "",
+        date: formatDateInput(new Date().toISOString()),
+        checkIn: "",
+        checkOut: "",
+        status: "present",
+      });
+    }
+    setOverrideError("");
+    setOverrideDialogOpen(true);
+  };
+
+  const validateOverrideForm = () => {
+    if (!overrideForm.employeeId) return "Employee is required.";
+    if (!overrideForm.date) return "Date is required.";
+    if (overrideForm.checkIn && !/^\d{2}:\d{2}$/.test(overrideForm.checkIn)) return "Please enter a valid check-in time.";
+    if (overrideForm.checkOut && !/^\d{2}:\d{2}$/.test(overrideForm.checkOut)) return "Please enter a valid check-out time.";
+
+    if (overrideForm.checkIn && overrideForm.checkOut && overrideForm.checkOut <= overrideForm.checkIn) {
+      return "Check-out time must be after check-in time.";
+    }
+
+    return "";
+  };
+
+  const handleOverrideSave = async () => {
+    const validationError = validateOverrideForm();
+    if (validationError) {
+      setOverrideError(validationError);
+      toast({ title: "Validation error", description: validationError, variant: "destructive" });
+      return;
+    }
+
+    setOverrideLoading(true);
+    setOverrideError("");
+    try {
+      await apiService.adminOverrideAttendance({
+        employeeId: overrideForm.employeeId,
+        date: overrideForm.date,
+        checkIn: overrideForm.checkIn || undefined,
+        checkOut: overrideForm.checkOut || undefined,
+        status: overrideForm.status,
+      });
+
+      toast({
+        title: overrideMode === "edit" ? "Attendance updated" : "Attendance created",
+        description: "Manual attendance override has been saved successfully.",
+      });
+
+      setOverrideDialogOpen(false);
+      await loadAttendance();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save manual attendance";
+      setOverrideError(message);
+      toast({ title: "Save failed", description: message, variant: "destructive" });
+    } finally {
+      setOverrideLoading(false);
+    }
+  };
 
   const openReviewDialog = (id: string, action: "approved" | "rejected") => {
     const request = correctionRequests.find((item) => item._id === id) || null;
@@ -193,6 +337,14 @@ const AdminAttendance: React.FC = () => {
         action={
           <div className="flex gap-2">
             <Button
+              onClick={() => openOverrideDialog()}
+              className="gap-2 rounded-xl"
+              type="button"
+            >
+              <PencilLine className="h-4 w-4" />
+              Edit Attendance
+            </Button>
+            <Button
               variant="outline"
               className="gap-2 rounded-xl border-slate-200 bg-white/90"
               onClick={() => setFiltersOpen(true)}
@@ -236,7 +388,25 @@ const AdminAttendance: React.FC = () => {
               action={<Button variant="outline" onClick={() => void loadAttendance()}>Refresh list</Button>}
             />
           ) : (
-            <AttendanceTable data={filteredAttendance} />
+            <AttendanceTable
+              data={filteredAttendance.map((row) => ({
+                ...row,
+                actions: (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.06)] dark:text-[#E6C7A3]"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openOverrideDialog(row);
+                    }}
+                  >
+                    Edit Attendance
+                  </Button>
+                ),
+              }))}
+            />
           )}
         </TabsContent>
 
@@ -331,6 +501,117 @@ const AdminAttendance: React.FC = () => {
           { key: "date", label: "Date", type: "date" },
         ]}
       />
+
+      <Dialog
+        open={overrideDialogOpen}
+        onOpenChange={(open) => {
+          if (overrideLoading) return;
+          setOverrideDialogOpen(open);
+          if (!open) setOverrideError("");
+        }}
+      >
+        <DialogContent className="max-w-2xl rounded-[28px]">
+          <DialogHeader>
+            <DialogTitle>{overrideMode === "edit" ? "Edit Attendance" : "Create Attendance"}</DialogTitle>
+            <DialogDescription>
+              Add missing check-in or check-out details, or create a manual attendance entry when no record exists.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Employee</label>
+              <Select
+                value={overrideForm.employeeId}
+                onValueChange={(value) => setOverrideForm((prev) => ({ ...prev, employeeId: value }))}
+                disabled={overrideLoading || overrideMode === "edit"}
+              >
+                <SelectTrigger className="rounded-2xl">
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employeeOptions.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.name}{employee.email ? ` - ${employee.email}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Date</label>
+              <DatePicker
+                value={overrideForm.date}
+                onChange={(event) => setOverrideForm((prev) => ({ ...prev, date: event.target.value }))}
+                className="rounded-2xl"
+                disabled={overrideLoading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Status</label>
+              <Select
+                value={overrideForm.status}
+                onValueChange={(value) =>
+                  setOverrideForm((prev) => ({
+                    ...prev,
+                    status: value as "present" | "late" | "absent" | "leave",
+                  }))
+                }
+                disabled={overrideLoading}
+              >
+                <SelectTrigger className="rounded-2xl">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="present">Present</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
+                  <SelectItem value="absent">Absent</SelectItem>
+                  <SelectItem value="leave">Leave</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Check-in</label>
+              <Input
+                type="time"
+                value={overrideForm.checkIn}
+                onChange={(event) => setOverrideForm((prev) => ({ ...prev, checkIn: event.target.value }))}
+                className="rounded-2xl"
+                disabled={overrideLoading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Check-out</label>
+              <Input
+                type="time"
+                value={overrideForm.checkOut}
+                onChange={(event) => setOverrideForm((prev) => ({ ...prev, checkOut: event.target.value }))}
+                className="rounded-2xl"
+                disabled={overrideLoading}
+              />
+            </div>
+          </div>
+
+          {overrideError ? (
+            <div className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {overrideError}
+            </div>
+          ) : null}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" type="button" disabled={overrideLoading} onClick={() => setOverrideDialogOpen(false)} className="rounded-xl">
+              Cancel
+            </Button>
+            <Button type="button" disabled={overrideLoading} onClick={() => void handleOverrideSave()} className="rounded-xl">
+              {overrideLoading ? "Saving..." : overrideMode === "edit" ? "Save Attendance" : "Create Attendance"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={reviewDialogOpen}

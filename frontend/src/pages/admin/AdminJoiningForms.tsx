@@ -35,6 +35,28 @@ const actionLabelMap: Record<ReviewAction, string> = {
   reject: "Reject",
 };
 
+const defaultRemarksMap: Record<ReviewAction, string> = {
+  approve: "Joining form approved by admin.",
+  request_correction: "Please review the remarks and resubmit the joining form.",
+  reject: "Joining form rejected by admin.",
+};
+
+const resolveFormId = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const record = value as { _id?: unknown; id?: unknown; toString?: () => string };
+    if (typeof record._id === "string") return record._id;
+    if (typeof record.id === "string") return record.id;
+    if (record._id) return resolveFormId(record._id);
+    if (record.id) return resolveFormId(record.id);
+    if (typeof record.toString === "function") {
+      const stringValue = record.toString();
+      if (stringValue && stringValue !== "[object Object]") return stringValue;
+    }
+  }
+  return "";
+};
+
 const actionButtonClass =
   "h-9 rounded-xl px-3.5 text-sm font-medium shadow-none transition-all duration-200";
 
@@ -121,9 +143,18 @@ const AdminJoiningForms: React.FC = () => {
     void load();
   }, [load]);
 
-  const openReviewModal = (formId: string, action: ReviewAction) => {
+  const openReviewModal = (formId: unknown, action: ReviewAction) => {
+    const normalizedFormId = resolveFormId(formId);
+    if (!normalizedFormId) {
+      toast({
+        title: "Action failed",
+        description: "Joining form id is invalid. Please refresh the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
     setRemarks("");
-    setReviewModal({ open: true, formId, action });
+    setReviewModal({ open: true, formId: normalizedFormId, action });
   };
 
   const closeReviewModal = () => {
@@ -132,15 +163,18 @@ const AdminJoiningForms: React.FC = () => {
     setRemarks("");
   };
 
-  const submitDecision = async () => {
-    if (!reviewModal.formId || !remarks.trim()) return;
+  const submitDecision = async (override?: { formId?: string; action?: ReviewAction; remarks?: string }) => {
+    const nextAction = override?.action || reviewModal.action;
+    const nextFormId = override?.formId || reviewModal.formId;
+    const nextRemarks = (override?.remarks ?? remarks).trim() || defaultRemarksMap[nextAction];
 
-    const nextAction = reviewModal.action;
-    const nextFormId = reviewModal.formId;
-    const nextRemarks = remarks.trim();
+    if (!nextFormId) return;
 
-    setReviewModal({ open: false, formId: "", action: "approve" });
-    setRemarks("");
+    if (!override) {
+      setReviewModal({ open: false, formId: "", action: "approve" });
+      setRemarks("");
+    }
+
     setSubmitting(true);
     try {
       const response = await apiService.reviewJoiningForm(nextFormId, {
@@ -167,6 +201,23 @@ const AdminJoiningForms: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const submitQuickApproval = async (formId: unknown) => {
+    const normalizedFormId = resolveFormId(formId);
+    if (!normalizedFormId) {
+      toast({
+        title: "Action failed",
+        description: "Joining form id is invalid. Please refresh the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    await submitDecision({
+      formId: normalizedFormId,
+      action: "approve",
+      remarks: defaultRemarksMap.approve,
+    });
   };
 
   const modalActionLabel = useMemo(() => actionLabelMap[reviewModal.action], [reviewModal.action]);
@@ -235,6 +286,7 @@ const AdminJoiningForms: React.FC = () => {
                 </tr>
               ) : (
                 rows.map((row) => {
+                  const rowId = resolveFormId(row._id);
                   const candidate = typeof row.candidateId === "object" ? row.candidateId : null;
                   const linkedUser = "userId" in row && typeof row.userId === "object" ? row.userId : null;
                   const docs = [
@@ -247,7 +299,7 @@ const AdminJoiningForms: React.FC = () => {
                   const secondaryText = candidate?.email || linkedUser?.email || "Submitted profile";
 
                   return (
-                    <tr key={row._id} className={isDarkMode ? "border-b border-[#2A2623] last:border-b-0 hover:bg-[rgba(230,199,163,0.08)]" : "border-b border-[#F4F4F5] last:border-b-0 hover:bg-[#FAF7F2]"}>
+                    <tr key={rowId || String(row._id)} className={isDarkMode ? "border-b border-[#2A2623] last:border-b-0 hover:bg-[rgba(230,199,163,0.08)]" : "border-b border-[#F4F4F5] last:border-b-0 hover:bg-[#FAF7F2]"}>
                       <td className="px-5 py-4">
                         <div className={`font-medium ${isDarkMode ? "text-[#F5F5F5]" : "text-[#18181B]"}`}>{primaryName}</div>
                         <div className={`mt-1 text-xs ${isDarkMode ? "text-[#A1A1AA]" : "text-[#52525B]"}`}>{secondaryText}</div>
@@ -263,6 +315,7 @@ const AdminJoiningForms: React.FC = () => {
                       <td className="px-5 py-4">
                         <div className="flex min-w-max flex-wrap gap-2 lg:flex-nowrap">
                           <Button
+                            type="button"
                             size="sm"
                             variant="outline"
                             className={`${actionButtonClass} ${isDarkMode ? "border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]" : "border-[#D6D3D1] bg-white text-[#18181B] hover:border-[#A67C52] hover:bg-[#F8F5F1] hover:text-[#18181B]"}`}
@@ -275,27 +328,33 @@ const AdminJoiningForms: React.FC = () => {
                           {row.status !== "Approved" && row.status !== "Rejected" ? (
                             <>
                               <Button
+                                type="button"
                                 size="sm"
                                 className={`${actionButtonClass} border border-[rgba(166,124,82,0.24)] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] text-[#1A1816] hover:shadow-[0_16px_34px_rgba(166,124,82,0.28)]`}
-                                onClick={() => openReviewModal(row._id, "approve")}
+                                disabled={submitting || !rowId}
+                                onClick={() => void submitQuickApproval(rowId)}
                               >
                                 <CheckCircle2 className="h-4 w-4" />
                                 Approve
                               </Button>
                               <Button
+                                type="button"
                                 size="sm"
                                 variant="outline"
                                 className={`${actionButtonClass} ${isDarkMode ? "border border-[rgba(166,124,82,0.22)] bg-[rgba(166,124,82,0.16)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#F5F5F5]" : "border border-[#E7D7C4] bg-[#F6E7D3] text-[#18181B] hover:border-[#D6B58C] hover:bg-[#F3DFC6] hover:text-[#18181B]"}`}
-                                onClick={() => openReviewModal(row._id, "request_correction")}
+                                disabled={!rowId}
+                                onClick={() => openReviewModal(rowId, "request_correction")}
                               >
                                 <ShieldAlert className="h-4 w-4" />
                                 Correction
                               </Button>
                               <Button
+                                type="button"
                                 size="sm"
                                 variant="outline"
                                 className={`${actionButtonClass} ${isDarkMode ? "border-red-400/25 bg-red-500/10 text-red-300 hover:border-red-400/35 hover:bg-red-500/14 hover:text-red-200" : "border border-[#F3C3C3] bg-[#FCE8E8] text-[#18181B] hover:border-[#E7A8A8] hover:bg-[#F9D9D9] hover:text-[#18181B]"}`}
-                                onClick={() => openReviewModal(row._id, "reject")}
+                                disabled={!rowId}
+                                onClick={() => openReviewModal(rowId, "reject")}
                               >
                                 <XCircle className="h-4 w-4" />
                                 Reject
@@ -350,7 +409,7 @@ const AdminJoiningForms: React.FC = () => {
                 type="button"
                 className="h-10 rounded-xl border border-[rgba(166,124,82,0.24)] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] px-5 text-[#1A1816] hover:shadow-[0_16px_34px_rgba(166,124,82,0.28)]"
                 onClick={() => void submitDecision()}
-                disabled={submitting || !remarks.trim()}
+                disabled={submitting || ((reviewModal.action === "request_correction" || reviewModal.action === "reject") && !remarks.trim())}
               >
                 {submitting ? "Submitting..." : "Submit"}
               </Button>

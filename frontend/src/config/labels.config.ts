@@ -1,5 +1,5 @@
 export const LABELS = {
-  "app.name": "HR Harmony Hub",
+  "app.name": "Arihant Dream Infra Project Ltd.",
   "superAdmin.dashboard.title": "Super Admin Command Center",
   "superAdmin.dashboard.subtitle": "Live control over features, visibility, access, and system experience.",
   "admin.dashboard.title": "Control Center",

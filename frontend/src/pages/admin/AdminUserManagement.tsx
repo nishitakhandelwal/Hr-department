@@ -50,6 +50,14 @@ type CandidateDashboardRow = {
   status?: string;
 };
 
+type SummaryStats = {
+  totalUsers: number;
+  activeHr: number;
+  activeRecruiters: number;
+  candidatesRegistered: number;
+  pendingApplications: number;
+};
+
 const emptyPermissions = {
   modules: {
     dashboard: true,
@@ -119,11 +127,17 @@ const AdminUserManagement: React.FC = () => {
     department: "",
     temporaryPassword: "",
   });
-  const [candidatesCount, setCandidatesCount] = React.useState(0);
-  const [pendingApplicationsCount, setPendingApplicationsCount] = React.useState(0);
   const [pageAccessInput, setPageAccessInput] = React.useState("");
   const [userToDelete, setUserToDelete] = React.useState<ManagedUser | null>(null);
   const [deletingUser, setDeletingUser] = React.useState(false);
+  const usersPerPage = usersPagination.limit;
+  const [summaryStats, setSummaryStats] = React.useState<SummaryStats>({
+    totalUsers: 0,
+    activeHr: 0,
+    activeRecruiters: 0,
+    candidatesRegistered: 0,
+    pendingApplications: 0,
+  });
 
   const selectedUser = React.useMemo(
     () => users.find((u) => u._id === selectedUserId) || users[0] || null,
@@ -136,12 +150,12 @@ const AdminUserManagement: React.FC = () => {
     setPageAccessInput(value);
   }, [selectedPermissions.pageAccess]);
 
-  const fetchUsers = React.useCallback(async (page = usersPagination.page) => {
+  const fetchUsers = React.useCallback(async (page = 1) => {
     setLoadingUsers(true);
     try {
       const data = await apiService.getManagedUsers({
         page,
-        limit: usersPagination.limit,
+        limit: usersPerPage,
         search: userSearch || undefined,
         role: roleFilter || undefined,
         department: departmentFilter || undefined,
@@ -152,15 +166,19 @@ const AdminUserManagement: React.FC = () => {
       });
       setUsers(data.items);
       setUsersPagination(data.pagination);
-      if (!selectedUserId && data.items.length > 0) {
-        setSelectedUserId(data.items[0]._id);
-      }
+      setSelectedUserId((currentSelectedUserId) => {
+        if (data.items.length === 0) return "";
+        if (currentSelectedUserId && data.items.some((item) => item._id === currentSelectedUserId)) {
+          return currentSelectedUserId;
+        }
+        return data.items[0]._id;
+      });
     } catch (error) {
       toast({ title: "Failed to load users", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
     } finally {
       setLoadingUsers(false);
     }
-  }, [usersPagination.page, usersPagination.limit, userSearch, roleFilter, departmentFilter, statusFilter, activityFilter, sortBy, sortOrder, selectedUserId, toast]);
+  }, [usersPerPage, userSearch, roleFilter, departmentFilter, statusFilter, activityFilter, sortBy, sortOrder, toast]);
 
   const fetchActivities = React.useCallback(async (page = activitiesPagination.page) => {
     try {
@@ -194,16 +212,37 @@ const AdminUserManagement: React.FC = () => {
     }
   }, [auditPagination.page, auditPagination.limit, auditSearch, toast]);
 
-  const fetchDashboardCounts = React.useCallback(async () => {
+  const fetchSummaryStats = React.useCallback(async () => {
     try {
-      const candidates = await apiService.list<CandidateDashboardRow>("candidates");
-      setCandidatesCount(candidates.length);
-      setPendingApplicationsCount(
-        candidates.filter((c) => c.status === "Applied" || c.status === "Under Review" || c.status === "Interview Scheduled").length
-      );
+      const [allUsers, hrUsers, recruiterUsers, candidates] = await Promise.all([
+        apiService.getManagedUsers({ page: 1, limit: 1 }),
+        apiService.getManagedUsers({ page: 1, limit: 1, role: "hr_manager", status: "active" }),
+        apiService.getManagedUsers({ page: 1, limit: 1, role: "recruiter", status: "active" }),
+        apiService.listCandidates(),
+      ]);
+
+      const pendingApplications = candidates.filter(
+        (candidate) =>
+          candidate.status === "Applied" ||
+          candidate.status === "Under Review" ||
+          candidate.status === "Interview Scheduled"
+      ).length;
+
+      setSummaryStats({
+        totalUsers: allUsers.pagination.total,
+        activeHr: hrUsers.pagination.total,
+        activeRecruiters: recruiterUsers.pagination.total,
+        candidatesRegistered: candidates.length,
+        pendingApplications,
+      });
     } catch {
-      setCandidatesCount(0);
-      setPendingApplicationsCount(0);
+      setSummaryStats({
+        totalUsers: 0,
+        activeHr: 0,
+        activeRecruiters: 0,
+        candidatesRegistered: 0,
+        pendingApplications: 0,
+      });
     }
   }, []);
 
@@ -220,15 +259,8 @@ const AdminUserManagement: React.FC = () => {
   }, [auditSearch, fetchAuditLogs]);
 
   React.useEffect(() => {
-    void fetchDashboardCounts();
-  }, [fetchDashboardCounts]);
-
-  const summaryStats = React.useMemo(() => {
-    const totalUsers = usersPagination.total;
-    const activeHr = users.filter((u) => u.accessRole === "hr_manager" && u.accountStatus === "active").length;
-    const activeRecruiters = users.filter((u) => u.accessRole === "recruiter" && u.accountStatus === "active").length;
-    return { totalUsers, activeHr, activeRecruiters };
-  }, [users, usersPagination.total]);
+    void fetchSummaryStats();
+  }, [fetchSummaryStats]);
 
   const handleSort = (key: string) => {
     if (sortBy === key) {
@@ -240,16 +272,51 @@ const AdminUserManagement: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    setDeletingUser(true);
-    try {
-      await apiService.remove("users", userId);
-      toast({ title: "User deleted" });
-      await Promise.all([fetchUsers(usersPagination.page), fetchAuditLogs(1)]);
-    } catch (error) {
-      toast({ title: "Delete failed", description: error instanceof Error ? error.message : "Try again", variant: "destructive" });
-    } finally {
-      setDeletingUser(false);
+    if (currentUser?.id === userId) {
+      toast({
+        title: "Delete blocked",
+        description: "You cannot delete your own logged-in account from User Management.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    setDeletingUser(true);
+    const previousUsers = users;
+    const previousPagination = usersPagination;
+    const nextTotal = Math.max(0, usersPagination.total - 1);
+    const targetPage = Math.min(
+      usersPagination.page,
+      Math.max(1, Math.ceil(nextTotal / Math.max(1, usersPagination.limit)))
+    );
+    setUsers((current) => current.filter((user) => user._id !== userId));
+    setUsersPagination((current) => ({
+      ...current,
+      total: nextTotal,
+    }));
+    try {
+      await apiService.deleteManagedUser(userId);
+      setSelectedUserId((currentSelectedUserId) => (currentSelectedUserId === userId ? "" : currentSelectedUserId));
+      toast({ title: "User deleted" });
+    } catch (error) {
+      setUsers(previousUsers);
+      setUsersPagination(previousPagination);
+      setDeletingUser(false);
+      toast({ title: "Delete failed", description: error instanceof Error ? error.message : "Try again", variant: "destructive" });
+      return;
+    }
+
+    try {
+      await Promise.all([fetchUsers(targetPage), fetchAuditLogs(1), fetchSummaryStats()]);
+    } catch (error) {
+      toast({
+        title: "User deleted, but refresh failed",
+        description: error instanceof Error ? error.message : "Please refresh the page.",
+        variant: "destructive",
+      });
+    }
+
+    setDeletingUser(false);
   };
 
   const handleSecurityToggle = async (user: ManagedUser, key: "forcePasswordReset" | "twoFactorEnabled", value: boolean) => {
@@ -259,7 +326,7 @@ const AdminUserManagement: React.FC = () => {
         twoFactorEnabled: key === "twoFactorEnabled" ? value : Boolean(user.twoFactorEnabled),
       });
       toast({ title: "Security settings updated" });
-      await Promise.all([fetchUsers(usersPagination.page), fetchAuditLogs(1)]);
+      await Promise.all([fetchUsers(usersPagination.page), fetchAuditLogs(1), fetchSummaryStats()]);
     } catch (error) {
       toast({ title: "Security update failed", description: error instanceof Error ? error.message : "Try again", variant: "destructive" });
     }
@@ -271,7 +338,7 @@ const AdminUserManagement: React.FC = () => {
       await apiService.inviteUser(inviteForm);
       toast({ title: "Invitation created", description: "User invitation saved. Send credentials via your configured mail service." });
       setInviteForm({ name: "", email: "", role: "hr_manager", department: "", temporaryPassword: "" });
-      await Promise.all([fetchUsers(1), fetchAuditLogs(1)]);
+      await Promise.all([fetchUsers(1), fetchAuditLogs(1), fetchSummaryStats()]);
     } catch (error) {
       toast({ title: "Invite failed", description: error instanceof Error ? error.message : "Try again", variant: "destructive" });
     }
@@ -362,7 +429,7 @@ const AdminUserManagement: React.FC = () => {
       });
       toast({ title: "User updated", description: "User details were saved successfully." });
       closeEditDialog();
-      await Promise.all([fetchUsers(usersPagination.page), fetchAuditLogs(1)]);
+      await Promise.all([fetchUsers(usersPagination.page), fetchAuditLogs(1), fetchSummaryStats()]);
     } catch (error) {
       toast({ title: "Update failed", description: error instanceof Error ? error.message : "Try again", variant: "destructive" });
     } finally {
@@ -380,7 +447,7 @@ const AdminUserManagement: React.FC = () => {
     try {
       await apiService.updateUserPermissions(selectedUser._id, nextPermissions);
       toast({ title: "Permissions updated" });
-      await Promise.all([fetchUsers(usersPagination.page), fetchAuditLogs(1)]);
+      await Promise.all([fetchUsers(usersPagination.page), fetchAuditLogs(1), fetchSummaryStats()]);
     } catch (error) {
       toast({ title: "Permission update failed", description: error instanceof Error ? error.message : "Try again", variant: "destructive" });
     }
@@ -398,8 +465,8 @@ const AdminUserManagement: React.FC = () => {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard title="Total Users" value={summaryStats.totalUsers} change="All registered accounts" changeType="positive" icon={Users} color="primary" />
         <StatCard title="Active HR Staff" value={summaryStats.activeHr} change="HR Managers currently active" changeType="positive" icon={UserRoundCheck} color="success" />
-        <StatCard title="Candidates Registered" value={candidatesCount} change="Candidate accounts" changeType="neutral" icon={UserPlus} color="info" />
-        <StatCard title="Pending Applications" value={pendingApplicationsCount} change="Candidates under process" changeType="neutral" icon={Briefcase} color="warning" />
+        <StatCard title="Candidates Registered" value={summaryStats.candidatesRegistered} change="Candidate accounts" changeType="neutral" icon={UserPlus} color="info" />
+        <StatCard title="Pending Applications" value={summaryStats.pendingApplications} change="Candidates under process" changeType="neutral" icon={Briefcase} color="warning" />
         <StatCard title="Active Recruiters" value={summaryStats.activeRecruiters} change="Recruiter accounts active" changeType="positive" icon={ShieldCheck} color="primary" />
       </div>
 
@@ -525,10 +592,10 @@ const AdminUserManagement: React.FC = () => {
                   {usersPagination.total === 0 ? "No users found" : `Showing ${activePageStart}-${activePageEnd} of ${usersPagination.total}`}
                 </p>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={usersPagination.page <= 1} onClick={() => fetchUsers(usersPagination.page - 1)}>
+                  <Button type="button" variant="outline" size="sm" disabled={usersPagination.page <= 1} onClick={() => fetchUsers(usersPagination.page - 1)}>
                     Previous
                   </Button>
-                  <Button variant="outline" size="sm" disabled={usersPagination.page >= usersPagination.totalPages} onClick={() => fetchUsers(usersPagination.page + 1)}>
+                  <Button type="button" variant="outline" size="sm" disabled={usersPagination.page >= usersPagination.totalPages} onClick={() => fetchUsers(usersPagination.page + 1)}>
                     Next
                   </Button>
                 </div>

@@ -10,7 +10,7 @@ const syncRelatedProfileImage = async ({ user, imageUrl }) => {
   if (user.role === "employee") {
     await Employee.updateOne(
       { userId: user._id },
-      { $set: { profileImage: imageUrl || "" } }
+      { $set: { profileImage: imageUrl || "", photoUrl: imageUrl || "" } }
     );
   }
 

@@ -142,6 +142,58 @@ const buildJoiningFormPayload = ({ req, existing = null, fullNameFallback = "", 
 
 const serializeJoiningFormForResponse = (req, user, value) => secureUploadUrls(value, req, user);
 
+const resolveJoiningFormIdentityKey = (form) => {
+  const candidateId =
+    typeof form?.candidateId === "object" && form?.candidateId?._id
+      ? String(form.candidateId._id)
+      : form?.candidateId
+        ? String(form.candidateId)
+        : "";
+  const userId =
+    typeof form?.userId === "object" && form?.userId?._id
+      ? String(form.userId._id)
+      : form?.userId
+        ? String(form.userId)
+        : "";
+
+  return candidateId ? `candidate:${candidateId}` : userId ? `user:${userId}` : `form:${String(form?._id || "")}`;
+};
+
+const dedupeJoiningForms = (forms = []) => {
+  const latestByIdentity = new Map();
+
+  for (const form of forms) {
+    const key = resolveJoiningFormIdentityKey(form);
+    const existing = latestByIdentity.get(key);
+    const currentTime = new Date(form?.updatedAt || form?.createdAt || 0).getTime();
+    const existingTime = existing ? new Date(existing?.updatedAt || existing?.createdAt || 0).getTime() : -1;
+    if (!existing || currentTime >= existingTime) {
+      latestByIdentity.set(key, form);
+    }
+  }
+
+  return Array.from(latestByIdentity.values()).sort(
+    (left, right) => new Date(right?.updatedAt || right?.createdAt || 0).getTime() - new Date(left?.updatedAt || left?.createdAt || 0).getTime()
+  );
+};
+
+const syncDuplicateJoiningForms = async ({ formId, userId = null, candidateId = null, patch = {} }) => {
+  const orFilters = [
+    userId ? { userId } : null,
+    candidateId ? { candidateId } : null,
+  ].filter(Boolean);
+
+  if (!orFilters.length) return;
+
+  await JoiningForm.updateMany(
+    {
+      _id: { $ne: formId },
+      $or: orFilters,
+    },
+    { $set: patch }
+  );
+};
+
 const getCandidateForRequest = async (req) => {
   if (req.user?.role === "candidate") {
     return Candidate.findOne({ userId: req.user?._id });
@@ -190,7 +242,11 @@ export const listJoiningForms = async (req, res) => {
     .populate("reviewedBy", "name email")
     .sort({ createdAt: -1 });
 
-  return res.json({ success: true, message: "Fetched joining forms", data: serializeJoiningFormForResponse(req, req.user, data) });
+  return res.json({
+    success: true,
+    message: "Fetched joining forms",
+    data: serializeJoiningFormForResponse(req, req.user, dedupeJoiningForms(data)),
+  });
 };
 
 export const getMyJoiningForm = async (req, res) => {
@@ -343,7 +399,6 @@ export const submitMyJoiningForm = async (req, res) => {
 
     if (linkedCandidateId) {
       update.$set.candidateId = linkedCandidateId;
-      update.$setOnInsert.candidateId = linkedCandidateId;
     }
 
     const data = await JoiningForm.findOneAndUpdate(selector, update, {
@@ -352,8 +407,8 @@ export const submitMyJoiningForm = async (req, res) => {
       runValidators: true,
     });
 
-    user.joiningFormCompleted = true;
-    user.status = "active_employee";
+    user.joiningFormCompleted = false;
+    user.status = "pending_form";
     await user.save();
 
     return res.json({ success: true, message: "Joining form submitted successfully", data: serializeJoiningFormForResponse(req, req.user, data) });
@@ -471,6 +526,18 @@ export const reviewJoiningForm = async (req, res) => {
         await employee.save();
       }
 
+      await syncDuplicateJoiningForms({
+        formId: data._id,
+        userId: data.userId,
+        candidateId: data.candidateId,
+        patch: {
+          status: "Correction Requested",
+          adminRemarks: toString(remarks),
+          reviewedAt,
+          reviewedBy: req.user?._id ?? null,
+        },
+      });
+
       return res.json({
         success: true,
         message: "Correction requested",
@@ -492,6 +559,18 @@ export const reviewJoiningForm = async (req, res) => {
         await employee.save();
       }
 
+      await syncDuplicateJoiningForms({
+        formId: data._id,
+        userId: data.userId,
+        candidateId: data.candidateId,
+        patch: {
+          status: "Rejected",
+          adminRemarks: toString(remarks),
+          reviewedAt,
+          reviewedBy: req.user?._id ?? null,
+        },
+      });
+
       return res.json({
         success: true,
         message: "Joining form rejected",
@@ -511,6 +590,18 @@ export const reviewJoiningForm = async (req, res) => {
       employee.status = "active_employee";
       await employee.save();
     }
+
+    await syncDuplicateJoiningForms({
+      formId: data._id,
+      userId: data.userId,
+      candidateId: data.candidateId,
+      patch: {
+        status: "Approved",
+        adminRemarks: toString(remarks),
+        reviewedAt,
+        reviewedBy: req.user?._id ?? null,
+      },
+    });
 
     return res.json({
       success: true,
@@ -553,6 +644,18 @@ export const reviewJoiningForm = async (req, res) => {
       type: "candidate",
     });
 
+    await syncDuplicateJoiningForms({
+      formId: data._id,
+      userId: data.userId,
+      candidateId: data.candidateId,
+      patch: {
+        status: "Correction Requested",
+        adminRemarks: toString(remarks),
+        reviewedAt,
+        reviewedBy: req.user?._id ?? null,
+      },
+    });
+
     return res.json({ success: true, message: "Correction requested", data: serializeJoiningFormForResponse(req, req.user, data) });
   }
 
@@ -586,6 +689,18 @@ export const reviewJoiningForm = async (req, res) => {
       type: "candidate",
     });
 
+    await syncDuplicateJoiningForms({
+      formId: data._id,
+      userId: data.userId,
+      candidateId: data.candidateId,
+      patch: {
+        status: "Rejected",
+        adminRemarks: toString(remarks),
+        reviewedAt,
+        reviewedBy: req.user?._id ?? null,
+      },
+    });
+
     return res.json({ success: true, message: "Joining form rejected", data: serializeJoiningFormForResponse(req, req.user, data) });
   }
 
@@ -609,6 +724,18 @@ export const reviewJoiningForm = async (req, res) => {
     salary,
     joiningDate,
     enforceJoiningFormApproved: true,
+  });
+
+  await syncDuplicateJoiningForms({
+    formId: data._id,
+    userId: data.userId,
+    candidateId: data.candidateId,
+    patch: {
+      status: "Approved",
+      adminRemarks: toString(remarks),
+      reviewedAt,
+      reviewedBy: req.user?._id ?? null,
+    },
   });
 
   return res.json({

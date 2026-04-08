@@ -91,7 +91,7 @@ const generatePdfBufferFromHtml = async (htmlContent) => {
     const pdfRaw = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "16mm", right: "12mm", bottom: "16mm", left: "12mm" },
+      margin: { top: "18mm", right: "12mm", bottom: "18mm", left: "12mm" },
     });
 
     const pdfBuffer = Buffer.isBuffer(pdfRaw) ? pdfRaw : Buffer.from(pdfRaw);
@@ -159,22 +159,52 @@ const wrapPrintableHtml = ({ title, headerHtml, bodyHtml, footerHtml }) => `
 <meta charset="utf-8" />
 <title>${title}</title>
 <style>
-  @page { size: A4; margin: 24mm 16mm 24mm 16mm; }
-  body { font-family: Georgia, 'Times New Roman', serif; color: #111; margin: 0; padding: 0; }
-  .page { width: 100%; }
-  .letter-title { text-align: center; font-weight: 700; font-size: 20px; letter-spacing: 0.7px; margin: 12px 0 18px; }
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    color: #111;
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    width: 100%;
+    position: relative;
+    box-sizing: border-box;
+    padding: 44mm 0 24mm;
+  }
+  .letter-title { text-align: center; font-weight: 700; font-size: 20px; letter-spacing: 0.7px; margin: 0 0 18px; }
   .content { font-size: 13px; line-height: 1.6; }
   .content p { margin: 0 0 10px; }
   .content ol { margin: 0 0 12px 18px; }
-  .header, .footer { width: 100%; }
+  .header,
+  .footer {
+    width: 100%;
+    position: fixed;
+    left: 0;
+    right: 0;
+    background: #fff;
+    z-index: 2;
+  }
+  .header {
+    top: 0;
+    padding: 0 0 8mm;
+    border-bottom: 1px solid #d4d4d8;
+  }
+  .footer {
+    bottom: 0;
+    padding: 6mm 0 0;
+    border-top: 1px solid #d4d4d8;
+  }
 </style>
 </head>
 <body>
   <div class="page">
     <div class="header">${headerHtml}</div>
+    <div class="footer">${footerHtml}</div>
     <div class="letter-title">${title.toUpperCase()}</div>
     <div class="content">${bodyHtml}</div>
-    <div class="footer">${footerHtml}</div>
   </div>
 </body>
 </html>`;
@@ -238,7 +268,7 @@ const writeHtmlAndPdf = async ({ html, letterNumber }) => {
     await page.setContent(html, { waitUntil: "networkidle0" });
     const pdfName = `${safe}.pdf`;
     const pdfPath = path.join(LETTER_FOLDER, pdfName);
-    await page.pdf({ path: pdfPath, format: "A4", printBackground: true, margin: { top: "16mm", right: "12mm", bottom: "16mm", left: "12mm" } });
+    await page.pdf({ path: pdfPath, format: "A4", printBackground: true, margin: { top: "18mm", right: "12mm", bottom: "18mm", left: "12mm" } });
     await browser.close();
     pdfUrl = `/uploads/letters/${pdfName}`;
   } catch {

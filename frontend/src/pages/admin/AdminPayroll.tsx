@@ -93,7 +93,22 @@ const toolbarButtonClass =
   "h-9 rounded-lg px-4 py-2 text-sm font-medium shadow-none transition-colors";
 
 const fieldClassName =
-  "mt-2 h-10 rounded-lg border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-3 text-sm text-[#F5F5F5] shadow-none focus-visible:border-[#A67C52] focus-visible:ring-[rgba(230,199,163,0.2)]";
+  "mt-2 h-10 rounded-lg border-[#E7D7C6] bg-[linear-gradient(180deg,#FFFDFC,#F7F0E8)] px-3 text-sm text-[#2C241D] shadow-none focus-visible:border-[#A67C52] focus-visible:ring-[rgba(166,124,82,0.18)] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#23201D)] dark:text-[#F5F5F5] dark:focus-visible:ring-[rgba(230,199,163,0.2)]";
+
+const panelClassName =
+  "rounded-3xl border border-[#E8DCCF] bg-[linear-gradient(180deg,rgba(255,253,250,0.98),rgba(247,239,231,0.94))] shadow-[0_22px_55px_rgba(90,62,35,0.10)] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#23201D)] dark:shadow-[0_20px_50px_rgba(166,124,82,0.16)]";
+
+const innerPanelClassName =
+  "rounded-2xl border border-[#E8DCCF] bg-[linear-gradient(180deg,#FFFDFC,#F7F0E8)] p-5 shadow-[0_14px_30px_rgba(90,62,35,0.08)] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#181513,#211d1a)] dark:shadow-none";
+
+const subtleCardClassName =
+  "rounded-xl border border-[#E8DCCF] bg-[rgba(255,251,247,0.92)] px-4 py-3 dark:border-[#2A2623] dark:bg-[rgba(35,32,29,0.72)]";
+
+const outlineToolbarButtonClass =
+  `${toolbarButtonClass} border-[#E2D2C1] bg-[linear-gradient(180deg,#FFFDFC,#F6EDE3)] text-[#6C4E33] hover:border-[#C9A880] hover:bg-[linear-gradient(180deg,#FFF8F1,#F3E4D2)] hover:text-[#553B24] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#23201D)] dark:text-[#E6C7A3] dark:hover:border-[rgba(230,199,163,0.22)] dark:hover:bg-[rgba(230,199,163,0.12)] dark:hover:text-[#E6C7A3]`;
+
+const primaryToolbarButtonClass =
+  `${toolbarButtonClass} border border-[rgba(166,124,82,0.20)] bg-[linear-gradient(135deg,#C6925C,#EAC79B)] text-[#2E2115] shadow-[0_14px_32px_rgba(166,124,82,0.18)] hover:bg-[linear-gradient(135deg,#BA8451,#E2BC8F)] hover:shadow-[0_18px_36px_rgba(166,124,82,0.24)] dark:border-[rgba(166,124,82,0.24)] dark:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] dark:text-[#1A1816] dark:shadow-[0_14px_32px_rgba(166,124,82,0.24)] dark:hover:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] dark:hover:shadow-[0_18px_36px_rgba(166,124,82,0.32)]`;
 
 const payrollModeOptions: Array<{ label: string; value: PayrollSettings["workingDaysMode"] }> = [
   { label: "Weekdays", value: "weekdays" },
@@ -112,14 +127,14 @@ const StatCard = ({
   hint: string;
   icon: React.ComponentType<{ className?: string }>;
 }) => (
-  <div className="rounded-2xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-5 shadow-[0_18px_40px_rgba(166,124,82,0.18)]">
+  <div className="rounded-2xl border border-[#E8DCCF] bg-[linear-gradient(180deg,#FFFDFC,#F7F0E8)] p-5 shadow-[0_18px_40px_rgba(90,62,35,0.10)] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#23201D)] dark:shadow-[0_18px_40px_rgba(166,124,82,0.18)]">
     <div className="flex items-start justify-between gap-4">
       <div>
-        <p className="text-sm font-medium text-[#A1A1AA]">{title}</p>
-        <p className="mt-2 text-2xl font-semibold tracking-tight text-[#F5F5F5]">{value}</p>
-        <p className="mt-1 text-sm text-[#A1A1AA]">{hint}</p>
+        <p className="text-sm font-medium text-[#7B6756] dark:text-[#A1A1AA]">{title}</p>
+        <p className="mt-2 text-2xl font-semibold tracking-tight text-[#241A12] dark:text-[#F5F5F5]">{value}</p>
+        <p className="mt-1 text-sm text-[#7B6756] dark:text-[#A1A1AA]">{hint}</p>
       </div>
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(230,199,163,0.14)] bg-[rgba(230,199,163,0.12)] text-[#E6C7A3]">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(166,124,82,0.18)] bg-[rgba(198,146,92,0.12)] text-[#9A6838] dark:border-[rgba(230,199,163,0.14)] dark:bg-[rgba(230,199,163,0.12)] dark:text-[#E6C7A3]">
         <Icon className="h-5 w-5" />
       </div>
     </div>
@@ -166,10 +181,6 @@ const AdminPayroll: React.FC = () => {
   const [generatedPayslipIds, setGeneratedPayslipIds] = useState<string[]>([]);
   const [fallbackPayrollRecord, setFallbackPayrollRecord] = useState<PayrollRecord | null>(null);
   const fallbackPayslipRef = React.useRef<HTMLDivElement>(null);
-
-  if (!payrollEnabled) {
-    return null;
-  }
 
   const loadPayroll = useCallback(async (monthValue = selectedMonth) => {
     const { month, year } = parseMonthValue(monthValue);
@@ -243,6 +254,10 @@ const AdminPayroll: React.FC = () => {
     () => payrollRecords.find((record) => record._id === selectedPayrollId) || payrollRecords[0] || null,
     [payrollRecords, selectedPayrollId]
   );
+
+  if (!payrollEnabled) {
+    return null;
+  }
 
   const handleRunPayroll = async () => {
     const { month, year } = parseMonthValue(selectedMonth);
@@ -357,11 +372,11 @@ const AdminPayroll: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-2">
-      <section className="rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-6 shadow-[0_20px_50px_rgba(166,124,82,0.16)]">
+      <section className={`${panelClassName} p-6`}>
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight text-[#F5F5F5]">{pageTitle}</h1>
-            <p className="max-w-2xl text-sm leading-6 text-[#A1A1AA]">
+            <h1 className="text-3xl font-semibold tracking-tight text-[#241A12] dark:text-[#F5F5F5]">{pageTitle}</h1>
+            <p className="max-w-2xl text-sm leading-6 text-[#776351] dark:text-[#A1A1AA]">
               Review payroll month by month, manage payslip actions, and keep the workspace focused on the register instead of side panels.
             </p>
           </div>
@@ -371,18 +386,18 @@ const AdminPayroll: React.FC = () => {
               type="month"
               value={selectedMonth}
               onChange={(event) => setSelectedMonth(event.target.value)}
-              className="h-9 w-full rounded-lg border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-3.5 text-sm text-[#F5F5F5] shadow-[0_10px_24px_rgba(166,124,82,0.18)] md:w-[190px] md:shrink-0"
+              className="h-9 w-full rounded-lg border-[#E2D2C1] bg-[linear-gradient(180deg,#FFFDFC,#F6EDE3)] px-3.5 text-sm text-[#2C241D] shadow-[0_10px_24px_rgba(90,62,35,0.08)] md:w-[190px] md:shrink-0 dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#23201D)] dark:text-[#F5F5F5] dark:shadow-[0_10px_24px_rgba(166,124,82,0.18)]"
             />
             <Button
               variant="outline"
-              className={`${toolbarButtonClass} border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3] md:shrink-0`}
+              className={`${outlineToolbarButtonClass} md:shrink-0`}
               onClick={() => setFiltersOpen(true)}
             >
               <Filter className="h-4 w-4" />
               Filter
             </Button>
             <Button
-              className={`${toolbarButtonClass} border border-[rgba(166,124,82,0.24)] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] text-[#1A1816] shadow-[0_14px_32px_rgba(166,124,82,0.24)] hover:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] hover:shadow-[0_18px_36px_rgba(166,124,82,0.32)] md:shrink-0`}
+              className={`${primaryToolbarButtonClass} md:shrink-0`}
               onClick={() => setRunDialogOpen(true)}
             >
               <PlayCircle className="h-4 w-4" />
@@ -394,7 +409,7 @@ const AdminPayroll: React.FC = () => {
               fallbackRows={payrollRows}
               columns={payrollExportColumns}
               filters={{ ...appliedFilters, month: selectedMonth }}
-              className={`${toolbarButtonClass} border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3] md:shrink-0`}
+              className={`${outlineToolbarButtonClass} md:shrink-0`}
               loading={pageLoading}
               emptyMessage="No data to export"
               preferServerExport={false}
@@ -403,16 +418,16 @@ const AdminPayroll: React.FC = () => {
         </div>
       </section>
 
-      <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen} className="rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] shadow-[0_20px_50px_rgba(166,124,82,0.16)]">
+      <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen} className={panelClassName}>
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>
-            <p className="text-base font-semibold text-[#F5F5F5]">{rulesTitle}</p>
-            <p className="mt-1 text-sm text-[#A1A1AA]">Collapsed by default to keep the register clean. Expand only when you need to update company rules.</p>
+            <p className="text-base font-semibold text-[#241A12] dark:text-[#F5F5F5]">{rulesTitle}</p>
+            <p className="mt-1 text-sm text-[#776351] dark:text-[#A1A1AA]">Collapsed by default to keep the register clean. Expand only when you need to update company rules.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
-              className={`${toolbarButtonClass} border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]`}
+              className={outlineToolbarButtonClass}
               onClick={() => void handleSaveConfig()}
               disabled={configSaving}
             >
@@ -422,7 +437,7 @@ const AdminPayroll: React.FC = () => {
             <CollapsibleTrigger asChild>
               <Button
                 variant="outline"
-                className={`${toolbarButtonClass} border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]`}
+                className={outlineToolbarButtonClass}
               >
                 <Settings2 className="h-4 w-4" />
                 {settingsOpen ? hideSettingsLabel : showSettingsLabel}
@@ -432,10 +447,10 @@ const AdminPayroll: React.FC = () => {
           </div>
         </div>
 
-        <CollapsibleContent className="border-t border-[#2A2623] px-5 pb-5 pt-5 sm:px-6 sm:pb-6">
+        <CollapsibleContent className="border-t border-[#E8DCCF] px-5 pb-5 pt-5 dark:border-[#2A2623] sm:px-6 sm:pb-6">
           <div className="grid gap-4 xl:grid-cols-3">
-            <section className="rounded-2xl border border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)] p-5">
-              <h2 className="text-sm font-semibold text-[#F5F5F5]">Working Days</h2>
+            <section className={innerPanelClassName}>
+              <h2 className="text-sm font-semibold text-[#241A12] dark:text-[#F5F5F5]">Working Days</h2>
               <div className="mt-4 space-y-4">
                 <div>
                   <Label htmlFor="workingDaysMode">Working Days Mode</Label>
@@ -481,10 +496,10 @@ const AdminPayroll: React.FC = () => {
                     className={fieldClassName}
                   />
                 </div>
-                <div className="flex items-center justify-between rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.72)] px-4 py-3">
+                <div className={`flex items-center justify-between ${subtleCardClassName}`}>
                   <div>
-                    <p className="text-sm font-medium text-[#F5F5F5]">Include Paid Leave</p>
-                    <p className="text-xs text-[#A1A1AA]">Leaves count toward earned wages</p>
+                    <p className="text-sm font-medium text-[#241A12] dark:text-[#F5F5F5]">Include Paid Leave</p>
+                    <p className="text-xs text-[#776351] dark:text-[#A1A1AA]">Leaves count toward earned wages</p>
                   </div>
                   <Switch
                     checked={payrollConfig.includePaidLeaveInWages}
@@ -494,8 +509,8 @@ const AdminPayroll: React.FC = () => {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)] p-5">
-              <h2 className="text-sm font-semibold text-[#F5F5F5]">Penalties And Overtime</h2>
+            <section className={innerPanelClassName}>
+              <h2 className="text-sm font-semibold text-[#241A12] dark:text-[#F5F5F5]">Penalties And Overtime</h2>
               <div className="mt-4 space-y-4">
                 <div>
                   <Label htmlFor="latePenaltyAmount">Late Penalty Amount</Label>
@@ -534,12 +549,12 @@ const AdminPayroll: React.FC = () => {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)] p-5">
-              <h2 className="text-sm font-semibold text-[#F5F5F5]">Statutory Deductions</h2>
+            <section className={innerPanelClassName}>
+              <h2 className="text-sm font-semibold text-[#241A12] dark:text-[#F5F5F5]">Statutory Deductions</h2>
               <div className="mt-4 space-y-4">
-                <div className="rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.72)] p-4">
+                <div className={`${subtleCardClassName} p-4`}>
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-[#F5F5F5]">Provident Fund</p>
+                    <p className="text-sm font-medium text-[#241A12] dark:text-[#F5F5F5]">Provident Fund</p>
                     <Switch
                       checked={payrollConfig.pf.enabled}
                       onCheckedChange={(checked) => setPayrollConfig((prev) => ({ ...prev, pf: { ...prev.pf, enabled: checked } }))}
@@ -573,9 +588,9 @@ const AdminPayroll: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.72)] p-4">
+                <div className={`${subtleCardClassName} p-4`}>
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-[#F5F5F5]">Employee State Insurance</p>
+                    <p className="text-sm font-medium text-[#241A12] dark:text-[#F5F5F5]">Employee State Insurance</p>
                     <Switch
                       checked={payrollConfig.esi.enabled}
                       onCheckedChange={(checked) => setPayrollConfig((prev) => ({ ...prev, esi: { ...prev.esi, enabled: checked } }))}
@@ -620,27 +635,27 @@ const AdminPayroll: React.FC = () => {
         <StatCard title={pendingLabel} value={summary?.pendingEmployees || 0} hint={pendingHint} icon={Clock3} />
       </section>
 
-      <section className="rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] shadow-[0_20px_50px_rgba(166,124,82,0.16)]">
-        <div className="flex flex-col gap-3 border-b border-[#2A2623] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <section className={panelClassName}>
+        <div className="flex flex-col gap-3 border-b border-[#E8DCCF] px-5 py-5 dark:border-[#2A2623] sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <h2 className="text-lg font-semibold text-[#F5F5F5]">{payrollRegisterLabel}</h2>
-            <p className="mt-1 text-sm text-[#A1A1AA]">
+            <h2 className="text-lg font-semibold text-[#241A12] dark:text-[#F5F5F5]">{payrollRegisterLabel}</h2>
+            <p className="mt-1 text-sm text-[#776351] dark:text-[#A1A1AA]">
               Use Generate, View, and Download actions in sequence without crowding the main workspace.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs text-[#A1A1AA]">
+          <div className="flex flex-wrap gap-2 text-xs text-[#776351] dark:text-[#A1A1AA]">
             {appliedFilters.search ? (
-              <span className="rounded-full border border-[#2A2623] bg-[rgba(230,199,163,0.12)] px-3 py-1.5 text-[#E6C7A3]">Search: {appliedFilters.search}</span>
+              <span className="rounded-full border border-[#DABFA0] bg-[rgba(198,146,92,0.10)] px-3 py-1.5 text-[#8A5A2F] dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.12)] dark:text-[#E6C7A3]">Search: {appliedFilters.search}</span>
             ) : null}
             {appliedFilters.status ? (
-              <span className="rounded-full border border-[#2A2623] bg-[rgba(230,199,163,0.12)] px-3 py-1.5 text-[#E6C7A3]">Status: {appliedFilters.status}</span>
+              <span className="rounded-full border border-[#DABFA0] bg-[rgba(198,146,92,0.10)] px-3 py-1.5 text-[#8A5A2F] dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.12)] dark:text-[#E6C7A3]">Status: {appliedFilters.status}</span>
             ) : null}
           </div>
         </div>
 
         <div className="p-5 sm:p-6">
           {pageLoading ? (
-            <div className="rounded-2xl border border-dashed border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)] px-6 py-10 text-sm text-[#A1A1AA]">
+            <div className="rounded-2xl border border-dashed border-[#E2D2C1] bg-[linear-gradient(180deg,#FFFDFC,#F6EEE5)] px-6 py-10 text-sm text-[#776351] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#181513,#211d1a)] dark:text-[#A1A1AA]">
               Loading payroll records...
             </div>
           ) : (
@@ -684,12 +699,12 @@ const AdminPayroll: React.FC = () => {
             <DialogClose asChild>
               <Button
                 variant="outline"
-              className={`${toolbarButtonClass} border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] text-[#E6C7A3] hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]`}
+                className={outlineToolbarButtonClass}
               >
                 Cancel
               </Button>
             </DialogClose>
-            <Button className={`${toolbarButtonClass} border border-[rgba(166,124,82,0.24)] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] text-[#1A1816] shadow-[0_14px_32px_rgba(166,124,82,0.24)] hover:bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] hover:shadow-[0_18px_36px_rgba(166,124,82,0.32)]`} onClick={() => void handleRunPayroll()} disabled={loading || !canRunPayroll}>
+            <Button className={primaryToolbarButtonClass} onClick={() => void handleRunPayroll()} disabled={loading || !canRunPayroll}>
               {loading ? processingLabel : processPayrollLabel}
             </Button>
           </DialogFooter>

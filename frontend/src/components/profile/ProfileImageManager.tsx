@@ -114,7 +114,7 @@ const ProfileImageManager: React.FC<ProfileImageManagerProps> = ({
           className="hidden"
           disabled={busy || disabled}
         />
-        <p className="text-xs text-muted-foreground">JPG/PNG only, max 2MB. Changes reflect instantly in profile and navbar.</p>
+        <p className="text-xs font-medium text-[#5F5348]">JPG/PNG only, max 2MB. Changes reflect instantly in profile and navbar.</p>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

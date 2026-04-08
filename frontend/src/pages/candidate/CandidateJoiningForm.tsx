@@ -244,7 +244,9 @@ const CandidateJoiningForm: React.FC = () => {
         const formData = loadData?.form || null;
         const [candidateData, employeeData] = await Promise.all([
           isEmployeeActivation ? Promise.resolve(null) : apiService.getMyCandidateApplication(),
-          isEmployeeActivation ? apiService.getMyEmployeeProfile().catch(() => null) : Promise.resolve(null),
+          isEmployeeActivation && user?.status === "active_employee"
+            ? apiService.getMyEmployeeProfile().catch(() => null)
+            : Promise.resolve(null),
         ]);
         setCandidate(candidateData);
         setEmployeeProfile(employeeData);
@@ -307,6 +309,8 @@ const CandidateJoiningForm: React.FC = () => {
     if (isEmployeeActivation) return false;
     return !candidate?.joiningForm?.isUnlocked;
   }, [candidate, isEmployeeActivation]);
+  const isSubmittedForReview = isEmployeeActivation && existingForm?.status === "Submitted";
+  const isFormReadOnly = isLocked || isSubmittedForReview;
 
   const updateEducation = (index: number, key: keyof (typeof emptyEducation), value: string) => {
     setEducationDetails((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
@@ -331,7 +335,7 @@ const CandidateJoiningForm: React.FC = () => {
 
     setSubmitting(true);
     try {
-      await apiService.submitMyJoiningForm({
+      const savedForm = await apiService.submitMyJoiningForm({
         fullName,
         dateOfBirth,
         age,
@@ -351,9 +355,15 @@ const CandidateJoiningForm: React.FC = () => {
         declarationAccepted,
         files,
       });
+      setExistingForm(savedForm);
       await refreshProfile();
-      toast({ title: "Submitted", description: "Joining form submitted successfully." });
-      navigate(isEmployeeActivation ? "/employee/dashboard" : "/candidate/dashboard", { replace: true });
+      toast({
+        title: "Submitted",
+        description: isEmployeeActivation
+          ? "Joining form submitted successfully. Please wait for admin approval to activate your employee account."
+          : "Joining form submitted successfully.",
+      });
+      navigate(isEmployeeActivation ? "/joining-form" : "/candidate/dashboard", { replace: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to submit joining form.";
       setSubmitError(message);
@@ -427,6 +437,11 @@ const CandidateJoiningForm: React.FC = () => {
                 Joining Form completion is mandatory before you can access dashboard, attendance, payroll, and other employee modules.
               </div>
             ) : null}
+            {isSubmittedForReview ? (
+              <div className={`mt-4 rounded-xl px-4 py-3 text-sm ${isDarkMode ? "border border-emerald-900/30 bg-emerald-950/20 text-emerald-100" : "border border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+                Your joining form has been submitted and is now waiting for admin approval. Employee dashboard access will unlock after approval.
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -434,15 +449,15 @@ const CandidateJoiningForm: React.FC = () => {
           <CardContent className="pt-6">
             <form onSubmit={onSubmit} className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
-                <div><Label>Full Name</Label><Input value={fullName} disabled={isLocked} onChange={(e) => setFullName(e.target.value)} /></div>
-                <div><Label>Date of Birth</Label><DatePicker value={dateOfBirth} disabled={isLocked} onChange={(e) => setDateOfBirth(e.target.value)} /></div>
-                <div><Label>Age</Label><Input value={age} disabled={isLocked} onChange={(e) => setAge(e.target.value)} /></div>
+                <div><Label>Full Name</Label><Input value={fullName} disabled={isFormReadOnly} onChange={(e) => setFullName(e.target.value)} /></div>
+                <div><Label>Date of Birth</Label><DatePicker value={dateOfBirth} disabled={isFormReadOnly} onChange={(e) => setDateOfBirth(e.target.value)} /></div>
+                <div><Label>Age</Label><Input value={age} disabled={isFormReadOnly} onChange={(e) => setAge(e.target.value)} /></div>
                 <div>
                   <Label>Marital Status</Label>
                   <select
                     className="flex h-12 w-full rounded-md border border-input bg-background px-3 text-sm"
                     value={maritalStatus}
-                    disabled={isLocked}
+                    disabled={isFormReadOnly}
                     onChange={(e) => setMaritalStatus(e.target.value)}
                   >
                     <option value="">Select marital status</option>
@@ -451,26 +466,26 @@ const CandidateJoiningForm: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                <div><Label>Place of Birth</Label><Input value={placeOfBirth} disabled={isLocked} onChange={(e) => setPlaceOfBirth(e.target.value)} /></div>
-                <div><Label>Contact Number</Label><Input value={phoneNumber} disabled={isLocked} onChange={(e) => setPhoneNumber(e.target.value)} /></div>
+                <div><Label>Place of Birth</Label><Input value={placeOfBirth} disabled={isFormReadOnly} onChange={(e) => setPlaceOfBirth(e.target.value)} /></div>
+                <div><Label>Contact Number</Label><Input value={phoneNumber} disabled={isFormReadOnly} onChange={(e) => setPhoneNumber(e.target.value)} /></div>
                 <div>
                   <Label>Email Address</Label>
-                  <Input value={emailAddress} readOnly disabled={isLocked} onChange={(e) => setEmailAddress(e.target.value)} />
+                  <Input value={emailAddress} readOnly disabled={isFormReadOnly} onChange={(e) => setEmailAddress(e.target.value)} />
                 </div>
-                <div><Label>Father's Name</Label><Input value={fatherName} disabled={isLocked} onChange={(e) => setFatherName(e.target.value)} /></div>
-                <div><Label>Father's Occupation</Label><Input value={fatherOccupation} disabled={isLocked} onChange={(e) => setFatherOccupation(e.target.value)} /></div>
-                <div><Label>Mother's Name</Label><Input value={motherName} disabled={isLocked} onChange={(e) => setMotherName(e.target.value)} /></div>
-                <div><Label>Mother's Occupation</Label><Input value={motherOccupation} disabled={isLocked} onChange={(e) => setMotherOccupation(e.target.value)} /></div>
+                <div><Label>Father's Name</Label><Input value={fatherName} disabled={isFormReadOnly} onChange={(e) => setFatherName(e.target.value)} /></div>
+                <div><Label>Father's Occupation</Label><Input value={fatherOccupation} disabled={isFormReadOnly} onChange={(e) => setFatherOccupation(e.target.value)} /></div>
+                <div><Label>Mother's Name</Label><Input value={motherName} disabled={isFormReadOnly} onChange={(e) => setMotherName(e.target.value)} /></div>
+                <div><Label>Mother's Occupation</Label><Input value={motherOccupation} disabled={isFormReadOnly} onChange={(e) => setMotherOccupation(e.target.value)} /></div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label>Present Address</Label>
-                  <Textarea rows={3} value={presentAddress} disabled={isLocked} onChange={(e) => setPresentAddress(e.target.value)} />
+                  <Textarea rows={3} value={presentAddress} disabled={isFormReadOnly} onChange={(e) => setPresentAddress(e.target.value)} />
                 </div>
                 <div>
                   <Label>Permanent Address</Label>
-                  <Textarea rows={3} value={permanentAddress} disabled={isLocked} onChange={(e) => setPermanentAddress(e.target.value)} />
+                  <Textarea rows={3} value={permanentAddress} disabled={isFormReadOnly} onChange={(e) => setPermanentAddress(e.target.value)} />
                 </div>
               </div>
 
@@ -479,7 +494,7 @@ const CandidateJoiningForm: React.FC = () => {
                 <select
                   className="mt-2 flex h-12 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={accommodationDetails}
-                  disabled={isLocked}
+                  disabled={isFormReadOnly}
                   onChange={(e) => setAccommodationDetails(e.target.value)}
                 >
                   <option value="">Select accommodation type</option>
@@ -492,17 +507,17 @@ const CandidateJoiningForm: React.FC = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Education Details</Label>
-                  <Button type="button" variant="outline" disabled={isLocked} onClick={() => setEducationDetails((prev) => [...prev, emptyEducation])}>
+                  <Button type="button" variant="outline" disabled={isFormReadOnly} onClick={() => setEducationDetails((prev) => [...prev, emptyEducation])}>
                     Add Row
                   </Button>
                 </div>
                 {educationDetails.map((row, index) => (
                   <div key={index} className="grid gap-2 rounded-md border border-border p-3 md:grid-cols-5">
-                    <Input placeholder="Degree/Diploma" value={row.degreeOrDiploma} disabled={isLocked} onChange={(e) => updateEducation(index, "degreeOrDiploma", e.target.value)} />
-                    <Input placeholder="University" value={row.university} disabled={isLocked} onChange={(e) => updateEducation(index, "university", e.target.value)} />
-                    <Input placeholder="Year of Passing" value={row.yearOfPassing} disabled={isLocked} onChange={(e) => updateEducation(index, "yearOfPassing", e.target.value)} />
-                    <Input placeholder="Percentage" value={row.percentage} disabled={isLocked} onChange={(e) => updateEducation(index, "percentage", e.target.value)} />
-                    <Button type="button" variant="destructive" disabled={isLocked || educationDetails.length === 1} onClick={() => setEducationDetails((prev) => prev.filter((_, i) => i !== index))}>
+                    <Input placeholder="Degree/Diploma" value={row.degreeOrDiploma} disabled={isFormReadOnly} onChange={(e) => updateEducation(index, "degreeOrDiploma", e.target.value)} />
+                    <Input placeholder="University" value={row.university} disabled={isFormReadOnly} onChange={(e) => updateEducation(index, "university", e.target.value)} />
+                    <Input placeholder="Year of Passing" value={row.yearOfPassing} disabled={isFormReadOnly} onChange={(e) => updateEducation(index, "yearOfPassing", e.target.value)} />
+                    <Input placeholder="Percentage" value={row.percentage} disabled={isFormReadOnly} onChange={(e) => updateEducation(index, "percentage", e.target.value)} />
+                    <Button type="button" variant="destructive" disabled={isFormReadOnly || educationDetails.length === 1} onClick={() => setEducationDetails((prev) => prev.filter((_, i) => i !== index))}>
                       Remove
                     </Button>
                   </div>
@@ -518,7 +533,7 @@ const CandidateJoiningForm: React.FC = () => {
                       <Input
                         type="file"
                         accept={joiningFormFileConfig[field].accept}
-                        disabled={isLocked}
+                        disabled={isFormReadOnly}
                         onChange={(e) => handleFileChange(field, e.target.files?.[0] || null, e.target)}
                       />
                       {files[field] ? <p className="mt-1 text-xs text-muted-foreground">Selected: {files[field]?.name}</p> : null}
@@ -537,15 +552,15 @@ const CandidateJoiningForm: React.FC = () => {
               </div>
 
               <div className="flex items-start gap-2 rounded-md border border-border p-3">
-                <Checkbox checked={declarationAccepted} onCheckedChange={(checked) => setDeclarationAccepted(Boolean(checked))} disabled={isLocked} />
+                <Checkbox checked={declarationAccepted} onCheckedChange={(checked) => setDeclarationAccepted(Boolean(checked))} disabled={isFormReadOnly} />
                 <p className="text-sm text-muted-foreground">I hereby declare that all information furnished above is true and complete.</p>
               </div>
 
               {submitError ? <InlineStatusMessage type="error" message={submitError} /> : null}
 
               <div className="flex gap-3">
-                <Button type="submit" disabled={isLocked || submitting}>
-                  {submitting ? "Submitting..." : "Submit Joining Form"}
+                <Button type="submit" disabled={isFormReadOnly || submitting}>
+                  {submitting ? "Submitting..." : isSubmittedForReview ? "Submitted for Review" : "Submit Joining Form"}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => navigate(isEmployeeActivation ? "/joining-form" : "/candidate/dashboard")}>Back</Button>
               </div>

@@ -1,5 +1,6 @@
 import { Attendance } from "../models/Attendance.js";
 import { AttendanceCorrectionRequest } from "../models/AttendanceCorrectionRequest.js";
+import { Employee } from "../models/Employee.js";
 import { ensureEmployeeProfileForUser } from "../services/employeeProfileService.js";
 import {
   createAdminNotifications,
@@ -72,28 +73,77 @@ const inferAttendanceStatus = (attendance) => {
   return attendance.status || "present";
 };
 
-const applyAttendancePayload = (attendance, payload = {}) => {
-  if (payload.checkIn !== undefined) attendance.checkIn = payload.checkIn ? formatStoredTime(payload.checkIn) : "";
-  if (payload.checkOut !== undefined) attendance.checkOut = payload.checkOut ? formatStoredTime(payload.checkOut) : "";
-
-  if (payload.status) {
-    attendance.status = payload.status;
-  } else {
-    attendance.status = inferAttendanceStatus(attendance);
-  }
-
-  attendance.hoursWorked =
-    payload.hoursWorked !== undefined
-      ? Number(payload.hoursWorked || 0)
-      : calculateHoursWorked(attendance.checkIn, attendance.checkOut);
-};
-
 const ensureTodayForEmployee = (date) => {
   const today = normalizeAttendanceDate();
   return isSameDay(date, today);
 };
 
 const formatRequestLabel = (type) => (type === CHECK_IN ? "check-in" : "check-out");
+
+const buildAttendanceState = (source = {}) => ({
+  checkIn: source.checkIn || "",
+  checkOut: source.checkOut || "",
+  status: source.status || "",
+  hoursWorked: source.hoursWorked,
+});
+
+const applyAttendanceState = (attendance, state = {}, payload = {}) => {
+  attendance.checkIn = state.checkIn || "";
+  attendance.checkOut = state.checkOut || "";
+  attendance.status = state.status || inferAttendanceStatus(attendance);
+  attendance.hoursWorked =
+    payload.hoursWorked !== undefined
+      ? Number(payload.hoursWorked || 0)
+      : calculateHoursWorked(attendance.checkIn, attendance.checkOut);
+};
+
+const mergeAttendancePayload = (baseAttendance = {}, payload = {}) => {
+  const nextState = buildAttendanceState(baseAttendance);
+
+  if (payload.checkIn !== undefined) {
+    nextState.checkIn = payload.checkIn ? formatStoredTime(payload.checkIn) : "";
+  }
+
+  if (payload.checkOut !== undefined) {
+    nextState.checkOut = payload.checkOut ? formatStoredTime(payload.checkOut) : "";
+  }
+
+  if (payload.status !== undefined) {
+    nextState.status = payload.status || "";
+  } else {
+    nextState.status = inferAttendanceStatus(nextState);
+  }
+
+  nextState.hoursWorked =
+    payload.hoursWorked !== undefined
+      ? Number(payload.hoursWorked || 0)
+      : calculateHoursWorked(nextState.checkIn, nextState.checkOut);
+
+  return nextState;
+};
+
+const validateAttendanceTimes = (state) => {
+  if (state.checkIn && !parseTimeToMinutes(state.checkIn)) {
+    return "Please provide a valid check-in time.";
+  }
+
+  if (state.checkOut && !parseTimeToMinutes(state.checkOut)) {
+    return "Please provide a valid check-out time.";
+  }
+
+  if (state.checkIn && state.checkOut) {
+    const checkInMinutes = parseTimeToMinutes(state.checkIn);
+    const checkOutMinutes = parseTimeToMinutes(state.checkOut);
+    if (checkInMinutes === null || checkOutMinutes === null) {
+      return "Please provide valid attendance times.";
+    }
+    if (checkOutMinutes <= checkInMinutes) {
+      return "Check-out time must be after check-in time.";
+    }
+  }
+
+  return "";
+};
 
 export const getAttendance = async (req, res) => {
   const employeeScope = await resolveEmployeeScope(req.user);
@@ -102,6 +152,7 @@ export const getAttendance = async (req, res) => {
       path: "employeeId",
       populate: { path: "userId", select: "name email" },
     })
+    .populate("updatedBy", "name email")
     .sort({ date: -1 });
   res.json({ success: true, message: "Fetched attendance", data });
 };
@@ -130,9 +181,19 @@ export const createAttendance = async (req, res) => {
 
   const existing = await Attendance.findOne({ employeeId: payload.employeeId, date: payload.date });
   if (existing) {
-    if (!existing.checkIn && payload.checkIn) existing.checkIn = formatStoredTime(payload.checkIn);
-    if (payload.checkOut) existing.checkOut = formatStoredTime(payload.checkOut);
-    applyAttendancePayload(existing, { status: payload.status, hoursWorked: payload.hoursWorked });
+    const mergedState = mergeAttendancePayload(
+      {
+        ...existing.toObject(),
+        checkIn: !existing.checkIn && payload.checkIn ? payload.checkIn : existing.checkIn,
+        checkOut: payload.checkOut || existing.checkOut,
+      },
+      { status: payload.status, hoursWorked: payload.hoursWorked }
+    );
+    const validationError = validateAttendanceTimes(mergedState);
+    if (validationError) {
+      return res.status(400).json({ success: false, message: validationError, data: null });
+    }
+    applyAttendanceState(existing, mergedState, { hoursWorked: payload.hoursWorked });
     await existing.save();
     return res.json({ success: true, message: "Attendance updated successfully", data: existing });
   }
@@ -145,7 +206,12 @@ export const createAttendance = async (req, res) => {
     status: payload.status || "present",
     hoursWorked: 0,
   });
-  applyAttendancePayload(created, payload);
+  const createdState = mergeAttendancePayload(created.toObject(), payload);
+  const validationError = validateAttendanceTimes(createdState);
+  if (validationError) {
+    return res.status(400).json({ success: false, message: validationError, data: null });
+  }
+  applyAttendanceState(created, createdState, payload);
   await created.save();
   return res.status(201).json({ success: true, message: "Created successfully", data: created });
 };
@@ -176,9 +242,76 @@ export const updateAttendance = async (req, res) => {
   delete payload.employeeId;
   delete payload.date;
 
-  applyAttendancePayload(attendance, payload);
+  const nextState = mergeAttendancePayload(attendance.toObject(), payload);
+  const validationError = validateAttendanceTimes(nextState);
+  if (validationError) {
+    return res.status(400).json({ success: false, message: validationError, data: null });
+  }
+
+  applyAttendanceState(attendance, nextState, payload);
   await attendance.save();
   return res.json({ success: true, message: "Updated successfully", data: attendance });
+};
+
+export const adminOverrideAttendance = async (req, res) => {
+  const employeeId = String(req.body?.employeeId || "").trim();
+  if (!employeeId) {
+    return res.status(400).json({ success: false, message: "Employee is required.", data: null });
+  }
+
+  const employee = await Employee.findById(employeeId);
+  if (!employee) {
+    return res.status(404).json({ success: false, message: "Employee not found.", data: null });
+  }
+
+  const date = normalizeAttendanceDate(req.body?.date);
+  const existing = await Attendance.findOne({ employeeId, date });
+  const baseAttendance =
+    existing ||
+    new Attendance({
+      employeeId,
+      date,
+      checkIn: "",
+      checkOut: "",
+      status: "present",
+      hoursWorked: 0,
+      isManual: true,
+      updatedBy: req.user?._id || null,
+    });
+
+  const payload = {
+    checkIn: req.body?.checkIn,
+    checkOut: req.body?.checkOut,
+    status: req.body?.status,
+    hoursWorked: req.body?.hoursWorked,
+  };
+
+  const nextState = mergeAttendancePayload(baseAttendance.toObject(), payload);
+  const validationError = validateAttendanceTimes(nextState);
+  if (validationError) {
+    return res.status(400).json({ success: false, message: validationError, data: null });
+  }
+
+  applyAttendanceState(baseAttendance, nextState, payload);
+  baseAttendance.employeeId = employee._id;
+  baseAttendance.date = date;
+  baseAttendance.isManual = true;
+  baseAttendance.updatedBy = req.user?._id || null;
+
+  await baseAttendance.save();
+
+  const populatedAttendance = await Attendance.findById(baseAttendance._id)
+    .populate({
+      path: "employeeId",
+      populate: { path: "userId", select: "name email" },
+    })
+    .populate("updatedBy", "name email");
+
+  return res.json({
+    success: true,
+    message: existing ? "Attendance overridden successfully." : "Attendance created successfully.",
+    data: populatedAttendance,
+  });
 };
 
 export const requestAttendanceCorrection = async (req, res) => {
@@ -328,7 +461,8 @@ export const reviewAttendanceCorrection = async (req, res) => {
       attendance.checkOut = request.time;
     }
 
-    applyAttendancePayload(attendance, {});
+    const nextState = mergeAttendancePayload(attendance.toObject(), {});
+    applyAttendanceState(attendance, nextState, {});
     await attendance.save();
   }
 

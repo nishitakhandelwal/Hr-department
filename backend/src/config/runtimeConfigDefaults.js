@@ -20,7 +20,7 @@ export const DEFAULT_RUNTIME_FEATURES = {
 };
 
 export const DEFAULT_RUNTIME_LABELS = {
-  "app.name": "HR Harmony Hub",
+  "app.name": "Arihant Dream Infra Project Ltd.",
   "superAdmin.dashboard.title": "Super Admin Command Center",
   "superAdmin.dashboard.subtitle": "Live control over features, visibility, access, and system experience.",
   "admin.dashboard.title": "Control Center",
@@ -82,7 +82,6 @@ export const DEFAULT_RUNTIME_NAVIGATION = {
   ],
   admin: [
     { id: "admin.dashboard", path: "/admin/dashboard", labelKey: "nav.admin.dashboard", icon: "LayoutDashboard", featureKey: "dashboard", moduleKey: "dashboard" },
-    { id: "admin.calendar", path: "/admin/calendar", labelKey: "nav.admin.calendar", icon: "CalendarDays", featureKey: "calendar", moduleKey: "dashboard" },
     { id: "admin.profile", path: "/admin/profile", labelKey: "nav.admin.profile", icon: "UserCircle", featureKey: "profile" },
     { id: "admin.candidates", path: "/admin/candidates", labelKey: "nav.admin.candidates", icon: "UserCheck", featureKey: "candidates", moduleKey: "candidates" },
     { id: "admin.internships", path: "/admin/internships", labelKey: "nav.admin.internships", icon: "Briefcase", featureKey: "internships", moduleKey: "candidates" },

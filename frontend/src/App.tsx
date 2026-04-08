@@ -1,5 +1,6 @@
 import React from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toaster";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 
@@ -151,6 +152,7 @@ const App = () => (
           <BrowserRouter>
             <AppRoutes />
           </BrowserRouter>
+          <Toaster />
         </TooltipProvider>
       </SystemSettingsProvider>
     </AuthProvider>

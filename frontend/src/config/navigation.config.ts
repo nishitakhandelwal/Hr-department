@@ -22,10 +22,13 @@ export const PROFILE_REDIRECT = {
 } as const;
 
 export const resolveDefaultRedirect = (
-  user?: Pick<AuthUser, "role" | "accessRole"> | null,
+  user?: Pick<AuthUser, "role" | "accessRole" | "status"> | null,
   configuredAdminDefault?: string
 ) => {
   if (!user) return "/login";
+  if (user.role === "employee" && user.status !== "active_employee") {
+    return PROFILE_REDIRECT.pending_employee;
+  }
   const effectiveAccessRole = user.accessRole || user.role;
   if (effectiveAccessRole === "super_admin") return DEFAULT_REDIRECT.super_admin;
   if (effectiveAccessRole === "admin" || user.role === "admin") {

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -290,6 +290,43 @@
   [contenteditable="true"] {
     cursor: text;
     caret-color: auto;
+  }
+
+  .dark input:-webkit-autofill,
+  .dark input:-webkit-autofill:hover,
+  .dark input:-webkit-autofill:focus,
+  .dark textarea:-webkit-autofill,
+  .dark textarea:-webkit-autofill:hover,
+  .dark textarea:-webkit-autofill:focus,
+  .dark select:-webkit-autofill,
+  .dark select:-webkit-autofill:hover,
+  .dark select:-webkit-autofill:focus {
+    -webkit-text-fill-color: #f5f5f5;
+    caret-color: #f5f5f5;
+    border-color: rgba(166, 124, 82, 0.4);
+    box-shadow:
+      0 0 0 1000px #11100f inset,
+      0 0 0 1px rgba(166, 124, 82, 0.16);
+    transition: background-color 9999s ease-in-out 0s;
+  }
+
+  .date-picker-input::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.78;
+  }
+
+  .dark .date-picker-input::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(0.9);
+    opacity: 0.92;
+  }
+
+  .dark .date-picker-input::-webkit-datetime-edit,
+  .dark .date-picker-input::-webkit-datetime-edit-fields-wrapper,
+  .dark .date-picker-input::-webkit-datetime-edit-text,
+  .dark .date-picker-input::-webkit-datetime-edit-month-field,
+  .dark .date-picker-input::-webkit-datetime-edit-day-field,
+  .dark .date-picker-input::-webkit-datetime-edit-year-field {
+    color: #f5f5f5;
   }
 
   h1,

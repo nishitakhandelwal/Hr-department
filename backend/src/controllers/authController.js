@@ -3,6 +3,8 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { User } from "../models/User.js";
+import { Employee } from "../models/Employee.js";
+import { JoiningForm } from "../models/JoiningForm.js";
 import { sendBrevoOtpEmail } from "../services/brevoEmailService.js";
 import { ensureEmployeeProfileForUser } from "../services/employeeProfileService.js";
 import { getSystemSettings, resolveRoleKeyForUser } from "../services/systemSettingsService.js";
@@ -125,6 +127,34 @@ const clearPasswordResetOtpState = (user) => {
   user.passwordResetOtpSentAt = null;
 };
 
+const reconcileEmployeeJoiningFormState = async (user) => {
+  if (!user || user.role !== "employee") return user;
+
+  let employee = await Employee.findOne({ userId: user._id }).select("candidateId");
+  if (!employee) {
+    employee = await ensureEmployeeProfileForUser(user);
+  }
+
+  const joiningForm = await JoiningForm.findOne({
+    $or: [
+      { userId: user._id },
+      employee?.candidateId ? { candidateId: employee.candidateId } : null,
+    ].filter(Boolean),
+  }).select("status");
+
+  const isApproved = String(joiningForm?.status || "").toLowerCase() === "approved";
+  const shouldBeCompleted = Boolean(isApproved);
+  const shouldBeStatus = shouldBeCompleted ? "active_employee" : "pending_form";
+
+  if (Boolean(user.joiningFormCompleted) !== shouldBeCompleted || user.status !== shouldBeStatus) {
+    user.joiningFormCompleted = shouldBeCompleted;
+    user.status = shouldBeStatus;
+    await user.save();
+  }
+
+  return user;
+};
+
 const issueEmailVerificationOtp = async (user, { resend = false } = {}) => {
   const otpConfig = getOtpConfig();
 
@@ -216,6 +246,7 @@ const finalizeAuthenticatedSession = async ({ user, req, settings, message = "Su
   await user.save();
 
   if (user.role === "employee") {
+    user = await reconcileEmployeeJoiningFormState(user);
     await ensureEmployeeProfileForUser(user);
   }
 
@@ -745,7 +776,8 @@ export const resetPassword = async (req, res) => {
 
 export const me = async (req, res) => {
   const settings = await getSystemSettings({ lean: true });
-  return res.json({ success: true, user: toSafeUser(req.user, settings) });
+  const user = req.user?.role === "employee" ? await reconcileEmployeeJoiningFormState(req.user) : req.user;
+  return res.json({ success: true, user: toSafeUser(user, settings) });
 };
 
 export const updateMyProfilePhoto = async (req, res) => {

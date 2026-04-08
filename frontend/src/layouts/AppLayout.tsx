@@ -83,6 +83,8 @@ const normalizeCompanyName = (value?: string | null) => {
   return trimmedValue || "Company";
 };
 
+const HIDDEN_NAV_ITEM_IDS = new Set(["admin.calendar"]);
+
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
   const { publicSettings, theme, toggleTheme, getLabel, isFeatureEnabled, canAccessRoute, getDefaultRoute } = useSystemSettings();
@@ -123,6 +125,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   }));
   const navItems = rawNavItems.filter(
     (item) =>
+      !HIDDEN_NAV_ITEM_IDS.has(item.id) &&
       (!isPendingEmployee || item.id === "joining.form") &&
       canAccessRoute(item.id) &&
       (!item.moduleKey || user?.permissions?.modules?.[item.moduleKey] !== false) &&
