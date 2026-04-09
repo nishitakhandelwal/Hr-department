@@ -108,8 +108,8 @@ const VerifyOtp: React.FC = () => {
         <div className="space-y-2">
           <Label>Email</Label>
           <div className="flex items-center gap-3 rounded-2xl border border-border bg-slate-50 px-4 py-3">
-            <Mail className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">{email || "No email provided"}</span>
+            <Mail className="h-4 w-4 text-slate-500" />
+            <span className="text-sm font-medium text-slate-900">{email || "No email provided"}</span>
           </div>
         </div>
 

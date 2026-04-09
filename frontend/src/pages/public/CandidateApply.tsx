@@ -85,12 +85,16 @@ const CandidateApply: React.FC = () => {
     return POSITION_OPTIONS.includes(form.positionApplied as (typeof POSITION_OPTIONS)[number]) ? form.positionApplied : "Other";
   }, [form.positionApplied, positionMode]);
   const formCardClassName =
-    "border border-[rgba(184,137,63,0.22)] bg-[linear-gradient(180deg,rgba(255,251,245,0.95),rgba(255,248,239,0.88))] shadow-[0_26px_70px_rgba(184,137,63,0.12)]";
-  const sectionTitleClassName = "text-[30px] font-semibold tracking-tight text-[#7a5720]";
+    "border border-[rgba(230,199,163,0.16)] bg-[linear-gradient(180deg,rgba(28,24,22,0.98),rgba(20,18,17,0.96))] shadow-[0_26px_70px_rgba(0,0,0,0.28)]";
+  const sectionTitleClassName = "text-[30px] font-semibold tracking-tight text-[#f6efe5]";
+  const sectionBodyClassName = "text-sm text-[#c8b8a6]";
+  const labelClassName = "text-sm font-medium text-[#d6b27c]";
   const fieldClassName =
-    "border-[rgba(184,137,63,0.24)] bg-white/92 text-slate-900 shadow-[0_10px_30px_rgba(184,137,63,0.08)] hover:border-[#c69442]/45 focus-visible:border-[#b8893f] focus-visible:ring-[#b8893f]/20";
+    "border-[rgba(230,199,163,0.14)] bg-[#2a2724] text-[#f5efe7] placeholder:text-[#9f907f] shadow-[0_10px_30px_rgba(0,0,0,0.22)] hover:border-[#c69442]/45 focus-visible:border-[#d6b27c] focus-visible:ring-[#d6b27c]/20 [color-scheme:dark]";
   const selectTriggerClassName =
-    "border-[rgba(184,137,63,0.24)] bg-white/92 text-slate-900 shadow-[0_10px_30px_rgba(184,137,63,0.08)] hover:border-[#c69442]/45 focus:ring-[#b8893f]/20";
+    "border-[rgba(230,199,163,0.14)] bg-[#161413] text-[#f5efe7] shadow-[0_10px_30px_rgba(0,0,0,0.22)] hover:border-[#c69442]/45 focus:ring-[#d6b27c]/20 data-[placeholder]:text-[#9f907f]";
+  const selectContentClassName = "border-[rgba(230,199,163,0.14)] bg-[#1b1817] text-[#f5efe7]";
+  const selectItemClassName = "text-[#f5efe7] focus:bg-[rgba(214,178,124,0.14)] focus:text-[#f6d7a5]";
 
   useEffect(() => {
     if (!isCandidateUser) return;
@@ -241,10 +245,10 @@ const CandidateApply: React.FC = () => {
           <CardHeader>
             <CardTitle className="text-[28px] font-semibold text-[#7a5720]">Candidate Portal Workflow</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
+          <CardContent className={sectionBodyClassName}>
             Stage 1: Application Form. Stage 2: HR Review and Interview Processing. Stage 3: Final Decision.
             {isCandidateUser && (
-              <div className="mt-2 text-foreground">
+              <div className="mt-2 text-[#efe2d1]">
                 Current Status: <span className="font-semibold">{myApplication?.status || "Not Applied"}</span>
               </div>
             )}
@@ -262,25 +266,25 @@ const CandidateApply: React.FC = () => {
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Full Name *</Label>
+                  <Label className={labelClassName}>Full Name *</Label>
                   <Input className={fieldClassName} disabled={isLocked} value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Email *</Label>
+                  <Label className={labelClassName}>Email *</Label>
                   <Input
                     type="email"
                     value={form.email}
                     readOnly
                     disabled={isLocked}
-                    className={`${fieldClassName} ${user?.email ? "cursor-not-allowed bg-[#fbf3e7] text-[#7a5720]" : ""}`}
+                    className={`${fieldClassName} ${user?.email ? "cursor-not-allowed bg-[#24211f] text-[#d6b27c]" : ""}`}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Phone</Label>
+                  <Label className={labelClassName}>Phone</Label>
                   <Input className={fieldClassName} disabled={isLocked} value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Position Applied</Label>
+                  <Label className={labelClassName}>Position Applied</Label>
                   <Select
                     disabled={isLocked}
                     value={selectedPositionOption}
@@ -295,13 +299,13 @@ const CandidateApply: React.FC = () => {
                     <SelectTrigger className={selectTriggerClassName}>
                       <SelectValue placeholder="Select position" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className={selectContentClassName}>
                       {POSITION_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
+                        <SelectItem key={option} value={option} className={selectItemClassName}>
                           {option}
                         </SelectItem>
                       ))}
-                      <SelectItem value="Other">Other</SelectItem>
+                      <SelectItem value="Other" className={selectItemClassName}>Other</SelectItem>
                     </SelectContent>
                   </Select>
                   {selectedPositionOption === "Other" ? (
@@ -318,33 +322,33 @@ const CandidateApply: React.FC = () => {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Date of Birth</Label>
+                  <Label className={labelClassName}>Date of Birth</Label>
                   <Input className={fieldClassName} disabled={isLocked} type="date" value={form.dateOfBirth} onChange={(e) => setForm((p) => ({ ...p, dateOfBirth: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Marital Status</Label>
+                  <Label className={labelClassName}>Marital Status</Label>
                   <Select disabled={isLocked} value={form.maritalStatus} onValueChange={(value) => setForm((p) => ({ ...p, maritalStatus: value }))}>
                     <SelectTrigger className={selectTriggerClassName}>
                       <SelectValue placeholder="Select marital status" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Single">Single</SelectItem>
-                      <SelectItem value="Married">Married</SelectItem>
-                      <SelectItem value="Divorced">Divorced</SelectItem>
-                      <SelectItem value="Widowed">Widowed</SelectItem>
+                    <SelectContent className={selectContentClassName}>
+                      <SelectItem value="Single" className={selectItemClassName}>Single</SelectItem>
+                      <SelectItem value="Married" className={selectItemClassName}>Married</SelectItem>
+                      <SelectItem value="Divorced" className={selectItemClassName}>Divorced</SelectItem>
+                      <SelectItem value="Widowed" className={selectItemClassName}>Widowed</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Father's Name</Label>
+                  <Label className={labelClassName}>Father's Name</Label>
                   <Input className={fieldClassName} disabled={isLocked} value={form.fatherName} onChange={(e) => setForm((p) => ({ ...p, fatherName: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Mother's Name</Label>
+                  <Label className={labelClassName}>Mother's Name</Label>
                   <Input className={fieldClassName} disabled={isLocked} value={form.motherName} onChange={(e) => setForm((p) => ({ ...p, motherName: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Indicate the type of your present residential accommodation.</Label>
+                  <Label className={labelClassName}>Indicate the type of your present residential accommodation.</Label>
                   <Select
                     disabled={isLocked}
                     value={form.presentResidentialAccommodation}
@@ -353,13 +357,13 @@ const CandidateApply: React.FC = () => {
                     <SelectTrigger className={selectTriggerClassName}>
                       <SelectValue placeholder="Select accommodation type" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Owned">Owned</SelectItem>
-                      <SelectItem value="Rented">Rented</SelectItem>
-                      <SelectItem value="Family-owned">Family-owned</SelectItem>
-                      <SelectItem value="Company-provided">Company-provided</SelectItem>
-                      <SelectItem value="Hostel/PG">Hostel/PG</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
+                    <SelectContent className={selectContentClassName}>
+                      <SelectItem value="Owned" className={selectItemClassName}>Owned</SelectItem>
+                      <SelectItem value="Rented" className={selectItemClassName}>Rented</SelectItem>
+                      <SelectItem value="Family-owned" className={selectItemClassName}>Family-owned</SelectItem>
+                      <SelectItem value="Company-provided" className={selectItemClassName}>Company-provided</SelectItem>
+                      <SelectItem value="Hostel/PG" className={selectItemClassName}>Hostel/PG</SelectItem>
+                      <SelectItem value="Other" className={selectItemClassName}>Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -367,26 +371,26 @@ const CandidateApply: React.FC = () => {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Alternate Phone</Label>
+                  <Label className={labelClassName}>Alternate Phone</Label>
                   <Input className={fieldClassName} disabled={isLocked} value={form.alternatePhone} onChange={(e) => setForm((p) => ({ ...p, alternatePhone: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Highest Qualification</Label>
+                  <Label className={labelClassName}>Highest Qualification</Label>
                   <Input className={fieldClassName} disabled={isLocked} value={form.highestQualification} onChange={(e) => setForm((p) => ({ ...p, highestQualification: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Current Address</Label>
+                  <Label className={labelClassName}>Current Address</Label>
                   <Textarea className={fieldClassName} disabled={isLocked} rows={2} value={form.currentAddress} onChange={(e) => setForm((p) => ({ ...p, currentAddress: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Permanent Address</Label>
+                  <Label className={labelClassName}>Permanent Address</Label>
                   <Textarea className={fieldClassName} disabled={isLocked} rows={2} value={form.permanentAddress} onChange={(e) => setForm((p) => ({ ...p, permanentAddress: e.target.value }))} />
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-[#7a5720]">Qualification Details</h3>
+                  <h3 className="font-semibold text-[#f0dfc7]">Qualification Details</h3>
                   <Button type="button" variant="outline" disabled={isLocked} onClick={() => setQualifications((prev) => [...prev, emptyQualification()])}>
                     Add Row
                   </Button>
@@ -394,7 +398,7 @@ const CandidateApply: React.FC = () => {
                 {qualifications.map((qualification, index) => (
                   <div
                     key={index}
-                    className="grid gap-3 rounded-[22px] border border-[rgba(184,137,63,0.22)] bg-white/70 p-4 shadow-[0_16px_40px_rgba(184,137,63,0.08)] sm:grid-cols-4"
+                    className="grid gap-3 rounded-[22px] border border-[rgba(230,199,163,0.14)] bg-[rgba(36,31,29,0.86)] p-4 shadow-[0_16px_40px_rgba(0,0,0,0.22)] sm:grid-cols-4"
                   >
                     <Input
                       className={fieldClassName}
@@ -454,13 +458,13 @@ const CandidateApply: React.FC = () => {
                 ))}
               </div>
 
-              <div className="flex items-start gap-2 rounded-[22px] border border-[rgba(184,137,63,0.22)] bg-white/70 p-4 shadow-[0_16px_40px_rgba(184,137,63,0.08)]">
+              <div className="flex items-start gap-2 rounded-[22px] border border-[rgba(230,199,163,0.14)] bg-[rgba(36,31,29,0.86)] p-4 shadow-[0_16px_40px_rgba(0,0,0,0.22)]">
                 <Checkbox
                   disabled={isLocked}
                   checked={form.declarationAccepted}
                   onCheckedChange={(checked) => setForm((prev) => ({ ...prev, declarationAccepted: Boolean(checked) }))}
                 />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-[#c8b8a6]">
                   I declare that all details provided are true and correct to the best of my knowledge.
                 </p>
               </div>

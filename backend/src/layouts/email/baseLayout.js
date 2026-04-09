@@ -1,11 +1,18 @@
 import { env } from "../../config/env.js";
 
 const companyName = String(env.company?.name || "Arihant Dream Infra Project Ltd.").trim();
-const companyLogoUrl = String(process.env.COMPANY_LOGO_URL || env.company?.logoUrl || "").trim();
+const configuredCompanyLogoUrl = String(process.env.COMPANY_LOGO_URL || env.company?.logoUrl || "").trim();
 const supportEmail = String(env.company?.supportEmail || env.brevo.senderEmail || "").trim();
+const fallbackLogoUrl = "https://i.postimg.cc/CMmJLmG3/new-image-removebg-preview.png";
 
-console.log("Logo URL:", process.env.COMPANY_LOGO_URL || "(empty)");
-console.log("[email.baseLayout] Using logo URL:", companyLogoUrl || "(empty)");
+const isValidLogoUrl = (value = "") => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return false;
+  if (normalized.includes("your-domain.com")) return false;
+  return /^https:\/\//i.test(normalized);
+};
+
+const companyLogoUrl = isValidLogoUrl(configuredCompanyLogoUrl) ? configuredCompanyLogoUrl : fallbackLogoUrl;
 
 const escapeHtml = (value = "") =>
   String(value)
@@ -18,8 +25,8 @@ const escapeHtml = (value = "") =>
 const renderHeader = () => {
   return `
     <img
-      src="${escapeHtml(companyLogoUrl || "https://i.postimg.cc/CMmJLmG3/new-image-removebg-preview.png")}"
-      width="48"
+      src="${escapeHtml(companyLogoUrl)}"
+      width="55"
       height="48"
       alt="${escapeHtml(companyName)} logo"
       style="display:block;"

@@ -90,7 +90,7 @@ export const APP_ROUTES: AppRouteConfig[] = [
   { path: "/employee/leave", component: EmployeeLeave, authMode: "auth", roles: ["employee"], routeKey: "employee.leave", useAppLayout: true },
   { path: "/employee/payroll", component: EmployeePayroll, authMode: "auth", roles: ["employee"], routeKey: "employee.payroll", useAppLayout: true },
   { path: "/employee/letters", component: EmployeeLetters, authMode: "auth", roles: ["employee"], routeKey: "employee.letters", useAppLayout: true },
-  { path: "/apply", component: CandidateApply, authMode: "public", useCandidatePortal: true },
+  { path: "/apply", component: CandidateApply, authMode: "auth", roles: ["candidate"], useCandidatePortal: true },
   { path: "/candidate", redirectTo: "/candidate/dashboard", authMode: "auth" },
   { path: "/candidate/dashboard", component: CandidateDashboard, authMode: "auth", roles: ["candidate"], routeKey: "candidate.dashboard", useCandidatePortal: true },
   { path: "/candidate/profile", component: CandidateProfile, authMode: "auth", roles: ["candidate"], routeKey: "candidate.profile", useCandidatePortal: true },

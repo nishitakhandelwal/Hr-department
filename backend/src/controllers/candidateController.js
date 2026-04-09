@@ -7,7 +7,6 @@ import { JoiningForm } from "../models/JoiningForm.js";
 import { LetterTemplate } from "../models/LetterTemplate.js";
 import { env } from "../config/env.js";
 import { generateOfferLetterHtml } from "../lib/letterTemplates.js";
-import { sendBrevoEmail } from "../services/brevoEmailService.js";
 import { sendEmail } from "../services/emailService.js";
 import {
   appendTimelineIfMissing,
@@ -216,22 +215,12 @@ const ensureOfferTemplate = async (userId) => {
 };
 
 const sendOfferLetterEmail = async ({ to, subject, html, pdfBuffer, fileName }) => {
-  if (env.brevo.apiKey) {
-    return sendBrevoEmail({
-      to,
-      subject,
-      html,
-      text: "Please find your offer letter attached.",
-      attachments: [{ name: fileName, content: pdfBuffer.toString("base64") }],
-    });
-  }
-
   return sendEmail({
     to,
     subject,
     html,
     text: "Please find your offer letter attached.",
-    attachments: [{ filename: fileName, content: pdfBuffer }],
+    attachments: [{ name: fileName, content: pdfBuffer }],
   });
 };
 
@@ -1124,10 +1113,10 @@ export const sendOfferLetterToCandidate = async (req, res) => {
   if (!candidate.email) {
     return res.status(400).json({ success: false, message: "Candidate email is missing." });
   }
-  if (!env.brevo.apiKey && !(env.smtp.user && env.smtp.pass)) {
+  if (!env.brevo.apiKey || !env.brevo.senderEmail) {
     return res.status(500).json({
       success: false,
-      message: "Email transport is not configured. Set Brevo API key or SMTP credentials before sending offers.",
+      message: "Email transport is not configured. Set BREVO_API_KEY and BREVO_SENDER_EMAIL before sending offers.",
     });
   }
 

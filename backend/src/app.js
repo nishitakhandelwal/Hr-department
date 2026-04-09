@@ -94,11 +94,11 @@ app.get("/api/health", (_req, res) => {
 
 if (env.nodeEnv !== "production") {
   app.get("/api/test-email", protect, authorize("admin"), async (req, res) => {
-    const to = String(req.query.to || env.smtp.user || process.env.EMAIL_USER || "").trim();
+    const to = String(req.query.to || env.brevo.senderEmail || process.env.BREVO_SENDER_EMAIL || "").trim();
     if (!to) {
       return res.status(400).json({
         success: false,
-        message: "Missing recipient email. Provide ?to=... or configure EMAIL_USER.",
+        message: "Missing recipient email. Provide ?to=... or configure BREVO_SENDER_EMAIL.",
       });
     }
 

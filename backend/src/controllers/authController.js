@@ -5,7 +5,7 @@ import { env } from "../config/env.js";
 import { User } from "../models/User.js";
 import { Employee } from "../models/Employee.js";
 import { JoiningForm } from "../models/JoiningForm.js";
-import { sendBrevoOtpEmail } from "../services/brevoEmailService.js";
+import { sendOtpEmail } from "../services/emailService.js";
 import { ensureEmployeeProfileForUser } from "../services/employeeProfileService.js";
 import { getSystemSettings, resolveRoleKeyForUser } from "../services/systemSettingsService.js";
 import { generateSecureToken, hashSha256 } from "../utils/token.js";
@@ -170,7 +170,7 @@ const issueEmailVerificationOtp = async (user, { resend = false } = {}) => {
   user.emailVerificationOtpSentAt = new Date();
   await user.save();
 
-  const result = await sendBrevoOtpEmail({
+  const result = await sendOtpEmail({
     to: user.email,
     otp: code,
     expiresInMinutes: otpConfig.ttlMinutes,
@@ -209,7 +209,7 @@ const issuePasswordResetOtp = async (user, { resend = false } = {}) => {
   user.passwordResetOtpSentAt = new Date();
   await user.save();
 
-  const result = await sendBrevoOtpEmail({
+  const result = await sendOtpEmail({
     to: user.email,
     otp: code,
     expiresInMinutes: otpConfig.ttlMinutes,
@@ -291,7 +291,7 @@ const findUserForOtpLogin = async ({ phoneNumber, email }) => {
 };
 
 const deliverOtp = async ({ user, code, otpConfig }) => {
-  const result = await sendBrevoOtpEmail({
+  const result = await sendOtpEmail({
     to: user.email,
     otp: code,
     expiresInMinutes: otpConfig.ttlMinutes,
@@ -391,7 +391,7 @@ export const login = async (req, res) => {
       user.twoFactorCodeExpiresAt = new Date(Date.now() + TWO_FACTOR_TTL_MINUTES * 60 * 1000);
       await user.save();
 
-      await sendBrevoOtpEmail({
+      const otpEmailResult = await sendOtpEmail({
         to: user.email,
         otp: code,
         expiresInMinutes: TWO_FACTOR_TTL_MINUTES,
@@ -399,6 +399,12 @@ export const login = async (req, res) => {
         heading: "Login Verification Code",
         purpose: "verification code",
       });
+
+      if (!otpEmailResult.success) {
+        const error = new Error(otpEmailResult.error || "Unable to send verification email.");
+        error.statusCode = otpEmailResult.statusCode || 502;
+        throw error;
+      }
 
       return res.status(202).json({
         success: true,
@@ -695,9 +701,9 @@ export const requestPasswordReset = async (req, res) => {
       details: error?.details,
     });
 
-    return res.status(502).json({
+    return res.status(error?.statusCode || 502).json({
       success: false,
-      message: "Failed to send reset OTP. Please try again later.",
+      message: error instanceof Error ? error.message : "Failed to send reset OTP. Please try again later.",
     });
   }
 };

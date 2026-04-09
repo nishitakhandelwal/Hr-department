@@ -42,21 +42,9 @@ export const env = {
   adminEmail: process.env.ADMIN_EMAIL,
   adminPassword: process.env.ADMIN_PASSWORD,
   clientUrl: process.env.CLIENT_URL || "http://localhost:8080",
-  smtp: {
-    host: process.env.SMTP_HOST || process.env.EMAIL_HOST,
-    port: Number(process.env.SMTP_PORT || process.env.EMAIL_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || "false") === "true",
-    user: process.env.SMTP_USER || process.env.EMAIL_USER,
-    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
-    from: process.env.SMTP_FROM || process.env.EMAIL_FROM || "no-reply@hrharmonyhub.com",
-  },
   brevo: {
     apiKey: process.env.BREVO_API_KEY || "",
-    senderEmail:
-      process.env.BREVO_SENDER_EMAIL ||
-      process.env.SMTP_FROM ||
-      process.env.EMAIL_FROM ||
-      "no-reply@hrharmonyhub.com",
+    senderEmail: process.env.BREVO_SENDER_EMAIL || "no-reply@hrharmonyhub.com",
     senderName: process.env.BREVO_SENDER_NAME || "Arihant Dream Infra Project Ltd.",
   },
   company: {
@@ -65,8 +53,6 @@ export const env = {
     supportEmail:
       process.env.COMPANY_SUPPORT_EMAIL ||
       process.env.BREVO_SENDER_EMAIL ||
-      process.env.SMTP_FROM ||
-      process.env.EMAIL_FROM ||
       "no-reply@hrharmonyhub.com",
   },
   otp: {
