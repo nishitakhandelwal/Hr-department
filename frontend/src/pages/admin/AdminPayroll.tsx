@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import PayrollTable, { PayrollRow, payrollExportColumns } from "@/components/tables/PayrollTable";
-import { apiService, type PayrollRecord, type PayrollSettings } from "@/services/api";
+import { apiService, type AdvanceRecord, type EmployeeRecord, type PayrollRecord, type PayrollSettings } from "@/services/api";
 import FilterDrawer from "@/components/common/FilterDrawer";
 import { ExportButton } from "@/components/common/ExportButton";
 import { downloadPdfBlob } from "@/utils/downloadPdf";
@@ -50,6 +50,12 @@ type SkippedPayroll = {
   employeeId: string;
   employeeName: string;
   reason: string;
+};
+
+type AdvanceFormState = {
+  employeeId: string;
+  amount: string;
+  notes: string;
 };
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -175,6 +181,12 @@ const AdminPayroll: React.FC = () => {
   const [pageLoading, setPageLoading] = useState(false);
   const [configSaving, setConfigSaving] = useState(false);
   const [payrollConfig, setPayrollConfig] = useState<PayrollSettings>(defaultPayrollConfig);
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+  const [advances, setAdvances] = useState<AdvanceRecord[]>([]);
+  const [advanceLoading, setAdvanceLoading] = useState(false);
+  const [advanceSubmitting, setAdvanceSubmitting] = useState(false);
+  const [advanceActionId, setAdvanceActionId] = useState("");
+  const [advanceForm, setAdvanceForm] = useState<AdvanceFormState>({ employeeId: "", amount: "", notes: "" });
   const [selectedPayrollId, setSelectedPayrollId] = useState("");
   const [downloadingId, setDownloadingId] = useState("");
   const [payslipModalOpen, setPayslipModalOpen] = useState(false);
@@ -217,6 +229,30 @@ const AdminPayroll: React.FC = () => {
     }
   }, [toast]);
 
+  const loadAdvanceWorkspace = useCallback(async () => {
+    setAdvanceLoading(true);
+    try {
+      const [advanceRows, employeeRows] = await Promise.all([
+        apiService.listPayrollAdvances(),
+        apiService.listEmployees(),
+      ]);
+      setAdvances(advanceRows);
+      setEmployees(employeeRows);
+      setAdvanceForm((current) => ({
+        ...current,
+        employeeId: current.employeeId || employeeRows[0]?._id || "",
+      }));
+    } catch (error) {
+      toast({
+        title: "Unable to load advances",
+        description: error instanceof Error ? error.message : "Advance salary data could not be loaded.",
+        variant: "destructive",
+      });
+    } finally {
+      setAdvanceLoading(false);
+    }
+  }, [toast]);
+
   React.useEffect(() => {
     void loadConfig();
   }, [loadConfig]);
@@ -224,6 +260,10 @@ const AdminPayroll: React.FC = () => {
   React.useEffect(() => {
     void loadPayroll(selectedMonth);
   }, [loadPayroll, selectedMonth]);
+
+  React.useEffect(() => {
+    void loadAdvanceWorkspace();
+  }, [loadAdvanceWorkspace]);
 
   const payrollRows: PayrollRow[] = useMemo(
     () =>
@@ -234,6 +274,7 @@ const AdminPayroll: React.FC = () => {
         presentDays: record.presentDays + record.lateDays,
         absentDays: record.absentDays,
         grossSalaryFormatted: currency.format(record.fullWages || 0),
+        advanceDeductionFormatted: currency.format(record.advanceDeduction || 0),
         deductionsFormatted: currency.format(record.totalDeductions || 0),
         netSalaryFormatted: currency.format(record.netSalary || 0),
         status: record.status ? `${record.status.charAt(0).toUpperCase()}${record.status.slice(1)}` : "Processed",
@@ -268,6 +309,7 @@ const AdminPayroll: React.FC = () => {
       setPayrollRecords(processedRecords);
       setSummary(response.data?.summary || null);
       setSkipped(response.data?.skippedEmployees || response.data?.skipped || []);
+      setAdvances(response.data?.advances || []);
       setSelectedPayrollId(processedRecords[0]?._id || "");
       setGeneratedPayslipIds([]);
       setRunDialogOpen(false);
@@ -284,6 +326,61 @@ const AdminPayroll: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateAdvance = async () => {
+    const amount = Number(advanceForm.amount || 0);
+    if (!advanceForm.employeeId || amount <= 0) {
+      toast({
+        title: "Advance details missing",
+        description: "Choose an employee and enter an amount greater than zero.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAdvanceSubmitting(true);
+    try {
+      await apiService.createPayrollAdvance({
+        employeeId: advanceForm.employeeId,
+        amount,
+        notes: advanceForm.notes.trim(),
+      });
+      await loadAdvanceWorkspace();
+      setAdvanceForm((current) => ({ employeeId: current.employeeId, amount: "", notes: "" }));
+      toast({
+        title: "Advance created",
+        description: "The salary advance is now available for upcoming payroll deductions.",
+      });
+    } catch (error) {
+      toast({
+        title: "Unable to create advance",
+        description: error instanceof Error ? error.message : "Advance could not be created.",
+        variant: "destructive",
+      });
+    } finally {
+      setAdvanceSubmitting(false);
+    }
+  };
+
+  const handleAdvanceStatusUpdate = async (advanceId: string, status: AdvanceRecord["status"]) => {
+    setAdvanceActionId(advanceId);
+    try {
+      await apiService.updatePayrollAdvance(advanceId, { status });
+      await loadAdvanceWorkspace();
+      toast({
+        title: "Advance updated",
+        description: `Advance marked as ${status.replaceAll("_", " ")}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Unable to update advance",
+        description: error instanceof Error ? error.message : "Advance status could not be updated.",
+        variant: "destructive",
+      });
+    } finally {
+      setAdvanceActionId("");
     }
   };
 
@@ -633,6 +730,134 @@ const AdminPayroll: React.FC = () => {
         <StatCard title={totalPayrollLabel} value={currency.format(summary?.totalPayroll || 0)} hint={monthLabel} icon={Wallet} />
         <StatCard title={processedLabel} value={summary?.processedEmployees || 0} hint={processedHint} icon={CheckCircle2} />
         <StatCard title={pendingLabel} value={summary?.pendingEmployees || 0} hint={pendingHint} icon={Clock3} />
+      </section>
+
+      <section className={`${panelClassName} p-5 sm:p-6`}>
+        <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <div className={innerPanelClassName}>
+            <div>
+              <h2 className="text-lg font-semibold text-[#241A12] dark:text-[#F5F5F5]">Advance Salary</h2>
+              <p className="mt-1 text-sm text-[#776351] dark:text-[#A1A1AA]">
+                Create recoverable employee advances. Payroll will deduct up to 30% of net salary each month.
+              </p>
+            </div>
+            <div className="mt-4 space-y-4">
+              <div>
+                <Label htmlFor="advanceEmployee">Employee</Label>
+                <select
+                  id="advanceEmployee"
+                  className={`w-full ${fieldClassName}`}
+                  value={advanceForm.employeeId}
+                  onChange={(event) => setAdvanceForm((prev) => ({ ...prev, employeeId: event.target.value }))}
+                >
+                  <option value="">Select employee</option>
+                  {employees.map((employee) => (
+                    <option key={employee._id} value={employee._id}>
+                      {employee.fullName || employee.userId?.name || employee.employeeId}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="advanceAmount">Advance Amount</Label>
+                <Input
+                  id="advanceAmount"
+                  type="number"
+                  min="0"
+                  value={advanceForm.amount}
+                  onChange={(event) => setAdvanceForm((prev) => ({ ...prev, amount: event.target.value }))}
+                  className={fieldClassName}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <Label htmlFor="advanceNotes">Notes</Label>
+                <Input
+                  id="advanceNotes"
+                  value={advanceForm.notes}
+                  onChange={(event) => setAdvanceForm((prev) => ({ ...prev, notes: event.target.value }))}
+                  className={fieldClassName}
+                  placeholder="Reason or reference"
+                />
+              </div>
+              <Button className={primaryToolbarButtonClass} onClick={() => void handleCreateAdvance()} disabled={advanceSubmitting}>
+                {advanceSubmitting ? "Saving..." : "Add Advance"}
+              </Button>
+            </div>
+          </div>
+
+          <div className={innerPanelClassName}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-[#241A12] dark:text-[#F5F5F5]">Open Advances</h3>
+                <p className="mt-1 text-sm text-[#776351] dark:text-[#A1A1AA]">
+                  Remaining balances update automatically during each payroll run.
+                </p>
+              </div>
+              <div className="rounded-full border border-[#DABFA0] bg-[rgba(198,146,92,0.10)] px-3 py-1 text-xs font-medium text-[#8A5A2F] dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.12)] dark:text-[#E6C7A3]">
+                {advances.filter((entry) => entry.status === "pending" || entry.status === "partially_deducted").length} active
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {advanceLoading ? (
+                <div className="rounded-2xl border border-dashed border-[#E2D2C1] bg-[linear-gradient(180deg,#FFFDFC,#F6EEE5)] px-5 py-6 text-sm text-[#776351] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#181513,#211d1a)] dark:text-[#A1A1AA]">
+                  Loading advances...
+                </div>
+              ) : advances.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[#E2D2C1] bg-[linear-gradient(180deg,#FFFDFC,#F6EEE5)] px-5 py-6 text-sm text-[#776351] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#181513,#211d1a)] dark:text-[#A1A1AA]">
+                  No salary advances added yet.
+                </div>
+              ) : (
+                advances.map((advance) => (
+                  <div key={advance._id} className={`${subtleCardClassName} p-4`}>
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-[#241A12] dark:text-[#F5F5F5]">
+                          {advance.employee?.fullName || advance.employee?.employeeId || "Employee"}
+                        </p>
+                        <p className="mt-1 text-xs text-[#776351] dark:text-[#A1A1AA]">
+                          {advance.employee?.designation || "No designation"}{advance.employee?.department ? ` • ${advance.employee.department}` : ""}
+                        </p>
+                        <p className="mt-2 text-xs text-[#8A5A2F] dark:text-[#E6C7A3]">
+                          Advance {currency.format(advance.amount)} • Remaining {currency.format(advance.remainingAmount)}
+                        </p>
+                        {advance.notes ? (
+                          <p className="mt-2 text-xs text-[#776351] dark:text-[#A1A1AA]">{advance.notes}</p>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-[#DABFA0] bg-[rgba(198,146,92,0.10)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-[#8A5A2F] dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.12)] dark:text-[#E6C7A3]">
+                          {advance.status.replaceAll("_", " ")}
+                        </span>
+                        {(advance.status === "pending" || advance.status === "partially_deducted") ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              className={outlineToolbarButtonClass}
+                              disabled={advanceActionId === advance._id}
+                              onClick={() => void handleAdvanceStatusUpdate(advance._id, "completed")}
+                            >
+                              Complete
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className={outlineToolbarButtonClass}
+                              disabled={advanceActionId === advance._id}
+                              onClick={() => void handleAdvanceStatusUpdate(advance._id, "cancelled")}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className={panelClassName}>

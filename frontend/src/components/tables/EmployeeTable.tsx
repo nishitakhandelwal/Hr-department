@@ -79,7 +79,12 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({ data, onEdit, onDelete, o
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary" onClick={(e) => { e.stopPropagation(); onCompensation(String(item.email)); }}>
             <BadgeIndianRupee className="w-3.5 h-3.5" />
           </Button>
-          <Button size="sm" variant="outline" className="h-7 gap-1 rounded-lg px-2 text-[#E6C7A3]" onClick={(e) => { e.stopPropagation(); onGenerateIdCard(String(item.email)); }}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 rounded-lg px-2 text-[#5A3B1F] dark:text-[#E6C7A3]"
+            onClick={(e) => { e.stopPropagation(); onGenerateIdCard(String(item.email)); }}
+          >
             <CreditCard className="w-3.5 h-3.5" />
             <span className="text-[11px]">ID Card</span>
           </Button>

@@ -20,6 +20,14 @@ const payrollBankDetailsSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const payrollAdvanceDeductionSchema = new mongoose.Schema(
+  {
+    advanceId: { type: mongoose.Schema.Types.ObjectId, ref: "Advance", required: true },
+    amount: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
+
 const payrollSchema = new mongoose.Schema(
   {
     employeeId: { type: mongoose.Schema.Types.ObjectId, ref: "Employee", required: true },
@@ -57,6 +65,8 @@ const payrollSchema = new mongoose.Schema(
     fineAmount: { type: Number, default: 0, min: 0 },
     pfEmployee: { type: Number, default: 0, min: 0 },
     esiEmployee: { type: Number, default: 0, min: 0 },
+    advanceDeduction: { type: Number, default: 0, min: 0 },
+    advanceDeductions: { type: [payrollAdvanceDeductionSchema], default: [] },
     totalDeductions: { type: Number, default: 0, min: 0 },
     attendanceSalary: { type: Number, default: 0, min: 0 },
     netSalary: { type: Number, required: true },

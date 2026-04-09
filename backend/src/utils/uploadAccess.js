@@ -64,6 +64,10 @@ export const secureUploadUrls = (value, req, user) => {
   }
 
   if (value && typeof value === "object") {
+    if (value instanceof Date) {
+      return value;
+    }
+
     if (typeof value.toObject === "function") {
       return secureUploadUrls(value.toObject(), req, user);
     }
@@ -111,10 +115,6 @@ export const resolveUploadAbsolutePath = (relativePath) => {
 
 export const sendUploadedFileByToken = async (req, res) => {
   const payload = resolveSignedUploadToken(req.params.token);
-  if (!req.user?._id || String(req.user._id) !== String(payload.userId || "")) {
-    return res.status(403).json({ success: false, message: "Unauthorized file access." });
-  }
-
   const absolutePath = resolveUploadAbsolutePath(payload.path);
 
   if (!fs.existsSync(absolutePath)) {

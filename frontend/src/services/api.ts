@@ -589,13 +589,43 @@ export type PayrollRecord = {
   fineAmount: number;
   pfEmployee: number;
   esiEmployee: number;
+  advanceDeduction?: number;
+  advanceDeductions?: Array<{ advanceId: string; amount: number }>;
   totalDeductions: number;
   attendanceSalary?: number;
   netSalary: number;
+  earnings?: Array<{ label: string; amount: number }>;
+  deductionBreakdown?: Array<{ label: string; amount: number }>;
   amountInWords?: string;
   status?: string;
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type AdvanceRecord = {
+  _id: string;
+  employeeId: string;
+  employee: {
+    _id: string;
+    employeeId: string;
+    fullName: string;
+    designation?: string;
+    department?: string;
+  } | null;
+  amount: number;
+  remainingAmount: number;
+  recoveredAmount: number;
+  status: "pending" | "partially_deducted" | "completed" | "cancelled";
+  notes?: string;
+  deductions?: Array<{
+    payrollId?: string;
+    monthNumber: number;
+    year: number;
+    amount: number;
+    deductedAt?: string | null;
+  }>;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 };
 
 export type PayrollSettings = {
@@ -1048,6 +1078,7 @@ export const apiService = {
     const { data } = await api.post<
       ApiResponse<{
         records: PayrollRecord[];
+        advances?: AdvanceRecord[];
         summary: {
           totalPayroll: number;
           processedEmployees: number;
@@ -1062,6 +1093,18 @@ export const apiService = {
       }>
     >("/payroll/run", payload);
     return data;
+  },
+  async listPayrollAdvances(params?: { status?: string }) {
+    const { data } = await api.get<ApiResponse<AdvanceRecord[]>>("/payroll/advances", { params });
+    return data.data;
+  },
+  async createPayrollAdvance(payload: { employeeId: string; amount: number; notes?: string }) {
+    const { data } = await api.post<ApiResponse<AdvanceRecord>>("/payroll/advances", payload);
+    return data.data;
+  },
+  async updatePayrollAdvance(advanceId: string, payload: { status?: AdvanceRecord["status"]; remainingAmount?: number; notes?: string }) {
+    const { data } = await api.patch<ApiResponse<AdvanceRecord>>(`/payroll/advances/${advanceId}`, payload);
+    return data.data;
   },
   async getPayrollConfig() {
     const { data } = await api.get<ApiResponse<PayrollSettings>>("/payroll/config");

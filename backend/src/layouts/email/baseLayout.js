@@ -1,8 +1,11 @@
 import { env } from "../../config/env.js";
 
 const companyName = String(env.company?.name || "Arihant Dream Infra Project Ltd.").trim();
-const companyLogoUrl = String(env.company?.logoUrl || "").trim();
+const companyLogoUrl = String(process.env.COMPANY_LOGO_URL || env.company?.logoUrl || "").trim();
 const supportEmail = String(env.company?.supportEmail || env.brevo.senderEmail || "").trim();
+
+console.log("Logo URL:", process.env.COMPANY_LOGO_URL || "(empty)");
+console.log("[email.baseLayout] Using logo URL:", companyLogoUrl || "(empty)");
 
 const escapeHtml = (value = "") =>
   String(value)
@@ -12,10 +15,17 @@ const escapeHtml = (value = "") =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const renderLogo = () =>
-  companyLogoUrl
-    ? `<img src="${escapeHtml(companyLogoUrl)}" alt="${escapeHtml(companyName)}" width="64" height="64" style="display:block;width:64px;height:64px;border-radius:18px;object-fit:cover;border:1px solid #eadfc8;">`
-    : `<div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#b88946 0%,#e8d2a6 100%);color:#2f2413;font-size:20px;font-weight:800;line-height:64px;text-align:center;border:1px solid #eadfc8;">AD</div>`;
+const renderHeader = () => {
+  return `
+    <img
+      src="${escapeHtml(companyLogoUrl || "https://i.postimg.cc/CMmJLmG3/new-image-removebg-preview.png")}"
+      width="48"
+      height="48"
+      alt="${escapeHtml(companyName)} logo"
+      style="display:block;"
+    />
+  `;
+};
 
 export const renderEmailLayout = ({
   preheader = "",
@@ -34,7 +44,7 @@ export const renderEmailLayout = ({
             <div style="padding:32px 32px 24px;background:linear-gradient(135deg,rgba(184,137,70,0.10),rgba(232,210,166,0.22));border-bottom:1px solid #efe4cf;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="width:80px;vertical-align:top;">${renderLogo()}</td>
+                  <td style="width:80px;vertical-align:middle;">${renderHeader()}</td>
                   <td style="vertical-align:middle;padding-left:16px;">
                     <div style="font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:#a16d2e;font-weight:700;">${escapeHtml(eyebrow)}</div>
                     <div style="margin-top:8px;font-size:30px;line-height:1.2;font-weight:800;color:#1d2433;">${escapeHtml(companyName)}</div>

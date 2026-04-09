@@ -56,6 +56,7 @@ const CandidateApply: React.FC = () => {
   const [myApplication, setMyApplication] = useState<CandidateRecord | null>(null);
   const [loadingMyApplication, setLoadingMyApplication] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [positionMode, setPositionMode] = useState<"preset" | "other">("preset");
 
   const [form, setForm] = useState({
     fullName: user?.name || "",
@@ -79,9 +80,10 @@ const CandidateApply: React.FC = () => {
     [isCandidateUser, myApplication]
   );
   const selectedPositionOption = useMemo(() => {
+    if (positionMode === "other") return "Other";
     if (!form.positionApplied) return "";
     return POSITION_OPTIONS.includes(form.positionApplied as (typeof POSITION_OPTIONS)[number]) ? form.positionApplied : "Other";
-  }, [form.positionApplied]);
+  }, [form.positionApplied, positionMode]);
   const formCardClassName =
     "border border-[rgba(184,137,63,0.22)] bg-[linear-gradient(180deg,rgba(255,251,245,0.95),rgba(255,248,239,0.88))] shadow-[0_26px_70px_rgba(184,137,63,0.12)]";
   const sectionTitleClassName = "text-[30px] font-semibold tracking-tight text-[#7a5720]";
@@ -98,12 +100,13 @@ const CandidateApply: React.FC = () => {
         const record = await apiService.getMyCandidateApplication();
         setMyApplication(record);
         if (record) {
+          const nextPosition = record.positionApplied || "";
           setForm((prev) => ({
             ...prev,
             fullName: record.fullName || prev.fullName,
             email: record.email || prev.email,
             phone: record.phone || prev.phone,
-            positionApplied: record.positionApplied || prev.positionApplied,
+            positionApplied: nextPosition,
             dateOfBirth: record.stage1?.personalDetails?.dateOfBirth || prev.dateOfBirth,
             fatherName: record.stage1?.personalDetails?.fatherName || prev.fatherName,
             motherName: record.stage1?.personalDetails?.motherName || prev.motherName,
@@ -118,6 +121,9 @@ const CandidateApply: React.FC = () => {
             highestQualification: record.stage1?.qualificationDetails?.highestQualification || prev.highestQualification,
             declarationAccepted: record.stage1?.declarationAccepted || prev.declarationAccepted,
           }));
+          setPositionMode(
+            nextPosition && !POSITION_OPTIONS.includes(nextPosition as (typeof POSITION_OPTIONS)[number]) ? "other" : "preset"
+          );
           setQualifications(
             record.stage1?.qualificationDetails?.qualifications?.length
               ? record.stage1.qualificationDetails.qualifications.map((q) => ({
@@ -153,6 +159,10 @@ const CandidateApply: React.FC = () => {
 
     if (!form.fullName.trim() || !form.email.trim()) {
       toast({ title: "Validation Error", description: "Full name and email are required.", variant: "destructive" });
+      return;
+    }
+    if (!form.positionApplied.trim()) {
+      toast({ title: "Validation Error", description: "Please select or enter the position applied.", variant: "destructive" });
       return;
     }
     if (!form.declarationAccepted) {
@@ -274,12 +284,13 @@ const CandidateApply: React.FC = () => {
                   <Select
                     disabled={isLocked}
                     value={selectedPositionOption}
-                    onValueChange={(value) =>
+                    onValueChange={(value) => {
+                      setPositionMode(value === "Other" ? "other" : "preset");
                       setForm((p) => ({
                         ...p,
-                        positionApplied: value === "Other" ? "" : value,
-                      }))
-                    }
+                        positionApplied: value === "Other" ? p.positionApplied : value,
+                      }));
+                    }}
                   >
                     <SelectTrigger className={selectTriggerClassName}>
                       <SelectValue placeholder="Select position" />

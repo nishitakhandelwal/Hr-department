@@ -24,6 +24,12 @@ const emptyEmployment = { company: "", designation: "", from: "", to: "", respon
 const MAX_VIDEO_SIZE_MB = 50;
 const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 
+const formatUploadedAt = (value?: string | Date | null) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleString();
+};
+
 type CandidateProfileForm = {
   fullName: string;
   phone: string;
@@ -546,9 +552,7 @@ const CandidateProfile: React.FC = () => {
                     <p>Latest submission: {candidate.videoIntroduction.originalName || "Video introduction"}</p>
                     <p>
                       Uploaded on:{" "}
-                      {candidate.videoIntroduction.uploadedAt
-                        ? new Date(candidate.videoIntroduction.uploadedAt).toLocaleString()
-                        : "-"}
+                      {formatUploadedAt(candidate.videoIntroduction.uploadedAt)}
                     </p>
                     <p>Source: {candidate.videoIntroduction.source || "-"}</p>
                   </div>

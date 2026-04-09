@@ -199,7 +199,7 @@ const ResetPassword: React.FC = () => {
               >
                 <InputOTPGroup className="w-full justify-between">
                   {[0, 1, 2, 3, 4, 5].map((index) => (
-                    <InputOTPSlot key={index} index={index} className="h-14 w-12 rounded-2xl border border-border bg-white text-base shadow-sm" />
+                    <InputOTPSlot key={index} index={index} className="h-14 w-12 rounded-2xl border border-border bg-white text-base text-black shadow-sm" />
                   ))}
                 </InputOTPGroup>
               </InputOTP>

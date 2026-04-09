@@ -39,22 +39,29 @@ const buildBankDetailsText = (record: PayrollRecord) => {
 };
 
 const getLineItems = (record: PayrollRecord) => {
-  const earnings = [
-    { label: "Basic Salary", amount: record.basicSalary || 0 },
-    { label: "HRA", amount: record.hra || 0 },
-    { label: "Special Allowance", amount: record.specialAllowance || 0 },
-    { label: "Other Allowance", amount: record.allowances || 0 },
-    { label: "Bonus", amount: record.bonus || 0 },
-    { label: "Overtime", amount: record.overtimePay || 0 },
-  ];
+  const earnings =
+    record.earnings?.length
+      ? record.earnings
+      : [
+          { label: "Basic Salary", amount: record.basicSalary || 0 },
+          { label: "HRA", amount: record.hra || 0 },
+          { label: "Special Allowance", amount: record.specialAllowance || 0 },
+          { label: "Other Allowance", amount: record.allowances || 0 },
+          { label: "Bonus", amount: record.bonus || 0 },
+          { label: "Overtime", amount: record.overtimePay || 0 },
+        ];
 
-  const deductions = [
-    { label: "PF", amount: record.pfEmployee || 0 },
-    { label: "ESI", amount: record.esiEmployee || 0 },
-    { label: "Fine", amount: record.fineAmount || 0 },
-    { label: "Tax", amount: record.tax || 0 },
-    { label: "Other Deductions", amount: record.deductions || 0 },
-  ];
+  const deductions =
+    record.deductionBreakdown?.length
+      ? record.deductionBreakdown
+      : [
+          { label: "PF", amount: record.pfEmployee || 0 },
+          { label: "ESI", amount: record.esiEmployee || 0 },
+          { label: "Fine", amount: record.fineAmount || 0 },
+          { label: "Tax", amount: record.tax || 0 },
+          { label: "Other Deductions", amount: record.deductions || 0 },
+          { label: "Advance Salary Recovery", amount: record.advanceDeduction || 0 },
+        ];
 
   return Array.from({ length: Math.max(earnings.length, deductions.length) }, (_, index) => ({
     earning: earnings[index] || { label: "-", amount: null },

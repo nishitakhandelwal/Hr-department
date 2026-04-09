@@ -21,6 +21,7 @@ export interface PayrollRow {
   presentDays: number;
   absentDays: number;
   grossSalaryFormatted: string;
+  advanceDeductionFormatted: string;
   deductionsFormatted: string;
   netSalaryFormatted: string;
   status: string;
@@ -32,6 +33,7 @@ export const payrollExportColumns: ExportColumn<PayrollRow>[] = [
   { key: "presentDays", label: "Present Days" },
   { key: "absentDays", label: "Absent Days" },
   { key: "grossSalaryFormatted", label: "Gross Salary" },
+  { key: "advanceDeductionFormatted", label: "Advance Recovery" },
   { key: "deductionsFormatted", label: "Deductions" },
   { key: "netSalaryFormatted", label: "Net Salary" },
   { key: "status", label: "Status" },
@@ -49,11 +51,14 @@ interface PayrollTableProps {
 const actionTriggerClass =
   "h-10 min-w-[126px] justify-between rounded-xl border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-3.5 text-sm font-medium text-[#E6C7A3] shadow-none transition-all duration-200 hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]";
 
+const tableShellClass =
+  "overflow-hidden rounded-2xl border border-[#D9C8B6] bg-[linear-gradient(180deg,#FFFDFB,#F7EFE6)] shadow-[0_16px_36px_rgba(90,62,35,0.08)] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#181513,#211d1a)]";
+
 const statusClassName = (status: string) => {
   const normalized = status.toLowerCase();
 
   if (normalized === "processed") {
-    return "border border-[rgba(230,199,163,0.18)] bg-[rgba(230,199,163,0.12)] text-[#E6C7A3]";
+    return "border border-[rgba(198,146,92,0.18)] bg-[rgba(198,146,92,0.12)] text-[#5A3B1F] dark:border border-[rgba(230,199,163,0.18)] dark:bg-[rgba(230,199,163,0.12)] dark:text-[#E6C7A3]";
   }
 
   if (normalized === "pending") {
@@ -73,26 +78,27 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
 }) => {
   if (data.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)] px-6 py-10 text-center">
-        <p className="text-base font-medium text-[#F5F5F5]">No payroll records found</p>
-        <p className="mt-1 text-sm text-[#A1A1AA]">Try another month or adjust your payroll filters.</p>
+      <div className="rounded-2xl border border-dashed border-[#D9C8B6] bg-[linear-gradient(180deg,#FFFDFB,#F7EFE6)] px-6 py-10 text-center dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#181513,#211d1a)]">
+        <p className="text-base font-medium text-[#1C1712] dark:text-[#F5F5F5]">No payroll records found</p>
+        <p className="mt-1 text-sm text-[#5B4635] dark:text-[#A1A1AA]">Try another month or adjust your payroll filters.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#2A2623] bg-[linear-gradient(135deg,#181513,#211d1a)]">
+    <div className={tableShellClass}>
       <Table>
         <TableHeader>
-          <TableRow className="border-b border-[#2A2623] bg-[rgba(230,199,163,0.08)] hover:bg-[rgba(230,199,163,0.08)]">
-            <TableHead>Month</TableHead>
-            <TableHead>Present Days</TableHead>
-            <TableHead>Absent Days</TableHead>
-            <TableHead>Gross Salary</TableHead>
-            <TableHead>Deductions</TableHead>
-            <TableHead>Net Salary</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+          <TableRow className="border-b border-[#D9C8B6] bg-[rgba(198,146,92,0.08)] hover:bg-[rgba(198,146,92,0.08)] dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.08)] dark:hover:bg-[rgba(230,199,163,0.08)]">
+            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Month</TableHead>
+            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Present Days</TableHead>
+            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Absent Days</TableHead>
+            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Gross Salary</TableHead>
+            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Advance Recovery</TableHead>
+            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Deductions</TableHead>
+            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Net Salary</TableHead>
+            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Status</TableHead>
+            <TableHead className="text-right text-[#3A2A1C] dark:text-[#E6C7A3]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -100,16 +106,17 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
             const isGenerated = generatedPayrollIds.includes(row._id);
 
             return (
-              <TableRow key={row._id} className="border-b border-[#2A2623] hover:bg-[rgba(230,199,163,0.08)]">
+              <TableRow key={row._id} className="border-b border-[#D9C8B6] hover:bg-[rgba(198,146,92,0.08)] dark:border-[#2A2623] dark:hover:bg-[rgba(230,199,163,0.08)]">
                 <TableCell className="min-w-[180px]">
-                  <div className="font-medium text-[#F5F5F5]">{row.monthLabel}</div>
-                  <div className="mt-1 text-xs text-[#A1A1AA]">{row.employeeName}</div>
+                  <div className="font-medium text-[#18120D] dark:text-[#F5F5F5]">{row.monthLabel}</div>
+                  <div className="mt-1 text-xs text-[#4F3C2E] dark:text-[#A1A1AA]">{row.employeeName}</div>
                 </TableCell>
-                <TableCell className="text-[#D4D4D8]">{row.presentDays}</TableCell>
-                <TableCell className="text-[#D4D4D8]">{row.absentDays}</TableCell>
-                <TableCell className="font-medium text-[#F5F5F5]">{row.grossSalaryFormatted}</TableCell>
-                <TableCell className="text-[#D4D4D8]">{row.deductionsFormatted}</TableCell>
-                <TableCell className="font-semibold text-[#F5F5F5]">{row.netSalaryFormatted}</TableCell>
+                <TableCell className="text-[#18120D] dark:text-[#D4D4D8]">{row.presentDays}</TableCell>
+                <TableCell className="text-[#18120D] dark:text-[#D4D4D8]">{row.absentDays}</TableCell>
+                <TableCell className="font-medium text-[#18120D] dark:text-[#F5F5F5]">{row.grossSalaryFormatted}</TableCell>
+                <TableCell className="text-[#18120D] dark:text-[#D4D4D8]">{row.advanceDeductionFormatted}</TableCell>
+                <TableCell className="text-[#18120D] dark:text-[#D4D4D8]">{row.deductionsFormatted}</TableCell>
+                <TableCell className="font-semibold text-[#18120D] dark:text-[#F5F5F5]">{row.netSalaryFormatted}</TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusClassName(row.status)}`}>
                     {row.status}
