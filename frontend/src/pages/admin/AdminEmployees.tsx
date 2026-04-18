@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { CreditCard, Filter, Loader2, Plus } from "lucide-react";
+import { AlertCircle, CheckCircle2, CreditCard, Filter, Loader2, Plus } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/EmptyState";
 import EmployeeIdCardModal from "@/components/employees/EmployeeIdCardModal";
 import ProfileImageManager from "@/components/profile/ProfileImageManager";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type SalaryStructure = {
   employeeId?: string;
@@ -193,6 +194,7 @@ const AdminEmployees: React.FC = () => {
   const [salaryForm, setSalaryForm] = useState<SalaryStructure>(emptySalary);
   const [salarySaving, setSalarySaving] = useState(false);
   const [savingEmployee, setSavingEmployee] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [idCardOpen, setIdCardOpen] = useState(false);
   const [idCardLoading, setIdCardLoading] = useState(false);
   const [selectedIdCardEmployee, setSelectedIdCardEmployee] = useState<EmployeeRecord | null>(null);
@@ -234,6 +236,7 @@ const AdminEmployees: React.FC = () => {
   });
 
   const openAdd = () => {
+    setSaveFeedback(null);
     setForm({
       ...emptyEmployee,
       joiningDate: new Date().toISOString().slice(0, 10),
@@ -245,6 +248,7 @@ const AdminEmployees: React.FC = () => {
   };
 
   const openEdit = (index: number) => {
+    setSaveFeedback(null);
     setForm({
       ...employees[index],
       photoUrl: employees[index].photoUrl || employees[index].profileImage || "",
@@ -351,15 +355,18 @@ const AdminEmployees: React.FC = () => {
 
   const handleSave = () => {
     if (!form.name.trim() || !form.email.trim() || !form.department.trim() || !form.designation.trim()) {
+      setSaveFeedback({ type: "error", message: "Please fill all required employee fields." });
       toast({ title: "Missing details", description: "Please fill all required employee fields.", variant: "destructive" });
       return;
     }
     if (editIndex === null && (!form.password || form.password.length < 6)) {
+      setSaveFeedback({ type: "error", message: "Password must be at least 6 characters." });
       toast({ title: "Invalid password", description: "Password must be at least 6 characters.", variant: "destructive" });
       return;
     }
 
     void (async () => {
+      setSaveFeedback(null);
       setSavingEmployee(true);
       try {
         if (editIndex !== null && employees[editIndex]?._id) {
@@ -447,11 +454,16 @@ const AdminEmployees: React.FC = () => {
         setForm(emptyEmployee);
         setDialogOpen(false);
         await loadEmployees();
+        setSaveFeedback({ type: "success", message: editIndex !== null ? "Employee updated successfully." : "Employee created successfully." });
         toast({
           title: editIndex !== null ? "Employee updated" : "Employee created",
           description: "Employee data has been saved successfully.",
         });
       } catch (error) {
+        setSaveFeedback({
+          type: "error",
+          message: error instanceof Error ? error.message : "Unable to save employee details.",
+        });
         toast({
           title: "Save failed",
           description: error instanceof Error ? error.message : "Unable to save employee details.",
@@ -596,12 +608,32 @@ const AdminEmployees: React.FC = () => {
         />
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setSaveFeedback(null);
+        }}
+      >
         <DialogContent className="max-h-[92vh] sm:max-w-3xl rounded-[28px] border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-0 shadow-[0_28px_80px_rgba(166,124,82,0.22)]">
           <DialogHeader className="sticky top-0 z-10 border-b border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-6 py-5">
             <DialogTitle className="text-[#F5F5F5]">{editIndex !== null ? "Edit Employee" : "Add Employee"}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[calc(92vh-140px)] overflow-y-auto px-6 py-4">
+          {saveFeedback ? (
+            <Alert
+              variant={saveFeedback.type === "error" ? "destructive" : "default"}
+              className={`mb-5 border ${
+                saveFeedback.type === "error"
+                  ? "border-red-500/40 bg-red-500/10 text-red-100"
+                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-50"
+              }`}
+            >
+              {saveFeedback.type === "error" ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+              <AlertTitle>{saveFeedback.type === "error" ? "Employee save failed" : "Employee saved"}</AlertTitle>
+              <AlertDescription>{saveFeedback.message}</AlertDescription>
+            </Alert>
+          ) : null}
           <div className="mb-5">
             <ProfileImageManager
               name={form.name || "Employee"}

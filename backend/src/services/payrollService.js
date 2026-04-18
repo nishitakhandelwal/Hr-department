@@ -1,5 +1,5 @@
-import puppeteer from "puppeteer";
 import { LOGO_URL } from "../utils/logo.js";
+import { renderPdfBufferFromHtml } from "../utils/pdfBrowser.js";
 
 const MONTH_NAMES = [
   "January",
@@ -672,22 +672,13 @@ export const buildPayslipHtml = ({ payroll, company }) => {
 };
 
 export const generatePayslipPdfBuffer = async ({ payroll, company }) => {
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
-
-  try {
-    const page = await browser.newPage();
-    await page.setContent(buildPayslipHtml({ payroll, company }), { waitUntil: "networkidle0" });
-    const pdfRaw = await page.pdf({
+  return renderPdfBufferFromHtml(buildPayslipHtml({ payroll, company }), {
+    waitUntil: "domcontentloaded",
+    pdfOptions: {
       format: "A4",
       scale: 0.86,
       printBackground: true,
       margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
-    });
-    return Buffer.isBuffer(pdfRaw) ? pdfRaw : Buffer.from(pdfRaw);
-  } finally {
-    await browser.close();
-  }
+    },
+  });
 };

@@ -26,10 +26,9 @@ const renderHeader = () => {
   return `
     <img
       src="${escapeHtml(companyLogoUrl)}"
-      width="55"
-      height="48"
+      width="72"
       alt="${escapeHtml(companyName)} logo"
-      style="display:block;"
+      style="display:block;height:auto;"
     />
   `;
 };
@@ -51,8 +50,8 @@ export const renderEmailLayout = ({
             <div style="padding:32px 32px 24px;background:linear-gradient(135deg,rgba(184,137,70,0.10),rgba(232,210,166,0.22));border-bottom:1px solid #efe4cf;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="width:80px;vertical-align:middle;">${renderHeader()}</td>
-                  <td style="vertical-align:middle;padding-left:16px;">
+                  <td style="width:96px;vertical-align:top;">${renderHeader()}</td>
+                  <td style="vertical-align:top;padding-left:16px;">
                     <div style="font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:#a16d2e;font-weight:700;">${escapeHtml(eyebrow)}</div>
                     <div style="margin-top:8px;font-size:30px;line-height:1.2;font-weight:800;color:#1d2433;">${escapeHtml(companyName)}</div>
                     <div style="margin-top:8px;font-size:16px;line-height:1.6;color:#6b7280;">Professional HR communication, delivered with clarity.</div>

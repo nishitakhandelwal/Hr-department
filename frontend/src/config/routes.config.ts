@@ -69,7 +69,7 @@ export const APP_ROUTES: AppRouteConfig[] = [
   { path: "/admin/profile", component: EmployeeProfile, authMode: "auth", roles: ["admin"], routeKey: "admin.profile", useAppLayout: true },
   { path: "/admin/candidates", component: AdminCandidates, authMode: "auth", roles: ["admin", "employee"], accessRoles: ["super_admin", "admin", "hr_manager", "recruiter"], requiredModule: "candidates", routeKey: "admin.candidates", useAppLayout: true },
   { path: "/admin/employees", component: AdminEmployees, authMode: "auth", roles: ["admin"], routeKey: "admin.employees", useAppLayout: true },
-  { path: "/admin/attendance", component: AdminAttendance, authMode: "auth", roles: ["admin"], routeKey: "admin.attendance", useAppLayout: true },
+  { path: "/admin/attendance", component: AdminAttendance, authMode: "auth", roles: ["admin"], accessRoles: ["super_admin", "admin"], routeKey: "admin.attendance", useAppLayout: true },
   { path: "/admin/leave", component: AdminLeave, authMode: "auth", roles: ["admin"], routeKey: "admin.leave", useAppLayout: true },
   { path: "/admin/payroll", component: AdminPayroll, authMode: "auth", roles: ["admin"], routeKey: "admin.payroll", useAppLayout: true },
   { path: "/admin/letters", component: AdminLetters, authMode: "auth", roles: ["admin", "employee"], accessRoles: ["super_admin", "admin", "hr_manager"], requiredModule: "letters", routeKey: "admin.letters", useAppLayout: true },

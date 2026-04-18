@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Download, Send, Eye } from "lucide-react";
+import { Plus, FileText, Download, Send, Eye, Loader2, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import letterPrintCss from "@/styles/letter-print.css?raw";
@@ -20,6 +20,8 @@ import { downloadPdfBlob } from "@/utils/downloadPdf";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiService } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
+import { resolveCompanyLogoUrl } from "@/lib/images";
+import { downloadElementAsPdf } from "@/utils/html2pdf";
 
 const letterColors = [
   "bg-primary/10 text-primary",
@@ -32,13 +34,27 @@ const letterColors = [
   "bg-info/10 text-info",
 ];
 
+const DEFAULT_COMPANY_NAME = "Arihant Dream Infra Project Ltd.";
+
+const normalizeCompanyName = (value?: string | null) => {
+  const trimmedValue = String(value || "").trim();
+  if (!trimmedValue || trimmedValue.toLowerCase() === "hr harmony hub") {
+    return DEFAULT_COMPANY_NAME;
+  }
+  return trimmedValue;
+};
+
 const AdminLetters: React.FC = () => {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<CorporateLetterType>("Salary Approval Letter");
   const [formData, setFormData] = useState<CorporateLetterData>(defaultCorporateLetterData);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState(false);
   const [companyLogo, setCompanyLogo] = useState("");
+  const previewRef = React.useRef<HTMLDivElement | null>(null);
+  const exportContentRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     void (async () => {
@@ -47,11 +63,13 @@ const AdminLetters: React.FC = () => {
         const company = payload.settings.company;
         setFormData((prev) => ({
           ...prev,
-          companyName: company.companyName || prev.companyName,
+          companyName: normalizeCompanyName(company.companyName || prev.companyName),
+          companyLegalName: normalizeCompanyName(company.companyName || prev.companyLegalName),
+          recipientCompanyName: normalizeCompanyName(company.companyName || prev.recipientCompanyName),
           companyAddress: company.address || prev.companyAddress,
           companyContact: company.contactPhone || prev.companyContact,
         }));
-        setCompanyLogo(company.companyLogoUrl || "");
+        setCompanyLogo(resolveCompanyLogoUrl(company.companyLogoUrl || ""));
       } catch {
         // no-op fallback to template defaults
       }
@@ -68,24 +86,52 @@ const AdminLetters: React.FC = () => {
   };
 
   const handleExportPdf = async () => {
+    const filename = `${selectedType.replace(/\s+/g, "-").toLowerCase()}-${formData.employeeId || "employee"}.pdf`;
+    setExportingPdf(true);
+    setExportSuccess(false);
+
     try {
       const pdfBlob = await apiService.generateOfferLetterPdf({
         htmlContent: letterHtml,
-        fileName: `${selectedType.replace(/\s+/g, "-").toLowerCase()}-${formData.employeeId || "employee"}.pdf`,
+        fileName: filename,
       });
-      const filename = `${selectedType.replace(/\s+/g, "-").toLowerCase()}-${formData.employeeId || "employee"}.pdf`;
       downloadPdfBlob(pdfBlob, filename);
-    } catch (error) {
+      setExportSuccess(true);
       toast({
-        title: "PDF export failed",
-        description: error instanceof Error ? error.message : "Unable to export PDF.",
-        variant: "destructive",
+        title: "Downloaded",
+        description: `${filename} downloaded successfully.`,
       });
+      } catch (error) {
+        try {
+        if (!exportContentRef.current) {
+          throw error instanceof Error ? error : new Error("Letter preview is not available for PDF export.");
+        }
+
+        await downloadElementAsPdf(exportContentRef.current, filename);
+        setExportSuccess(true);
+        toast({
+          title: "Downloaded",
+          description: `${filename} downloaded successfully.`,
+        });
+      } catch (fallbackError) {
+        toast({
+          title: "PDF export failed",
+          description: fallbackError instanceof Error ? fallbackError.message : "Unable to export PDF.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setExportingPdf(false);
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => setExportSuccess(false), 2200);
+      }
     }
   };
 
   const handleSendLetter = async () => {
     const email = formData.employeeEmail.trim();
+    const normalizedLetterType = selectedType.toLowerCase();
+    const requiresServerSideHtml = normalizedLetterType.includes("offer") || normalizedLetterType.includes("internship");
     if (!email) {
       toast({ title: "Validation error", description: "Employee email is required.", variant: "destructive" });
       return;
@@ -101,7 +147,7 @@ const AdminLetters: React.FC = () => {
       const result = await apiService.sendLetterByEmail({
         letterType: selectedType,
         formData,
-        htmlContent: letterHtml,
+        htmlContent: requiresServerSideHtml ? undefined : letterHtml,
         employeeEmail: email,
       });
     } catch (error) {
@@ -201,9 +247,23 @@ const AdminLetters: React.FC = () => {
                   </div>
 
                   <div className="flex gap-2 pt-2">
-                    <Button className="gap-2" onClick={() => void handleExportPdf()}>
-                      <Download className="w-4 h-4" />
-                      Export PDF
+                    <Button className="gap-2 min-w-[150px]" onClick={() => void handleExportPdf()} disabled={exportingPdf}>
+                      {exportingPdf ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Downloading...
+                        </>
+                      ) : exportSuccess ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Downloaded
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4" />
+                          Export PDF
+                        </>
+                      )}
                     </Button>
                     <Button
                       variant="outline"
@@ -225,9 +285,9 @@ const AdminLetters: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="overflow-auto border rounded-lg bg-muted/20">
+                <div ref={previewRef} className="overflow-auto border rounded-lg bg-muted/20">
                   <style>{letterPrintCss}</style>
-                  <div dangerouslySetInnerHTML={{ __html: letterHtml }} />
+                  <div ref={exportContentRef} dangerouslySetInnerHTML={{ __html: letterHtml }} />
                 </div>
               </div>
             </DialogContent>

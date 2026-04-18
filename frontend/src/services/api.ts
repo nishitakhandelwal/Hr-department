@@ -362,6 +362,29 @@ export type HolidayItem = {
   source: "system" | "api" | "manual";
 };
 
+export type OfficeLocationRecord = {
+  _id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type GeoFenceValidationLocation = OfficeLocationRecord & {
+  distanceMeters: number;
+  withinRadius: boolean;
+};
+
+export type GeoFenceValidationResult = {
+  matched: boolean;
+  message: string;
+  matchedLocation: GeoFenceValidationLocation | null;
+  nearestLocation: GeoFenceValidationLocation | null;
+  evaluatedLocations: GeoFenceValidationLocation[];
+};
+
 export type AttendanceRecord = {
   _id: string;
   employeeId?:
@@ -381,6 +404,24 @@ export type AttendanceRecord = {
   hoursWorked?: number;
   status?: string;
   isManual?: boolean;
+  checkInLocation?: {
+    latitude: number;
+    longitude: number;
+    officeLocationId?: string | null;
+    officeName?: string;
+    distanceMeters?: number;
+    radiusMeters?: number;
+    capturedAt?: string;
+  };
+  checkOutLocation?: {
+    latitude: number;
+    longitude: number;
+    officeLocationId?: string | null;
+    officeName?: string;
+    distanceMeters?: number;
+    radiusMeters?: number;
+    capturedAt?: string;
+  };
   updatedBy?: string | { _id?: string; name?: string; email?: string } | null;
   createdAt?: string;
   updatedAt?: string;
@@ -1258,6 +1299,35 @@ export const apiService = {
     const { data } = await api.get<ApiResponse<HolidayItem[]>>("/holidays", { params });
     return data.data;
   },
+  async listOfficeLocations() {
+    const { data } = await api.get<ApiResponse<OfficeLocationRecord[]>>("/locations");
+    return data.data;
+  },
+  async createOfficeLocation(payload: {
+    name: string;
+    latitude: number;
+    longitude: number;
+    radiusMeters: number;
+  }) {
+    const { data } = await api.post<ApiResponse<OfficeLocationRecord>>("/locations", payload);
+    return data.data;
+  },
+  async updateOfficeLocation(
+    id: string,
+    payload: {
+      name: string;
+      latitude: number;
+      longitude: number;
+      radiusMeters: number;
+    }
+  ) {
+    const { data } = await api.put<ApiResponse<OfficeLocationRecord>>(`/locations/${id}`, payload);
+    return data.data;
+  },
+  async deleteOfficeLocation(id: string) {
+    const { data } = await api.delete<ApiResponse<OfficeLocationRecord>>(`/locations/${id}`);
+    return data.data;
+  },
   async syncHolidays(payload?: { country?: string; year?: number }) {
     const { data } = await api.post<ApiResponse<HolidayItem[]>>("/holidays/sync", payload || {});
     return data.data;
@@ -1297,6 +1367,19 @@ export const apiService = {
   },
   async listAttendanceCorrectionRequests() {
     const { data } = await api.get<ApiResponse<AttendanceCorrectionRequestRecord[]>>("/attendance/correction-requests");
+    return data.data;
+  },
+  async validateAttendanceLocation(payload: { latitude: number; longitude: number }) {
+    const { data } = await api.post<ApiResponse<GeoFenceValidationResult>>("/attendance/validate-location", payload);
+    return data.data;
+  },
+  async markAttendance(payload: { action: "check-in" | "check-out"; latitude: number; longitude: number }) {
+    const { data } = await api.post<
+      ApiResponse<{
+        attendance: AttendanceRecord;
+        validation: GeoFenceValidationResult;
+      }>
+    >("/attendance/mark", payload);
     return data.data;
   },
   async reviewAttendanceCorrection(

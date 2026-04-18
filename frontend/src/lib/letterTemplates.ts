@@ -1,4 +1,5 @@
 import { formatDate } from "@/lib/date";
+import { DEFAULT_LOGO_SRC } from "@/lib/images";
 
 export type CorporateLetterType =
   | "Offer Letter"
@@ -47,6 +48,184 @@ interface LetterTemplate {
 }
 
 const PLACEHOLDER_REGEX = /\{\{(\w+)\}\}/g;
+const INLINE_LETTER_STYLES = `
+  .letter-page {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0 auto;
+    padding: 24px 28px 18px;
+    background: #ffffff;
+    color: #111111;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .letter-page,
+  .letter-page p,
+  .letter-page div,
+  .letter-page span,
+  .letter-page strong,
+  .letter-page td,
+  .letter-page th,
+  .letter-page h1,
+  .letter-page h2,
+  .letter-page h3,
+  .letter-page h4,
+  .letter-page h5,
+  .letter-page h6,
+  .letter-page li,
+  .letter-page a {
+    color: #111111;
+  }
+
+  .letter-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #cbd5e1;
+  }
+
+  .company-info {
+    flex: 1;
+    min-width: 0;
+    font-family: Arial, sans-serif;
+  }
+
+  .company-name {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.18;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+  }
+
+  .company-meta {
+    margin: 2px 0 0;
+    font-size: 9px;
+    line-height: 1.35;
+    color: #475569;
+  }
+
+  .letter-logo {
+    width: 54px;
+    max-width: 54px;
+    height: 54px;
+    object-fit: contain;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .letter-title {
+    margin: 14px 0 12px;
+    text-align: center;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #0f172a;
+    text-transform: uppercase;
+  }
+
+  .letter-date {
+    margin: 0 0 14px;
+    text-align: right;
+    font-size: 12px;
+  }
+
+  .recipient-block {
+    margin-bottom: 14px;
+  }
+
+  .recipient-block p {
+    margin: 0 0 2px;
+  }
+
+  .subject-line {
+    margin: 0 0 12px;
+    font-weight: 700;
+  }
+
+  .body-block p {
+    margin: 0 0 10px;
+    line-height: 1.55;
+    text-align: justify;
+  }
+
+  .details-title {
+    margin: 16px 0 8px;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .details-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 18px;
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    table-layout: fixed;
+  }
+
+  .details-table tr {
+    page-break-inside: avoid;
+  }
+
+  .details-table td {
+    border: 1px solid #cbd5e1;
+    padding: 7px 10px;
+    vertical-align: top;
+    word-break: break-word;
+  }
+
+  .details-table td:first-child {
+    width: 40%;
+    font-weight: 700;
+    background: #f8fafc;
+    color: #0f172a;
+  }
+
+  .signature-block {
+    margin-top: 22px;
+  }
+
+  .signature-block p {
+    margin: 0 0 4px;
+  }
+
+  .signature-space {
+    margin: 22px 0 6px;
+    color: #475569;
+  }
+
+  .footer-divider {
+    margin: 26px 0 10px;
+    border: none;
+    border-top: 1px solid #cbd5e1;
+  }
+
+  .footer-block {
+    text-align: center;
+    font-family: Arial, sans-serif;
+    font-size: 9px;
+    line-height: 1.35;
+    color: #475569;
+  }
+
+  .footer-block p {
+    margin: 1px 0;
+  }
+
+  @media print {
+    .letter-page {
+      padding: 0;
+    }
+  }
+`;
 
 const fill = (value: string, data: CorporateLetterData): string =>
   value.replace(PLACEHOLDER_REGEX, (_, key: keyof CorporateLetterData) => String(data[key] || ""));
@@ -61,6 +240,13 @@ const escapeHtml = (value: string): string => {
 };
 
 const sanitize = (value: string, data: CorporateLetterData): string => escapeHtml(fill(value, data));
+const normalizeCompanyName = (value?: string | null) => {
+  const trimmedValue = String(value || "").trim();
+  if (!trimmedValue || trimmedValue.toLowerCase() === "hr harmony hub") {
+    return "Arihant Dream Infra Project Ltd.";
+  }
+  return trimmedValue;
+};
 
 export const corporateLetterTypes: CorporateLetterType[] = [
   "Offer Letter",
@@ -206,6 +392,9 @@ export const buildCorporateLetterHtml = (
   
   const normalizedData: CorporateLetterData = {
     ...data,
+    companyName: normalizeCompanyName(data.companyName),
+    companyLegalName: normalizeCompanyName(data.companyLegalName),
+    recipientCompanyName: normalizeCompanyName(data.recipientCompanyName),
     joiningDate: formatDate(data.joiningDate),
     lastWorkingDate: formatDate(data.lastWorkingDate),
     effectiveDate: formatDate(data.effectiveDate),
@@ -213,18 +402,20 @@ export const buildCorporateLetterHtml = (
   };
 
   const detailRows = getDetailsRows(normalizedData, showLastWorkingDate);
+  const resolvedLogoUrl = String(logoUrl || "").trim() || DEFAULT_LOGO_SRC;
 
   return `
+    <style>${INLINE_LETTER_STYLES}</style>
     <article class="letter-page">
       <header class="letter-header">
-        <img src="${escapeHtml(logoUrl)}" alt="Company Logo" class="letter-logo" />
-        <div>
+        <div class="company-info">
           <h1 class="company-name">${sanitize("{{companyName}}", normalizedData)}</h1>
           <p class="company-meta">${sanitize("{{isoLine}}", normalizedData)}</p>
           <p class="company-meta">${sanitize("{{companyAddress}}", normalizedData)}</p>
           <p class="company-meta">CIN: ${sanitize("{{CIN}}", normalizedData)} | GST: ${sanitize("{{GST}}", normalizedData)}</p>
           <p class="company-meta">${sanitize("{{companyContact}}", normalizedData)}</p>
         </div>
+        <img src="${escapeHtml(resolvedLogoUrl)}" alt="${escapeHtml(normalizedData.companyName)}" class="letter-logo" />
       </header>
 
       <h2 class="letter-title">${escapeHtml(template.title)}</h2>

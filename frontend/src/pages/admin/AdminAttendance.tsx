@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { CheckCircle2, Filter, FileClock, PencilLine, XCircle } from "lucide-react";
 
+import OfficeLocationsManager from "@/components/attendance/OfficeLocationsManager";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { DataTable, StatusBadge } from "@/components/DataTable";
@@ -29,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { EmployeeRecord } from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
 
 type AttendanceRow = {
   _id: string;
@@ -94,6 +96,7 @@ const getEmployeeNameFromRecord = (row: AttendanceRecord) =>
   typeof row.employeeId === "object" ? row.employeeId?.userId?.name || row.employeeId?.fullName || "" : "";
 
 const AdminAttendance: React.FC = () => {
+  const { user } = useAuth();
   const [rows, setRows] = useState<AttendanceRow[]>([]);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [correctionRequests, setCorrectionRequests] = useState<AttendanceCorrectionRequestRecord[]>([]);
@@ -119,6 +122,7 @@ const AdminAttendance: React.FC = () => {
     status: "present" as "present" | "late" | "absent" | "leave",
   });
   const { toast } = useToast();
+  const canManageLocations = user?.accessRole === "super_admin" || user?.accessRole === "admin" || user?.role === "admin";
 
   const loadAttendance = useCallback(async () => {
     setLoading(true);
@@ -332,8 +336,8 @@ const AdminAttendance: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Attendance"
-        subtitle="Track employee attendance, manage missed check-in or check-out requests, and keep working hours accurate."
+        title="Attendance & Geo-fencing"
+        subtitle="Track attendance, review correction requests, and manage the live office boundaries used for geo-fenced check-ins and check-outs."
         action={
           <div className="flex gap-2">
             <Button
@@ -376,6 +380,7 @@ const AdminAttendance: React.FC = () => {
         <TabsList className="rounded-2xl bg-white p-1 shadow-card">
           <TabsTrigger value="attendance" className="rounded-xl px-4">Attendance Records</TabsTrigger>
           <TabsTrigger value="corrections" className="rounded-xl px-4">Correction Requests</TabsTrigger>
+          <TabsTrigger value="locations" className="rounded-xl px-4">Office Locations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="attendance">
@@ -464,6 +469,10 @@ const AdminAttendance: React.FC = () => {
               data={correctionRows}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="locations">
+          <OfficeLocationsManager canManage={Boolean(canManageLocations)} />
         </TabsContent>
       </Tabs>
 

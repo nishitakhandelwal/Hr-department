@@ -6,9 +6,11 @@ import {
   deleteAttendance,
   getAttendance,
   getAttendanceCorrectionRequests,
+  markGeoAttendance,
   requestAttendanceCorrection,
   reviewAttendanceCorrection,
   updateAttendance,
+  validateAttendanceLocation,
 } from "../controllers/attendanceController.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authorize, authorizeModule, protect } from "../middleware/authMiddleware.js";
@@ -19,6 +21,29 @@ router.use(protect, authorize("admin", "employee"));
 
 router.get("/", asyncHandler(getAttendance));
 router.post("/", authorize("admin", "employee"), authorizeModule("attendance"), asyncHandler(createAttendance));
+router.post(
+  "/validate-location",
+  authorize("employee"),
+  authorizeModule("attendance"),
+  [
+    body("latitude").isFloat({ min: -90, max: 90 }).withMessage("Latitude must be between -90 and 90."),
+    body("longitude").isFloat({ min: -180, max: 180 }).withMessage("Longitude must be between -180 and 180."),
+  ],
+  validateRequest,
+  asyncHandler(validateAttendanceLocation)
+);
+router.post(
+  "/mark",
+  authorize("employee"),
+  authorizeModule("attendance"),
+  [
+    body("action").isIn(["check-in", "check-out"]).withMessage("Action must be check-in or check-out."),
+    body("latitude").isFloat({ min: -90, max: 90 }).withMessage("Latitude must be between -90 and 90."),
+    body("longitude").isFloat({ min: -180, max: 180 }).withMessage("Longitude must be between -180 and 180."),
+  ],
+  validateRequest,
+  asyncHandler(markGeoAttendance)
+);
 router.post(
   "/override",
   authorize("admin"),

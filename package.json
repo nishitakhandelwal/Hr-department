@@ -11,5 +11,9 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1029.0",
+    "multer": "^2.1.1"
   }
 }

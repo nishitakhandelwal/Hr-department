@@ -35,6 +35,36 @@ npm run dev
 
 Backend runs on `http://localhost:5000` by default.
 
+## S3 File Upload
+
+Use the S3 upload route:
+
+- `POST /api/upload`
+- Body: `multipart/form-data`
+- File field: `file`
+- Optional text field: `type`
+
+Supported `type` values:
+
+- `profile` -> uploads to `profiles/`
+- `resume` -> uploads to `resumes/`
+- `idcard` -> uploads to `id-cards/`
+- any other value -> uploads to `documents/`
+
+Required AWS environment variables:
+
+- `AWS_ACCESS_KEY`
+- `AWS_SECRET_KEY`
+- `AWS_REGION`
+- `AWS_BUCKET_NAME`
+
+The returned URL is a public S3 object URL, so your bucket or object policy must allow public reads for uploaded files.
+
+Examples:
+
+- Express server example: [src/examples/s3UploadServer.example.js](./src/examples/s3UploadServer.example.js)
+- Postman example: [src/examples/s3Upload.postman.md](./src/examples/s3Upload.postman.md)
+
 ## MongoDB Atlas
 
 Set your Atlas connection string in `.env`:

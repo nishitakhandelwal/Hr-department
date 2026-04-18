@@ -11,6 +11,7 @@ import { maybeSendEmailBySettings } from "../services/runtimeBehaviorService.js"
 import { createNotificationForCandidate } from "../services/recruitmentWorkflowService.js";
 import { ensureEmployeeProfileForUser } from "../services/employeeProfileService.js";
 import { LOGO_URL } from "../utils/logo.js";
+import { renderPdfBufferFromHtml } from "../utils/pdfBrowser.js";
 import { generateOfferLetterHtml, generateInternshipLetterHtml } from "../lib/letterTemplates.js";
 
 const LETTER_FOLDER = path.join(uploadsDir, "letters");
@@ -69,59 +70,50 @@ const sanitizeFilename = (value, fallback = "offer-letter.pdf") => {
 };
 
 const generatePdfBufferFromHtml = async (htmlContent) => {
-  let browser;
-  try {
-    let puppeteerModule;
-    try {
-      puppeteerModule = await import("puppeteer");
-    } catch (error) {
-      if (error?.code === "ERR_MODULE_NOT_FOUND") {
-        const moduleError = new Error("PDF engine is not installed. Install `puppeteer` in backend dependencies.");
-        moduleError.statusCode = 503;
-        moduleError.code = "PDF_ENGINE_MISSING";
-        throw moduleError;
-      }
-      throw error;
-    }
-
-    browser = await puppeteerModule.default.launch({ headless: "new" });
-    const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
-
-    const pdfRaw = await page.pdf({
+  const pdfBuffer = await renderPdfBufferFromHtml(htmlContent, {
+    waitUntil: "domcontentloaded",
+    pdfOptions: {
       format: "A4",
       printBackground: true,
       margin: { top: "18mm", right: "12mm", bottom: "18mm", left: "12mm" },
-    });
+    },
+  });
 
-    const pdfBuffer = Buffer.isBuffer(pdfRaw) ? pdfRaw : Buffer.from(pdfRaw);
-    console.log(`[letters] PDF buffer size: ${pdfBuffer.length} bytes`);
-    if (!pdfBuffer.length) {
-      const error = new Error("Generated PDF buffer is empty.");
-      error.statusCode = 500;
-      throw error;
-    }
-    return pdfBuffer;
-  } finally {
-    if (browser) await browser.close();
+  console.log(`[letters] PDF buffer size: ${pdfBuffer.length} bytes`);
+  if (!pdfBuffer.length) {
+    const error = new Error("Generated PDF buffer is empty.");
+    error.statusCode = 500;
+    throw error;
   }
+
+  return pdfBuffer;
 };
 
 const defaultHeaderHtml = `
-<div style="text-align:center; font-family: Georgia, 'Times New Roman', serif; margin-bottom: 10px;">
-  <img src="${LOGO_URL}" style="width:120px;height:auto;display:block;margin:0 auto 10px auto;" alt="Company Logo" />
-  <div style="font-size:22px; font-weight:700;">${COMPANY_NAME}</div>
-  <div style="font-size:11px; margin-top:2px;">${COMPANY_META.iso}</div>
-  <div style="font-size:11px;">${COMPANY_META.cin} | ${COMPANY_META.gst}</div>
-  <div style="font-size:11px;">${COMPANY_META.address}</div>
-  <div style="font-size:11px;">${COMPANY_META.email} | ${COMPANY_META.website} | ${COMPANY_META.phone}</div>
+<div style="font-family: Georgia, 'Times New Roman', serif; margin-bottom: 10px;">
+  <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <tr>
+      <td style="vertical-align:middle; padding-right:12px;">
+        <div style="font-size:19px; font-weight:700; margin:0 0 3px 0;">${COMPANY_NAME}</div>
+        <div style="font-size:10px; line-height:1.2; margin:1px 0;">${COMPANY_META.iso}</div>
+        <div style="font-size:10px; line-height:1.2; margin:1px 0;">${COMPANY_META.address}</div>
+        <div style="font-size:10px; line-height:1.2; margin:1px 0;">CIN: ${COMPANY_META.cin} | GST: ${COMPANY_META.gst}</div>
+        <div style="font-size:10px; line-height:1.2; margin:1px 0;">Tel.: ${COMPANY_META.phone} | Email: ${COMPANY_META.email} | URL: ${COMPANY_META.website}</div>
+      </td>
+      <td style="width:110px; vertical-align:middle; text-align:right;">
+        <img src="${LOGO_URL}" style="width:82px;height:auto;display:inline-block;" alt="Company Logo" />
+      </td>
+    </tr>
+  </table>
   <hr style="margin-top:10px; border:none; border-top:1px solid #222;" />
 </div>`;
 
 const defaultFooterHtml = `
-<div style="font-size:10px; text-align:center; border-top:1px solid #444; padding-top:8px; color:#333;">
-  ${COMPANY_META.cin} | ${COMPANY_META.gst} | ${COMPANY_META.address}<br/>
-  ${COMPANY_META.email} | ${COMPANY_META.website} | ${COMPANY_META.phone}
+<div style="font-size:9px; line-height:1.15; text-align:center; border-top:1px solid #444; padding-top:5px; color:#333;">
+  <div style="margin:1px 0;"><strong>${COMPANY_NAME}</strong></div>
+  <div style="margin:1px 0;">${COMPANY_META.address}</div>
+  <div style="margin:1px 0;">Tel.: ${COMPANY_META.phone} | Email: ${COMPANY_META.email} | URL: ${COMPANY_META.website}</div>
+  <div style="margin:1px 0;">CIN: ${COMPANY_META.cin} | GST: ${COMPANY_META.gst}</div>
 </div>`;
 
 const defaultBody = (title) => `
@@ -194,7 +186,7 @@ const wrapPrintableHtml = ({ title, headerHtml, bodyHtml, footerHtml }) => `
   }
   .footer {
     bottom: 0;
-    padding: 6mm 0 0;
+    padding: 3mm 0 0;
     border-top: 1px solid #d4d4d8;
   }
 </style>
@@ -262,14 +254,9 @@ const writeHtmlAndPdf = async ({ html, letterNumber }) => {
   let pdfUrl = `/uploads/letters/${htmlName}`;
 
   try {
-    const puppeteerModule = await import("puppeteer");
-    const browser = await puppeteerModule.default.launch({ headless: "new" });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
     const pdfName = `${safe}.pdf`;
     const pdfPath = path.join(LETTER_FOLDER, pdfName);
-    await page.pdf({ path: pdfPath, format: "A4", printBackground: true, margin: { top: "18mm", right: "12mm", bottom: "18mm", left: "12mm" } });
-    await browser.close();
+    fs.writeFileSync(pdfPath, await generatePdfBufferFromHtml(html));
     pdfUrl = `/uploads/letters/${pdfName}`;
   } catch {
     // Fallback to HTML output if puppeteer is not installed.

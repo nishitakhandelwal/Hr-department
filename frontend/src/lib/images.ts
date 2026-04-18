@@ -1,6 +1,6 @@
 const rawApiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 export const API_ORIGIN = rawApiUrl.replace(/\/api\/?$/i, "");
-export const DEFAULT_LOGO_SRC = "/logo.png";
+export const DEFAULT_LOGO_SRC = "/company-logo.png";
 
 type ResolveImageUrlOptions = {
   fallbackSrc?: string;

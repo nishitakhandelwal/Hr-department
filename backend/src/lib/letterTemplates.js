@@ -44,7 +44,7 @@ const buildLetterDocument = ({ title, companyName, headerContent, footerContent,
     }
     .fixed-letter-footer {
       bottom: 0;
-      padding: 6mm 0 0;
+      padding: 3mm 0 0;
     }
     .header-line,
     .footer-line {
@@ -53,13 +53,16 @@ const buildLetterDocument = ({ title, companyName, headerContent, footerContent,
       margin: 0 0 8px;
     }
     .footer-line {
-      margin: 0 0 6px;
+      margin: 0 0 4px;
     }
     .letter-page { max-width: 210mm; margin: 0 auto; }
-    .letter-header { text-align: center; }
-    .letter-logo { width: 80px; height: auto; margin-bottom: 10px; }
-    .company-name { font-size: 18pt; font-weight: bold; margin: 0 0 5px 0; }
-    .company-meta { font-size: 10pt; margin: 2px 0; color: #555; }
+    .letter-header { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .letter-header td { vertical-align: top; }
+    .letter-header-company { padding-right: 12px; }
+    .letter-header-logo { width: 110px; text-align: right; vertical-align: middle; }
+    .letter-logo { width: 82px; height: auto; display: inline-block; }
+    .company-name { font-size: 16pt; font-weight: bold; margin: 0 0 3px 0; }
+    .company-meta { font-size: 9pt; margin: 1px 0; line-height: 1.2; color: #555; }
     .letter-title { text-align: center; font-size: 16pt; font-weight: bold; margin: 0 0 20px; text-transform: uppercase; letter-spacing: 1px; }
     .letter-date { text-align: right; margin-bottom: 20px; font-weight: bold; }
     .recipient-block p { margin: 0 0 3px 0; }
@@ -67,7 +70,8 @@ const buildLetterDocument = ({ title, companyName, headerContent, footerContent,
     .body-block p { text-align: justify; margin-bottom: 12px; }
     .signature-block { margin-top: 40px; text-align: right; }
     .signature-space { height: 40px; border-bottom: 1px solid #333; margin: 10px 0; }
-    .footer-block { text-align: center; font-size: 10pt; color: #666; }
+    .footer-block { text-align: center; font-size: 9pt; line-height: 1.15; color: #666; }
+    .footer-block p { margin: 1px 0; }
   </style>
 </head>
 <body>
@@ -107,14 +111,20 @@ const generateOfferLetterHtml = (data) => {
   } = data;
 
   const headerContent = `
-    <header class="letter-header">
-      <img src="${LOGO_URL}" alt="Company Logo" class="letter-logo" />
-      <div class="company-name">${companyName}</div>
-      <div class="company-meta">${ISO_LINE}</div>
-      <div class="company-meta">${COMPANY_ADDRESS}</div>
-      <div class="company-meta">CIN: ${CIN} | GST: ${GST}</div>
-      <div class="company-meta">${COMPANY_CONTACT}</div>
-    </header>
+    <table class="letter-header" role="presentation" cellspacing="0" cellpadding="0">
+      <tr>
+        <td class="letter-header-company">
+          <div class="company-name">${companyName}</div>
+          <div class="company-meta">${ISO_LINE}</div>
+          <div class="company-meta">${COMPANY_ADDRESS}</div>
+          <div class="company-meta">CIN: ${CIN} | GST: ${GST}</div>
+          <div class="company-meta">${COMPANY_CONTACT}</div>
+        </td>
+        <td class="letter-header-logo">
+          <img src="${LOGO_URL}" alt="Company Logo" class="letter-logo" />
+        </td>
+      </tr>
+    </table>
   `;
 
   const footerContent = `
@@ -179,14 +189,20 @@ const generateInternshipLetterHtml = (data) => {
   } = data;
 
   const headerContent = `
-    <header class="letter-header">
-      <img src="${LOGO_URL}" alt="Company Logo" class="letter-logo" />
-      <div class="company-name">${companyName}</div>
-      <div class="company-meta">${ISO_LINE}</div>
-      <div class="company-meta">${COMPANY_ADDRESS}</div>
-      <div class="company-meta">CIN: ${CIN} | GST: ${GST}</div>
-      <div class="company-meta">${COMPANY_CONTACT}</div>
-    </header>
+    <table class="letter-header" role="presentation" cellspacing="0" cellpadding="0">
+      <tr>
+        <td class="letter-header-company">
+          <div class="company-name">${companyName}</div>
+          <div class="company-meta">${ISO_LINE}</div>
+          <div class="company-meta">${COMPANY_ADDRESS}</div>
+          <div class="company-meta">CIN: ${CIN} | GST: ${GST}</div>
+          <div class="company-meta">${COMPANY_CONTACT}</div>
+        </td>
+        <td class="letter-header-logo">
+          <img src="${LOGO_URL}" alt="Company Logo" class="letter-logo" />
+        </td>
+      </tr>
+    </table>
   `;
 
   const footerContent = `

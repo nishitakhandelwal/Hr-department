@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Clock, FileClock, LogIn, LogOut } from "lucide-react";
+import { Clock, FileClock } from "lucide-react";
 
+import GeoAttendanceCard from "@/components/attendance/GeoAttendanceCard";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { DataTable, StatusBadge } from "@/components/DataTable";
@@ -29,6 +30,7 @@ import {
   apiService,
   type AttendanceCorrectionRequestRecord,
   type AttendanceRecord,
+  type GeoFenceValidationResult,
 } from "@/services/api";
 
 type AttendanceTableRow = {
@@ -36,6 +38,7 @@ type AttendanceTableRow = {
   date: string;
   checkIn: string;
   checkOut: string;
+  office: string;
   hours: string;
   status: string;
 };
@@ -59,13 +62,55 @@ const formatDateLabel = (value: string) =>
     year: "numeric",
   });
 
+const getCurrentCoordinates = () =>
+  new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("Geolocation is not supported in this browser."));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          reject(new Error("Location permission was denied. Please allow location access to mark attendance."));
+          return;
+        }
+        if (error.code === error.POSITION_UNAVAILABLE) {
+          reject(new Error("Your current location could not be determined. Please try again."));
+          return;
+        }
+        if (error.code === error.TIMEOUT) {
+          reject(new Error("Location request timed out. Please try again."));
+          return;
+        }
+        reject(new Error("Failed to fetch your current location."));
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  });
+
 const EmployeeAttendance: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [checkedIn, setCheckedIn] = useState(false);
+  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
+  const [locationStatus, setLocationStatus] = useState("");
+  const [locationError, setLocationError] = useState("");
+  const [validation, setValidation] = useState<GeoFenceValidationResult | null>(null);
   const [openCorrectionModal, setOpenCorrectionModal] = useState(false);
   const [attendanceRows, setAttendanceRows] = useState<AttendanceTableRow[]>([]);
   const [requestRows, setRequestRows] = useState<CorrectionTableRow[]>([]);
@@ -95,6 +140,10 @@ const EmployeeAttendance: React.FC = () => {
           date: formatDateLabel(entry.date),
           checkIn: entry.checkIn || "-",
           checkOut: entry.checkOut || "-",
+          office:
+            entry.checkOutLocation?.officeName ||
+            entry.checkInLocation?.officeName ||
+            "-",
           hours: entry.hoursWorked ? `${entry.hoursWorked}h` : "-",
           status: entry.status ? `${entry.status.charAt(0).toUpperCase()}${entry.status.slice(1)}` : "Present",
         }));
@@ -113,7 +162,8 @@ const EmployeeAttendance: React.FC = () => {
       setRequestRows(normalizedRequests);
 
       const today = new Date();
-      const latestToday = attendance.find((entry) => new Date(entry.date).toDateString() === today.toDateString());
+      const latestToday = attendance.find((entry) => new Date(entry.date).toDateString() === today.toDateString()) || null;
+      setTodayAttendance(latestToday);
       setCheckedIn(Boolean(latestToday?.checkIn && !latestToday?.checkOut));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load attendance";
@@ -132,37 +182,69 @@ const EmployeeAttendance: React.FC = () => {
     void loadAttendance();
   }, [loadAttendance]);
 
+  const handleRefreshLocation = useCallback(async () => {
+    setGeoLoading(true);
+    setLocationError("");
+    try {
+      const coordinates = await getCurrentCoordinates();
+      const result = await apiService.validateAttendanceLocation(coordinates);
+      setValidation(result);
+      setLocationStatus(result.message);
+      toast({
+        title: result.matched ? "Location verified" : "Outside office zone",
+        description: result.message,
+        variant: result.matched ? "default" : "destructive",
+      });
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to verify location";
+      setLocationError(message);
+      setLocationStatus("");
+      setValidation(null);
+      toast({
+        title: "Location error",
+        description: message,
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setGeoLoading(false);
+    }
+  }, [toast]);
+
   const handleToggle = async () => {
-    const now = new Date();
-    const dateISO = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-    const timeText = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    setGeoLoading(true);
+    setLocationError("");
 
     try {
-      const attendance = await apiService.list<AttendanceRecord>("attendance");
-      const today = attendance.find((entry) => new Date(entry.date).toDateString() === new Date(dateISO).toDateString());
+      const coordinates = await getCurrentCoordinates();
+      const action = checkedIn ? "check-out" : "check-in";
+      const result = await apiService.markAttendance({
+        action,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+      });
 
-      if (!today) {
-        await apiService.create("attendance", {
-          date: dateISO,
-          checkIn: timeText,
-          status: "present",
-        });
-        toast({ title: "Checked in", description: "Your check-in has been recorded successfully." });
-      } else if (!today.checkOut) {
-        await apiService.update("attendance", today._id, {
-          checkOut: timeText,
-          status: "present",
-        });
-        toast({ title: "Checked out", description: "Your check-out has been recorded successfully." });
-      }
+      setValidation(result.validation);
+      setLocationStatus(result.validation.message);
+      toast({
+        title: action === "check-in" ? "Checked in" : "Checked out",
+        description: result.validation.matchedLocation
+          ? `${result.attendance.checkIn && action === "check-in" ? "Attendance recorded" : "Attendance updated"} for ${result.validation.matchedLocation.name}.`
+          : "Attendance updated successfully.",
+      });
 
       await loadAttendance();
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to mark attendance";
+      setLocationError(message);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to mark attendance",
+        title: "Attendance error",
+        description: message,
         variant: "destructive",
       });
+    } finally {
+      setGeoLoading(false);
     }
   };
 
@@ -241,36 +323,29 @@ const EmployeeAttendance: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="My Attendance"
-        subtitle="Track daily attendance, request missed check-ins or check-outs, and follow approval status in one place."
+        subtitle="Mark geo-fenced attendance, review recorded office matches, and request missed check-ins or check-outs when needed."
         action={
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              onClick={() => setOpenCorrectionModal(true)}
-              className="gap-2 rounded-xl border-slate-200 bg-white/90 dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#23201D)] dark:text-[#E6C7A3] dark:hover:border-[rgba(230,199,163,0.22)] dark:hover:bg-[rgba(230,199,163,0.12)] dark:hover:text-[#F5F5F5]"
-            >
-              <FileClock className="h-4 w-4" />
-              Missed Check-in/Out
-            </Button>
-            <Button
-              onClick={() => void handleToggle()}
-              disabled={loading}
-              className={checkedIn ? "gap-2 bg-destructive text-destructive-foreground" : "gradient-primary gap-2 text-primary-foreground"}
-            >
-              {checkedIn ? (
-                <>
-                  <LogOut className="h-4 w-4" />
-                  Check Out
-                </>
-              ) : (
-                <>
-                  <LogIn className="h-4 w-4" />
-                  Check In
-                </>
-              )}
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            onClick={() => setOpenCorrectionModal(true)}
+            className="rounded-xl border-slate-200 bg-white/90 dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#23201D)] dark:text-[#E6C7A3] dark:hover:border-[rgba(230,199,163,0.22)] dark:hover:bg-[rgba(230,199,163,0.12)] dark:hover:text-[#F5F5F5]"
+          >
+            <FileClock className="mr-2 h-4 w-4" />
+            Missed Check-in/Out
+          </Button>
         }
+      />
+
+      <GeoAttendanceCard
+        loading={loading}
+        locating={geoLoading}
+        checkedIn={checkedIn}
+        statusMessage={locationStatus}
+        locationError={locationError}
+        validation={validation}
+        todayAttendance={todayAttendance}
+        onRefreshLocation={handleRefreshLocation}
+        onToggleAttendance={handleToggle}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -289,7 +364,7 @@ const EmployeeAttendance: React.FC = () => {
         <section className="space-y-4 rounded-[28px] border bg-white p-5 shadow-card sm:p-6 dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#111111,#1A1816)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
           <div>
             <h2 className="text-lg font-semibold text-slate-950 dark:text-[#F5F5F5]">Attendance Log</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Your recorded check-in, check-out, and working hours.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Your recorded attendance history, including the office that matched your geo-fenced check-in or check-out.</p>
           </div>
           {loading ? (
             <div className="text-sm text-muted-foreground">Loading attendance...</div>
@@ -299,6 +374,7 @@ const EmployeeAttendance: React.FC = () => {
                 { key: "date", label: "Date" },
                 { key: "checkIn", label: "Check In" },
                 { key: "checkOut", label: "Check Out" },
+                { key: "office", label: "Office" },
                 { key: "hours", label: "Hours" },
                 { key: "status", label: "Status", render: (item) => <StatusBadge status={String(item.status)} /> },
               ]}

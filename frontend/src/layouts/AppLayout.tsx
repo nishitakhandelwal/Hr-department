@@ -80,7 +80,10 @@ const formatTimeAgo = (isoDate: string) => {
 
 const normalizeCompanyName = (value?: string | null) => {
   const trimmedValue = value?.trim();
-  return trimmedValue || "Company";
+  if (!trimmedValue || trimmedValue.toLowerCase() === "hr harmony hub") {
+    return "Arihant Dream Infra Project Ltd.";
+  }
+  return trimmedValue;
 };
 
 const HIDDEN_NAV_ITEM_IDS = new Set(["admin.calendar"]);

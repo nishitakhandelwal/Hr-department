@@ -89,12 +89,14 @@ const CandidateApply: React.FC = () => {
   const sectionTitleClassName = "text-[30px] font-semibold tracking-tight text-[#f6efe5]";
   const sectionBodyClassName = "text-sm text-[#c8b8a6]";
   const labelClassName = "text-sm font-medium text-[#d6b27c]";
+  const cardContentClassName = "bg-transparent text-[#c8b8a6]";
   const fieldClassName =
     "border-[rgba(230,199,163,0.14)] bg-[#2a2724] text-[#f5efe7] placeholder:text-[#9f907f] shadow-[0_10px_30px_rgba(0,0,0,0.22)] hover:border-[#c69442]/45 focus-visible:border-[#d6b27c] focus-visible:ring-[#d6b27c]/20 [color-scheme:dark]";
   const selectTriggerClassName =
     "border-[rgba(230,199,163,0.14)] bg-[#161413] text-[#f5efe7] shadow-[0_10px_30px_rgba(0,0,0,0.22)] hover:border-[#c69442]/45 focus:ring-[#d6b27c]/20 data-[placeholder]:text-[#9f907f]";
   const selectContentClassName = "border-[rgba(230,199,163,0.14)] bg-[#1b1817] text-[#f5efe7]";
   const selectItemClassName = "text-[#f5efe7] focus:bg-[rgba(214,178,124,0.14)] focus:text-[#f6d7a5]";
+  const outlineButtonClassName = "border-[rgba(230,199,163,0.16)] bg-[rgba(36,31,29,0.92)] text-[#f0dfc7] hover:border-[#d6b27c]/40 hover:bg-[rgba(56,46,39,0.96)] hover:text-[#f6efe5]";
 
   useEffect(() => {
     if (!isCandidateUser) return;
@@ -245,7 +247,7 @@ const CandidateApply: React.FC = () => {
           <CardHeader>
             <CardTitle className="text-[28px] font-semibold text-[#7a5720]">Candidate Portal Workflow</CardTitle>
           </CardHeader>
-          <CardContent className={sectionBodyClassName}>
+          <CardContent className={`${cardContentClassName} ${sectionBodyClassName}`}>
             Stage 1: Application Form. Stage 2: HR Review and Interview Processing. Stage 3: Final Decision.
             {isCandidateUser && (
               <div className="mt-2 text-[#efe2d1]">
@@ -262,7 +264,7 @@ const CandidateApply: React.FC = () => {
           <CardHeader>
             <CardTitle className={sectionTitleClassName}>Stage 1: Candidate Application Form</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className={cardContentClassName}>
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
@@ -391,7 +393,7 @@ const CandidateApply: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-[#f0dfc7]">Qualification Details</h3>
-                  <Button type="button" variant="outline" disabled={isLocked} onClick={() => setQualifications((prev) => [...prev, emptyQualification()])}>
+                  <Button type="button" variant="outline" className={outlineButtonClassName} disabled={isLocked} onClick={() => setQualifications((prev) => [...prev, emptyQualification()])}>
                     Add Row
                   </Button>
                 </div>
@@ -460,6 +462,7 @@ const CandidateApply: React.FC = () => {
 
               <div className="flex items-start gap-2 rounded-[22px] border border-[rgba(230,199,163,0.14)] bg-[rgba(36,31,29,0.86)] p-4 shadow-[0_16px_40px_rgba(0,0,0,0.22)]">
                 <Checkbox
+                  className="border-[rgba(230,199,163,0.24)] data-[state=checked]:border-[#d6b27c] data-[state=checked]:bg-[#d6b27c] data-[state=checked]:text-[#1a1714]"
                   disabled={isLocked}
                   checked={form.declarationAccepted}
                   onCheckedChange={(checked) => setForm((prev) => ({ ...prev, declarationAccepted: Boolean(checked) }))}

@@ -1,49 +1,9 @@
 import ExcelJS from "exceljs";
 import { parse as jsonToCsv } from "json2csv";
-import puppeteer from "puppeteer";
 import { EXPORT_COMPANY } from "./exportConstants.js";
-
-let browserPromise = null;
+import { getSharedPdfBrowser } from "../../utils/pdfBrowser.js";
 const EXCEL_FAST_MODE_ROW_THRESHOLD = 400;
 const PDF_FAST_MODE_ROW_THRESHOLD = 250;
-
-const getSharedBrowser = async () => {
-  if (!browserPromise) {
-    browserPromise = puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    }).catch((error) => {
-      browserPromise = null;
-      throw error;
-    });
-  }
-
-  return browserPromise;
-};
-
-const closeSharedBrowser = async () => {
-  if (!browserPromise) return;
-  try {
-    const browser = await browserPromise;
-    await browser.close();
-  } catch {
-    // no-op
-  } finally {
-    browserPromise = null;
-  }
-};
-
-process.once("exit", () => {
-  void closeSharedBrowser();
-});
-
-process.once("SIGINT", () => {
-  void closeSharedBrowser().finally(() => process.exit(0));
-});
-
-process.once("SIGTERM", () => {
-  void closeSharedBrowser().finally(() => process.exit(0));
-});
 
 const formatExportedAt = (date = new Date()) =>
   date.toLocaleString("en-IN", {
@@ -352,7 +312,7 @@ const buildPdfHtml = ({ reportTitle, rows, columns }) => {
 
 export const exportPDF = async ({ reportTitle, rows, columns, logoDataUri }) => {
   const useFastMode = rows.length >= PDF_FAST_MODE_ROW_THRESHOLD;
-  const browser = await getSharedBrowser();
+  const browser = await getSharedPdfBrowser();
   const page = await browser.newPage();
 
   try {

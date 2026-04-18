@@ -46,6 +46,19 @@ const EDITABLE_LABELS = [
 
 const cloneConfig = (value: RuntimeConfigPayload): RuntimeConfigPayload => JSON.parse(JSON.stringify(value)) as RuntimeConfigPayload;
 
+const statCardClassName =
+  "overflow-hidden border border-[var(--portal-surface-border)] bg-[linear-gradient(145deg,var(--portal-surface-bg-strong),var(--portal-subtle-surface))] text-[var(--portal-heading-color)] shadow-[var(--shadow-card)]";
+const panelCardClassName =
+  "border border-[var(--portal-surface-border)] bg-[linear-gradient(145deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] text-[var(--portal-heading-color)] shadow-[var(--shadow-card)]";
+const rowCardClassName =
+  "flex items-center justify-between rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] px-4 py-4";
+const subRowCardClassName =
+  "flex items-center justify-between rounded-xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg)] px-3 py-2";
+const fieldInputClassName =
+  "border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg)] text-[var(--portal-heading-color)] placeholder:text-[var(--portal-muted-color)]";
+const switchClassName =
+  "data-[state=checked]:bg-[var(--portal-primary-solid)] data-[state=unchecked]:bg-[var(--portal-primary-faint)]";
+
 const formatLogTime = (value?: string) => {
   if (!value) return "-";
   const parsed = new Date(value);
@@ -214,14 +227,14 @@ const SuperAdminDashboard: React.FC = () => {
           { label: "Visible Portals", value: overview.visiblePortals, icon: Eye },
           { label: "Enabled Features", value: overview.enabledFeatures, icon: Sparkles },
         ].map((item) => (
-          <Card key={item.label} className="overflow-hidden border-white/10 bg-[linear-gradient(145deg,rgba(14,14,18,0.92),rgba(28,28,36,0.82))] text-white shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+          <Card key={item.label} className={statCardClassName}>
             <CardContent className="flex items-center justify-between p-6">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-white/50">{item.label}</p>
+                <p className="text-xs uppercase tracking-[0.24em] text-[var(--portal-muted-color)]">{item.label}</p>
                 <p className="mt-3 text-3xl font-semibold">{statsLoading ? "--" : item.value}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                <item.icon className="h-6 w-6 text-[#d8b48a]" />
+              <div className="rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-primary-faint)] p-3">
+                <item.icon className="h-6 w-6 text-[var(--portal-primary-solid)]" />
               </div>
             </CardContent>
           </Card>
@@ -229,21 +242,22 @@ const SuperAdminDashboard: React.FC = () => {
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.25fr,0.95fr]">
-        <Card className="border-white/10 bg-[linear-gradient(145deg,rgba(8,8,10,0.94),rgba(24,24,30,0.9))] text-white shadow-[0_20px_50px_rgba(0,0,0,0.3)]">
+        <Card className={panelCardClassName}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <ShieldCheck className="h-5 w-5 text-[#d8b48a]" />
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-[var(--portal-primary-solid)]" />
               Feature Control Panel
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {FEATURE_TOGGLES.map((item) => (
-              <div key={item.key} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+              <div key={item.key} className={rowCardClassName}>
                 <div className="max-w-xl">
-                  <p className="font-medium text-white">{getLabel(item.labelKey, item.key)}</p>
-                  <p className="mt-1 text-sm text-white/55">{item.description}</p>
+                  <p className="font-medium text-[var(--portal-heading-color)]">{getLabel(item.labelKey, item.key)}</p>
+                  <p className="mt-1 text-sm text-[var(--portal-copy-color)]">{item.description}</p>
                 </div>
                 <Switch
+                  className={switchClassName}
                   checked={draftConfig.features?.[item.key] !== false}
                   onCheckedChange={(checked) => updateFeature(item.key, checked)}
                 />
@@ -252,17 +266,17 @@ const SuperAdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-white/10 bg-[linear-gradient(145deg,rgba(8,8,10,0.94),rgba(24,24,30,0.9))] text-white shadow-[0_20px_50px_rgba(0,0,0,0.3)]">
+        <Card className={panelCardClassName}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Palette className="h-5 w-5 text-[#d8b48a]" />
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5 text-[var(--portal-primary-solid)]" />
               System Settings
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-white/70">Primary Color</Label>
+                <Label className="text-[var(--portal-copy-color)]">Primary Color</Label>
                 <Input
                   value={draftConfig.theme.primaryColor}
                   onChange={(event) =>
@@ -271,11 +285,11 @@ const SuperAdminDashboard: React.FC = () => {
                       theme: { ...current.theme, primaryColor: event.target.value },
                     }))
                   }
-                  className="border-white/10 bg-white/5 text-white"
+                  className={fieldInputClassName}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-white/70">Default Landing Page</Label>
+                <Label className="text-[var(--portal-copy-color)]">Default Landing Page</Label>
                 <Input
                   value={draftConfig.preferences.defaultDashboardPage}
                   onChange={(event) =>
@@ -284,17 +298,18 @@ const SuperAdminDashboard: React.FC = () => {
                       preferences: { ...current.preferences, defaultDashboardPage: event.target.value },
                     }))
                   }
-                  className="border-white/10 bg-white/5 text-white"
+                  className={fieldInputClassName}
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+            <div className={rowCardClassName}>
               <div>
-                <p className="font-medium text-white">Dark Theme Mode</p>
-                <p className="mt-1 text-sm text-white/55">Set the renderer theme default for the full application.</p>
+                <p className="font-medium text-[var(--portal-heading-color)]">Dark Theme Mode</p>
+                <p className="mt-1 text-sm text-[var(--portal-copy-color)]">Set the renderer theme default for the full application.</p>
               </div>
               <Switch
+                className={switchClassName}
                 checked={draftConfig.theme.mode === "dark"}
                 onCheckedChange={(checked) =>
                   setDraftConfig((current) => ({
@@ -307,15 +322,16 @@ const SuperAdminDashboard: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <p className="text-sm font-medium text-white/80">Portal Visibility</p>
+              <p className="text-sm font-medium text-[var(--portal-heading-color)]">Portal Visibility</p>
               {[
                 { key: "admin", label: "Admin Portal" },
                 { key: "employee", label: "Employee Portal" },
                 { key: "candidate", label: "Candidate Portal" },
               ].map((portal) => (
-                <div key={portal.key} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                  <span className="text-sm text-white">{portal.label}</span>
+                <div key={portal.key} className="flex items-center justify-between rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] px-4 py-3">
+                  <span className="text-sm text-[var(--portal-heading-color)]">{portal.label}</span>
                   <Switch
+                    className={switchClassName}
                     checked={draftConfig.portalVisibility?.[portal.key] !== false}
                     onCheckedChange={(checked) => updatePortalVisibility(portal.key, checked)}
                   />
@@ -324,10 +340,10 @@ const SuperAdminDashboard: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <p className="text-sm font-medium text-white/80">Runtime Labels</p>
+              <p className="text-sm font-medium text-[var(--portal-heading-color)]">Runtime Labels</p>
               {EDITABLE_LABELS.map((item) => (
                 <div key={item.key} className="space-y-2">
-                  <Label className="text-white/70">{item.title}</Label>
+                  <Label className="text-[var(--portal-copy-color)]">{item.title}</Label>
                   <Input
                     value={draftConfig.labels?.[item.key] || ""}
                     onChange={(event) =>
@@ -339,7 +355,7 @@ const SuperAdminDashboard: React.FC = () => {
                         },
                       }))
                     }
-                    className="border-white/10 bg-white/5 text-white"
+                    className={fieldInputClassName}
                   />
                 </div>
               ))}
@@ -349,27 +365,28 @@ const SuperAdminDashboard: React.FC = () => {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
-        <Card className="border-white/10 bg-[linear-gradient(145deg,rgba(8,8,10,0.94),rgba(24,24,30,0.9))] text-white shadow-[0_20px_50px_rgba(0,0,0,0.3)]">
+        <Card className={panelCardClassName}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Eye className="h-5 w-5 text-[#d8b48a]" />
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-[var(--portal-primary-solid)]" />
               Role Visibility Control
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {roleVisibilityMatrix.map((module) => (
-              <div key={module.routeKey} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div key={module.routeKey} className="rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-white">{module.label}</p>
-                    <p className="text-sm text-white/55">{module.routeKey}</p>
+                    <p className="font-medium text-[var(--portal-heading-color)]">{module.label}</p>
+                    <p className="text-sm text-[var(--portal-copy-color)]">{module.routeKey}</p>
                   </div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {module.allowedAccessRoles.map((role) => (
-                    <div key={`${module.routeKey}-${role}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                      <span className="text-sm text-white/80">{ROLE_LABELS[role]}</span>
+                    <div key={`${module.routeKey}-${role}`} className={subRowCardClassName}>
+                      <span className="text-sm text-[var(--portal-heading-color)]">{ROLE_LABELS[role]}</span>
                       <Switch
+                        className={switchClassName}
                         checked={module.activeRoles.includes(role)}
                         onCheckedChange={(checked) => updateRoleVisibility(module.routeKey, role, checked)}
                       />
@@ -381,28 +398,28 @@ const SuperAdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-white/10 bg-[linear-gradient(145deg,rgba(8,8,10,0.94),rgba(24,24,30,0.9))] text-white shadow-[0_20px_50px_rgba(0,0,0,0.3)]">
+        <Card className={panelCardClassName}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Activity className="h-5 w-5 text-[#d8b48a]" />
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-[var(--portal-primary-solid)]" />
               Recent Activity
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {activityLogs.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-white/55">
+              <div className="rounded-2xl border border-dashed border-[var(--portal-surface-border)] px-4 py-8 text-center text-sm text-[var(--portal-copy-color)]">
                 No recent activity logs available.
               </div>
             ) : (
               activityLogs.map((log) => (
-                <div key={log._id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                <div key={log._id} className="rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] px-4 py-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium text-white">{log.action}</p>
-                      <p className="mt-1 text-sm text-white/55">{log.userName} • {log.userRole}</p>
-                      <p className="mt-2 text-xs text-white/45">{log.details || "No additional details."}</p>
+                      <p className="font-medium text-[var(--portal-heading-color)]">{log.action}</p>
+                      <p className="mt-1 text-sm text-[var(--portal-copy-color)]">{log.userName} • {log.userRole}</p>
+                      <p className="mt-2 text-xs text-[var(--portal-muted-color)]">{log.details || "No additional details."}</p>
                     </div>
-                    <span className="text-xs text-white/45">{formatLogTime(log.createdAt)}</span>
+                    <span className="text-xs text-[var(--portal-muted-color)]">{formatLogTime(log.createdAt)}</span>
                   </div>
                 </div>
               ))

@@ -54,14 +54,18 @@ export const ensureHolidayDateUniqueIndex = async () => {
   await Holiday.collection.createIndex({ date: 1 }, { unique: true, name: "holiday_date_unique" });
 };
 
-export const runDataLifecycleMaintenance = async () => {
+export const runDataLifecycleMaintenance = async ({ includeHolidayCleanup = true } = {}) => {
   const [expiredActivities, expiredNotifications, duplicateHolidays] = await Promise.all([
     deleteExpiredUserActivities(),
     deleteExpiredNotifications(),
-    cleanupDuplicateHolidayRecords(),
+    includeHolidayCleanup
+      ? cleanupDuplicateHolidayRecords()
+      : Promise.resolve(0),
   ]);
 
-  await ensureHolidayDateUniqueIndex();
+  if (includeHolidayCleanup) {
+    await ensureHolidayDateUniqueIndex();
+  }
 
   return {
     expiredActivities,
@@ -76,7 +80,10 @@ export const startDataLifecycleScheduler = () => {
     "0 2 * * *",
     async () => {
       try {
-        const result = await runDataLifecycleMaintenance();
+        const result = await runDataLifecycleMaintenance({
+          // Disabled automatic holiday duplicate cleanup for safety.
+          includeHolidayCleanup: false,
+        });
         console.log("[Data Lifecycle] Daily cleanup completed", result);
       } catch (error) {
         console.error("[Data Lifecycle] Daily cleanup failed:", error instanceof Error ? error.message : error);

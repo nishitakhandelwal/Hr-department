@@ -70,7 +70,8 @@ const AdminDashboard: React.FC = () => {
   const priorityHiringLabel = useLabel("admin.dashboard.widget.priority.hiring");
   const emptyEmployeesTitle = useLabel("admin.dashboard.empty.title");
   const emptyEmployeesDescription = useLabel("admin.dashboard.empty.description");
-  const [loading, setLoading] = React.useState(false);
+  const [initialLoading, setInitialLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
   const [summary, setSummary] = React.useState<AdminDashboardSummary>({
     activeEmployeesCount: 0,
     applicationsUnderReview: 0,
@@ -83,9 +84,22 @@ const AdminDashboard: React.FC = () => {
     events: [],
   });
   const [employees, setEmployees] = React.useState<EmployeeRecord[]>([]);
+  const hasLoadedOnceRef = React.useRef(false);
+  const refreshInFlightRef = React.useRef(false);
   const refreshDashboard = React.useCallback(
-    async (showErrorToast = true) => {
-      setLoading(true);
+    async (options?: { showErrorToast?: boolean; silent?: boolean }) => {
+      const showErrorToast = options?.showErrorToast ?? true;
+      const silent = options?.silent ?? hasLoadedOnceRef.current;
+
+      if (refreshInFlightRef.current) return;
+      refreshInFlightRef.current = true;
+
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setInitialLoading(true);
+      }
+
       try {
         const [dashboardSummary, employeeRows] = await Promise.all([
           apiService.getAdminDashboardSummary(),
@@ -96,6 +110,7 @@ const AdminDashboard: React.FC = () => {
           setSummary(dashboardSummary);
           setEmployees(employeeRows);
         });
+        hasLoadedOnceRef.current = true;
       } catch (error) {
         if (showErrorToast) {
           toast({
@@ -105,7 +120,9 @@ const AdminDashboard: React.FC = () => {
           });
         }
       } finally {
-        setLoading(false);
+        refreshInFlightRef.current = false;
+        setRefreshing(false);
+        setInitialLoading(false);
       }
     },
     [errorTitle, toast]
@@ -115,11 +132,15 @@ const AdminDashboard: React.FC = () => {
     void refreshDashboard();
 
     const intervalId = window.setInterval(() => {
-      void refreshDashboard(false);
+      if (document.visibilityState === "visible") {
+        void refreshDashboard({ showErrorToast: false, silent: true });
+      }
     }, 30000);
 
     const handleWindowFocus = () => {
-      void refreshDashboard(false);
+      if (document.visibilityState === "visible") {
+        void refreshDashboard({ showErrorToast: false, silent: true });
+      }
     };
 
     window.addEventListener("focus", handleWindowFocus);
@@ -185,7 +206,7 @@ const AdminDashboard: React.FC = () => {
 
   const employeeRows = React.useMemo(() => employees.slice(0, 12), [employees]);
 
-  if (loading && summary.totalEmployees === 0 && employees.length === 0) {
+  if (initialLoading && summary.totalEmployees === 0 && employees.length === 0) {
     return <PortalDashboardSkeleton />;
   }
 
@@ -328,7 +349,7 @@ const AdminDashboard: React.FC = () => {
         subtitle={rosterSubtitle}
         columns={employeeColumns}
         rows={employeeRows}
-        loading={loading}
+        loading={initialLoading || refreshing}
         pageSize={6}
         emptyTitle={emptyEmployeesTitle}
         emptyDescription={emptyEmployeesDescription}

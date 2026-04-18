@@ -21,6 +21,7 @@ import {
   validateUploadedFileAgainstSettings,
 } from "../services/runtimeBehaviorService.js";
 import { uploadsDir } from "../utils/paths.js";
+import { renderPdfBufferFromHtml } from "../utils/pdfBrowser.js";
 import { secureUploadUrls } from "../utils/uploadAccess.js";
 
 const STATUS_TRANSITIONS = {
@@ -161,24 +162,19 @@ const generateOfferLetterNumber = async () => {
 };
 
 const generateOfferPdfBuffer = async (htmlContent) => {
-  let browser;
   try {
-    const puppeteerModule = await import("puppeteer");
-    browser = await puppeteerModule.default.launch({ headless: "new" });
-    const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
-    const pdfRaw = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      margin: { top: "18mm", right: "12mm", bottom: "18mm", left: "12mm" },
+    return await renderPdfBufferFromHtml(htmlContent, {
+      waitUntil: "domcontentloaded",
+      pdfOptions: {
+        format: "A4",
+        printBackground: true,
+        margin: { top: "18mm", right: "12mm", bottom: "18mm", left: "12mm" },
+      },
     });
-    return Buffer.isBuffer(pdfRaw) ? pdfRaw : Buffer.from(pdfRaw);
   } catch (error) {
     const pdfError = new Error(error instanceof Error ? error.message : "Failed to generate offer letter PDF.");
     pdfError.statusCode = error?.statusCode || 500;
     throw pdfError;
-  } finally {
-    if (browser) await browser.close();
   }
 };
 
