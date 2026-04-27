@@ -58,6 +58,27 @@ const safeDefaultConfig: RuntimeConfigPayload = {
   routes: {},
 };
 
+const safePublicSettings: PublicSettingsPayload = {
+  company: safeDefaultConfig.company,
+  preferences: safeDefaultConfig.preferences,
+  security: safeDefaultConfig.security,
+  documents: {
+    allowedFileTypes: ["application/pdf", "image/jpeg", "image/png"],
+    maxUploadSizeMb: 10,
+    candidateFields: [
+      { fieldId: "resume", label: "Resume", status: "required" },
+      { fieldId: "pan-card", label: "PAN Card", status: "optional" },
+      { fieldId: "aadhaar-card", label: "Aadhaar Card", status: "optional" },
+      { fieldId: "passport-size-photo", label: "Passport Size Photo", status: "optional" },
+      { fieldId: "certificates", label: "Certificates", status: "optional" },
+    ],
+    certificateTypes: [
+      { typeId: "education", label: "Educational Certificate" },
+      { typeId: "experience", label: "Experience Certificate" },
+    ],
+  },
+};
+
 type SystemSettingsContextType = {
   config: RuntimeConfigPayload;
   publicSettings: PublicSettingsPayload;
@@ -287,6 +308,7 @@ export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = (
       company: config.company,
       preferences: config.preferences,
       security: config.security,
+      documents: safePublicSettings.documents,
     }),
     [config.company, config.preferences, config.security]
   );

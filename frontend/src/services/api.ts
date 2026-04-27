@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 
 const TOKEN_KEY = "hr_auth_token";
 const USER_KEY = "hr_auth_user";
@@ -7,12 +7,49 @@ const AUTH_COOKIE_KEY = "hr_auth_token";
 
 const rawApiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const API_BASE_URL = rawApiUrl.endsWith("/api") ? rawApiUrl : `${rawApiUrl}/api`;
+const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE_URL).origin;
+  } catch {
+    return "";
+  }
+})();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
   timeout: 20000,
 });
+
+const inflightGetRequests = new Map<string, Promise<AxiosResponse<unknown>>>();
+const stableStringify = (value: unknown): string => {
+  if (!value || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  return `{${Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`)
+    .join(",")}}`;
+};
+const buildGetRequestKey = (url: string, config?: AxiosRequestConfig) =>
+  stableStringify({
+    baseURL: config?.baseURL || API_BASE_URL,
+    url,
+    params: config?.params || null,
+    responseType: config?.responseType || "json",
+  });
+const originalGet = api.get.bind(api);
+
+api.get = (<T = unknown, R = AxiosResponse<T>, D = unknown>(url: string, config?: AxiosRequestConfig<D>) => {
+  const key = buildGetRequestKey(url, config);
+  const existing = inflightGetRequests.get(key);
+  if (existing) return existing as Promise<R>;
+
+  const request = originalGet<T, R, D>(url, config).finally(() => {
+    inflightGetRequests.delete(key);
+  }) as Promise<R>;
+  inflightGetRequests.set(key, request as Promise<AxiosResponse<unknown>>);
+  return request;
+}) as typeof api.get;
 
 export type ApiClientError = Error & {
   status?: number;
@@ -240,9 +277,9 @@ export type CandidateRecord = {
     notes?: string;
   };
   documents?: {
-    resume?: { url?: string; originalName?: string; uploadedAt?: string | null };
-    certificates?: { url?: string; originalName?: string; uploadedAt?: string | null };
-    uploadedFiles?: Array<{ url?: string; originalName?: string; uploadedAt?: string | null }>;
+    resume?: { documentId?: string; fieldId?: string; label?: string; categoryId?: string; categoryLabel?: string; url?: string; originalName?: string; mimeType?: string; size?: number; uploadedAt?: string | null };
+    certificates?: { documentId?: string; fieldId?: string; label?: string; categoryId?: string; categoryLabel?: string; url?: string; originalName?: string; mimeType?: string; size?: number; uploadedAt?: string | null };
+    uploadedFiles?: Array<{ documentId?: string; fieldId?: string; label?: string; categoryId?: string; categoryLabel?: string; url?: string; originalName?: string; mimeType?: string; size?: number; uploadedAt?: string | null }>;
   };
   videoIntroduction?: {
     url?: string;
@@ -897,6 +934,15 @@ export type SettingsPayload = {
     maxUploadSizeMb: number;
     storageLocation: string;
     namingFormat: string;
+    candidateFields: Array<{
+      fieldId: string;
+      label: string;
+      status: "required" | "optional" | "disabled";
+    }>;
+    certificateTypes: Array<{
+      typeId: string;
+      label: string;
+    }>;
   };
   audit: {
     loggingEnabled: boolean;
@@ -910,6 +956,7 @@ export type PublicSettingsPayload = {
   security: {
     otpLoginEnabled: boolean;
   };
+  documents: Pick<SettingsPayload["documents"], "allowedFileTypes" | "maxUploadSizeMb" | "candidateFields" | "certificateTypes">;
 };
 
 export type RuntimePermissionMap = Record<string, Record<string, boolean>>;
@@ -988,6 +1035,16 @@ export type UpcomingEventsList = {
   allEvents: CalendarEvent[];
 };
 
+const uploadProfilePhotoRequest = async (file: File) => {
+  const formData = new FormData();
+  formData.append("profileImage", file);
+  const { data } = await api.post<{ success: boolean; message: string; data: { imageUrl: string; user: AuthUser } }>(
+    "/upload-profile",
+    formData
+  );
+  return data.data.user;
+};
+
 export const apiService = {
   async login(email: string, password: string, otp?: string) {
     const { data } = await api.post<AuthPayload>("/auth/login", {
@@ -1018,22 +1075,29 @@ export const apiService = {
     return data.user;
   },
   async uploadMyProfilePhoto(file: File) {
-    const formData = new FormData();
-    formData.append("profileImage", file);
-    const { data } = await api.post<{ success: boolean; message: string; data: { imageUrl: string; user: AuthUser } }>(
-      "/upload-profile",
-      formData
-    );
-    return data.data.user;
+    return uploadProfilePhotoRequest(file);
   },
   async updateMyProfilePhoto(file: File) {
+    return uploadProfilePhotoRequest(file);
+  },
+  async uploadFile(file: File, type?: "profile" | "resume" | "idcard" | "document") {
     const formData = new FormData();
-    formData.append("profileImage", file);
-    const { data } = await api.post<{ success: boolean; message: string; data: { imageUrl: string; user: AuthUser } }>(
-      "/upload-profile",
-      formData
-    );
-    return data.data.user;
+    formData.append("file", file);
+    if (type) formData.append("type", type === "document" ? "document" : type);
+    const { data } = await api.post<
+      ApiResponse<{
+        type: string;
+        folder: string;
+        key: string;
+        url: string;
+        bucket: string;
+        region: string;
+        originalName: string;
+        mimeType: string;
+        size: number;
+      }>
+    >("/upload", formData);
+    return data.data;
   },
   async removeMyProfilePhoto() {
     const { data } = await api.delete<{ success: boolean; message: string; user: AuthUser }>("/auth/remove-profile-image");
@@ -1457,6 +1521,7 @@ export const apiService = {
         leaveRows: Array<{ fromDate?: string; toDate?: string; status?: string }>;
         payrollRows: Array<{ month?: string; netSalary?: number }>;
         approvedLeaveDays: number;
+        profile?: EmployeeRecord;
       }>
     >("/employee/dashboard-summary");
     return data.data;
@@ -1476,17 +1541,23 @@ export const apiService = {
     return data.data;
   },
   async updateMyCandidateDocuments(payload: {
-    resume?: File | null;
-    certificates?: File | null;
-    files?: File[];
+    documents: Record<string, File | null | undefined>;
+    certificateTypeId?: string;
   }) {
     const formData = new FormData();
-    if (payload.resume) formData.append("resume", payload.resume);
-    if (payload.certificates) formData.append("certificates", payload.certificates);
-    for (const file of payload.files || []) {
-      formData.append("files", file);
+    Object.entries(payload.documents || {}).forEach(([fieldId, file]) => {
+      if (file) formData.append(fieldId, file);
+    });
+    if (payload.certificateTypeId) {
+      formData.append("certificateTypeId", payload.certificateTypeId);
     }
     const { data } = await api.put<ApiResponse<CandidateRecord>>("/candidate/me/documents", formData);
+    return data.data;
+  },
+  async deleteMyCandidateDocument(fieldId: string, options?: { documentId?: string }) {
+    const { data } = await api.delete<ApiResponse<CandidateRecord>>(`/candidate/me/documents/${encodeURIComponent(fieldId)}`, {
+      params: options?.documentId ? { documentId: options.documentId } : undefined,
+    });
     return data.data;
   },
   async submitCandidateStage2(payload: {
@@ -1864,7 +1935,28 @@ export const apiService = {
     return data.data;
   },
   async downloadProtectedFile(fileUrl: string) {
-    const response = await api.get<Blob>(fileUrl, { responseType: "blob" });
+    const normalizedUrl = String(fileUrl || "").trim();
+    if (!normalizedUrl) {
+      throw new Error("File URL is missing.");
+    }
+
+    try {
+      const parsedUrl = new URL(normalizedUrl);
+      if (parsedUrl.origin && parsedUrl.origin !== API_ORIGIN) {
+        const response = await fetch(parsedUrl.toString(), {
+          method: "GET",
+          credentials: "omit",
+        });
+        if (!response.ok) {
+          throw new Error(`Unable to open file (${response.status}).`);
+        }
+        return await response.blob();
+      }
+    } catch {
+      // Relative URL or invalid absolute URL: fall back to the API client.
+    }
+
+    const response = await api.get<Blob>(normalizedUrl, { responseType: "blob" });
     return response.data;
   },
   async getAdminDashboardSummary() {
@@ -1878,6 +1970,7 @@ export const apiService = {
         departmentsCovered: number;
         totalCandidates: number;
         totalEmployees: number;
+        recentEmployees: EmployeeRecord[];
         events: Array<{
           id: string;
           title: string;

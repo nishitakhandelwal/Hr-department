@@ -65,8 +65,15 @@ const timelineSchema = new mongoose.Schema(
 
 const candidateDocumentSchema = new mongoose.Schema(
   {
+    documentId: { type: String, trim: true, default: "" },
+    fieldId: { type: String, trim: true, default: "" },
+    label: { type: String, trim: true, default: "" },
+    categoryId: { type: String, trim: true, default: "" },
+    categoryLabel: { type: String, trim: true, default: "" },
     url: { type: String, trim: true, default: "" },
     originalName: { type: String, trim: true, default: "" },
+    mimeType: { type: String, trim: true, default: "" },
+    size: { type: Number, default: 0 },
     uploadedAt: { type: Date, default: null },
   },
   { _id: false }

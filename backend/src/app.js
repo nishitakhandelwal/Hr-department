@@ -36,6 +36,10 @@ import { uploadsDir } from "./utils/paths.js";
 
 const app = express();
 
+app.disable("x-powered-by");
+app.set("etag", "strong");
+app.set("trust proxy", 1);
+
 const allowedOrigins = new Set([
   env.clientUrl,
   "http://localhost:8080",
@@ -60,7 +64,9 @@ app.use(
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-app.use(morgan(env.nodeEnv === "production" ? "combined" : "dev"));
+if (env.nodeEnv !== "test") {
+  app.use(morgan(env.nodeEnv === "production" ? "combined" : "dev"));
+}
 
 app.use(
   "/api",
@@ -80,13 +86,21 @@ app.post(
   asyncHandler(uploadCandidateVideoController)
 );
 
-app.use("/uploads", express.static(uploadsDir));
+app.use(
+  "/uploads",
+  express.static(uploadsDir, {
+    etag: true,
+    immutable: true,
+    maxAge: "30d",
+  })
+);
 
 app.get("/test", (_req, res) => {
   res.send("Backend working");
 });
 
 app.get("/api/health", (_req, res) => {
+  res.set("Cache-Control", "no-store");
   res.json({
     success: true,
     message: "API is healthy",

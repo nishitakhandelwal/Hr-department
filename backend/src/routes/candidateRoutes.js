@@ -6,6 +6,7 @@ import {
   convertCandidateToEmployee,
   getCandidateById,
   createCandidate,
+  deleteMyCandidateDocument,
   deleteCandidate,
   getCandidates,
   getCandidateWorkflowConfig,
@@ -22,7 +23,8 @@ import {
 import { API_ROLE_GROUPS } from "../config/permissions.config.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authorize, authorizeModule, protect } from "../middleware/authMiddleware.js";
-import { uploadCandidatePortalDocuments, uploadCandidateVideo as uploadCandidateVideoFile, uploadStage2Resume } from "../middleware/uploadMiddleware.js";
+import { uploadCandidateVideo as uploadCandidateVideoFile } from "../middleware/uploadMiddleware.js";
+import { uploadCandidatePortalDocumentsMemory, uploadStage2ResumeMemory } from "../middleware/upload.js";
 import { validateRequest } from "../middleware/validateRequest.js";
 
 const router = Router();
@@ -44,13 +46,14 @@ router.post(
 );
 router.get("/me", protect, authorize(API_ROLE_GROUPS.candidateOnly), asyncHandler(getMyCandidateApplication));
 router.put("/me/profile", protect, authorize(API_ROLE_GROUPS.candidateOnly), asyncHandler(updateMyCandidateProfile));
-router.put("/me/documents", protect, authorize(API_ROLE_GROUPS.candidateOnly), uploadCandidatePortalDocuments, asyncHandler(updateMyCandidateDocuments));
+router.put("/me/documents", protect, authorize(API_ROLE_GROUPS.candidateOnly), uploadCandidatePortalDocumentsMemory, asyncHandler(updateMyCandidateDocuments));
+router.delete("/me/documents/:fieldId", protect, authorize(API_ROLE_GROUPS.candidateOnly), asyncHandler(deleteMyCandidateDocument));
 router.post("/upload-video", protect, authorize(API_ROLE_GROUPS.candidateOnly), uploadCandidateVideoFile, asyncHandler(uploadCandidateVideo));
 router.post(
   "/me/stage2",
   protect,
   authorize(API_ROLE_GROUPS.candidateOnly),
-  uploadStage2Resume,
+  uploadStage2ResumeMemory,
   asyncHandler(submitCandidateStage2)
 );
 router.get(

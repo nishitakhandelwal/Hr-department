@@ -21,7 +21,7 @@ import {
 } from "../controllers/authController.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { protect } from "../middleware/authMiddleware.js";
-import { uploadProfileImage as uploadProfileImageFile, uploadProfilePhoto } from "../middleware/uploadMiddleware.js";
+import { uploadProfileImageMemory, uploadProfilePhotoMemory } from "../middleware/upload.js";
 import { validateRequest } from "../middleware/validateRequest.js";
 import rateLimit from "express-rate-limit";
 
@@ -134,10 +134,10 @@ router.post(
 );
 
 router.get("/me", protect, asyncHandler(me));
-router.post("/upload-profile", protect, uploadProfileImageFile, asyncHandler(uploadProfileImageViaSharedRoute));
-router.post("/me/profile-photo", protect, uploadProfilePhoto, asyncHandler(updateMyProfilePhoto));
-router.post("/upload-profile-image", protect, uploadProfilePhoto, asyncHandler(uploadProfileImage));
-router.put("/update-profile-image", protect, uploadProfilePhoto, asyncHandler(updateProfileImage));
+router.post("/upload-profile", protect, uploadProfileImageMemory, asyncHandler(uploadProfileImageViaSharedRoute));
+router.post("/me/profile-photo", protect, uploadProfilePhotoMemory, asyncHandler(updateMyProfilePhoto));
+router.post("/upload-profile-image", protect, uploadProfilePhotoMemory, asyncHandler(uploadProfileImage));
+router.put("/update-profile-image", protect, uploadProfilePhotoMemory, asyncHandler(updateProfileImage));
 router.delete("/remove-profile-image", protect, asyncHandler(removeProfileImage));
 router.post("/logout", protect, asyncHandler(logout));
 router.post(

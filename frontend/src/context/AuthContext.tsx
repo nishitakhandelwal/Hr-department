@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { apiService, authStorage, type OtpChannel } from "@/services/api";
 
 export type Role = "super_admin" | "admin" | "employee" | "candidate";
@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<AuthUser | null>(normalizeAuthUser(authStorage.getUser<AuthUser>()));
   const [loading, setLoading] = useState(true);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!authStorage.getToken()) {
       setLoading(false);
       return;
@@ -87,13 +87,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void refreshProfile();
-  }, []);
+  }, [refreshProfile]);
 
-  const login = async (email: string, password: string, options?: { rememberMe?: boolean; otp?: string }) => {
+  const login = useCallback(async (email: string, password: string, options?: { rememberMe?: boolean; otp?: string }) => {
     const response = await apiService.login(email, password, options?.otp);
     if (response.requiresTwoFactor) {
       return { requiresTwoFactor: true };
@@ -105,18 +105,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     authStorage.set(response.token, nextUser, options?.rememberMe ?? true);
     setUser(nextUser);
     return { user: nextUser, mustResetPassword: Boolean(response.mustResetPassword) };
-  };
+  }, []);
 
-  const register = async (payload: { name: string; email: string; password: string; role: Role }) => {
+  const register = useCallback(async (payload: { name: string; email: string; password: string; role: Role }) => {
     const createdUser = normalizeAuthUser(await apiService.register(payload));
     return createdUser;
-  };
+  }, []);
 
-  const registerCandidate = async (payload: { name: string; email: string; password: string }) => {
+  const registerCandidate = useCallback(async (payload: { name: string; email: string; password: string }) => {
     return apiService.registerCandidate(payload);
-  };
+  }, []);
 
-  const sendOtp = async (payload: { phoneNumber?: string; email?: string; channel?: OtpChannel; resend?: boolean }) => {
+  const sendOtp = useCallback(async (payload: { phoneNumber?: string; email?: string; channel?: OtpChannel; resend?: boolean }) => {
     const response = await apiService.sendOtp(payload);
     return {
       message: response.message,
@@ -124,9 +124,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       expiresIn: response.expiresInSeconds,
       channel: response.channel,
     };
-  };
+  }, []);
 
-  const verifyOtp = async (payload: { phoneNumber?: string; email?: string; otp: string; channel?: OtpChannel; rememberMe?: boolean }) => {
+  const verifyOtp = useCallback(async (payload: { phoneNumber?: string; email?: string; otp: string; channel?: OtpChannel; rememberMe?: boolean }) => {
     const response = await apiService.verifyOtp(payload);
     if (!response.token || !response.user) {
       throw new Error(response.message || "Invalid OTP login response");
@@ -135,9 +135,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     authStorage.set(response.token, nextUser, payload.rememberMe ?? true);
     setUser(nextUser);
     return nextUser;
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await apiService.logout();
     } catch {
@@ -145,23 +145,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     authStorage.clear();
     setUser(null);
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      user,
+      isAuthenticated: Boolean(user),
+      loading,
+      login,
+      register,
+      registerCandidate,
+      sendOtp,
+      verifyOtp,
+      logout,
+      refreshProfile,
+    }),
+    [loading, login, logout, refreshProfile, register, registerCandidate, sendOtp, user, verifyOtp]
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: Boolean(user),
-        loading,
-        login,
-        register,
-        registerCandidate,
-        sendOtp,
-        verifyOtp,
-        logout,
-        refreshProfile,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

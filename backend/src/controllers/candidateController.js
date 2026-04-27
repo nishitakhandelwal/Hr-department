@@ -20,6 +20,9 @@ import {
   removeUploadedFileIfExists,
   validateUploadedFileAgainstSettings,
 } from "../services/runtimeBehaviorService.js";
+import { getSystemSettings } from "../services/systemSettingsService.js";
+import { uploadFileToS3 } from "../services/s3Service.js";
+import { deleteFileByPublicUrl } from "../utils/fileStorage.js";
 import { uploadsDir } from "../utils/paths.js";
 import { renderPdfBufferFromHtml } from "../utils/pdfBrowser.js";
 import { secureUploadUrls } from "../utils/uploadAccess.js";
@@ -103,14 +106,115 @@ const sanitizeEmployment = (items = []) =>
     }))
     .filter((item) => item.company || item.designation || item.from || item.to || item.responsibilities);
 
-const mapDocumentFile = (req, file) => {
+const CANDIDATE_DOCUMENT_ALLOWED_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const DEFAULT_CANDIDATE_DOCUMENT_FIELDS = [
+  { fieldId: "resume", label: "Resume", status: "required" },
+  { fieldId: "pan-card", label: "PAN Card", status: "optional" },
+  { fieldId: "aadhaar-card", label: "Aadhaar Card", status: "optional" },
+  { fieldId: "passport-size-photo", label: "Passport Size Photo", status: "optional" },
+  { fieldId: "certificates", label: "Certificates", status: "optional" },
+];
+
+const getCandidateDocumentFieldSettings = async () => {
+  const settings = await getSystemSettings({ lean: true });
+  const rawFields = Array.isArray(settings.documents?.candidateFields) ? settings.documents.candidateFields : [];
+  const seen = new Set();
+  const normalized = rawFields
+    .map((field, index) => {
+      const fieldId = String(field?.fieldId || "").trim().toLowerCase();
+      const label = toString(field?.label) || `Document ${index + 1}`;
+      const status = ["required", "optional", "disabled"].includes(String(field?.status || "").trim().toLowerCase())
+        ? String(field.status).trim().toLowerCase()
+        : "optional";
+      return { fieldId, label, status };
+    })
+    .filter((field) => field.fieldId && !seen.has(field.fieldId) && (seen.add(field.fieldId) || true));
+
+  for (const defaultField of DEFAULT_CANDIDATE_DOCUMENT_FIELDS) {
+    if (!normalized.find((field) => field.fieldId === defaultField.fieldId)) {
+      if (defaultField.fieldId === "resume") normalized.unshift(defaultField);
+      else normalized.push(defaultField);
+    }
+  }
+
+  return normalized;
+};
+
+const getCertificateTypeSettings = async () => {
+  const settings = await getSystemSettings({ lean: true });
+  const rawTypes = Array.isArray(settings.documents?.certificateTypes) ? settings.documents.certificateTypes : [];
+  const seen = new Set();
+  const normalized = rawTypes
+    .map((entry, index) => {
+      const typeId = String(entry?.typeId || "").trim().toLowerCase();
+      const label = toString(entry?.label) || `Certificate Type ${index + 1}`;
+      return { typeId, label };
+    })
+    .filter((entry) => entry.typeId && !seen.has(entry.typeId) && (seen.add(entry.typeId) || true));
+
+  return normalized.length
+    ? normalized
+    : [
+        { typeId: "education", label: "Educational Certificate" },
+        { typeId: "experience", label: "Experience Certificate" },
+      ];
+};
+
+const findDynamicDocumentEntry = (candidate, fieldId) =>
+  (Array.isArray(candidate?.documents?.uploadedFiles) ? candidate.documents.uploadedFiles : []).find((file) => file?.fieldId === fieldId) || null;
+
+const findUploadedDocumentById = (candidate, documentId) =>
+  (Array.isArray(candidate?.documents?.uploadedFiles) ? candidate.documents.uploadedFiles : []).find((file) => file?.documentId === documentId) || null;
+
+const createDocumentId = () => `doc_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+const mapDocumentFile = (req, file, metadata = {}) => {
   if (!file) return null;
+
+  if (file.s3Upload?.url) {
+    return {
+      documentId: metadata.documentId || file.s3Upload.documentId || createDocumentId(),
+      fieldId: file.fieldname || file.s3Upload.fieldId || "",
+      label: file.s3Upload.label || "",
+      categoryId: metadata.categoryId || file.s3Upload.categoryId || "",
+      categoryLabel: metadata.categoryLabel || file.s3Upload.categoryLabel || "",
+      url: file.s3Upload.url,
+      originalName: file.s3Upload.originalName || file.originalname || file.filename || "",
+      mimeType: file.s3Upload.mimeType || file.mimetype || "",
+      size: Number(file.s3Upload.size || file.size || 0),
+      uploadedAt: new Date(),
+    };
+  }
+
   const baseUrl = `${req.protocol}://${req.get("host")}`;
   return {
+    documentId: metadata.documentId || createDocumentId(),
+    fieldId: file.fieldname || "",
+    label: "",
+    categoryId: metadata.categoryId || "",
+    categoryLabel: metadata.categoryLabel || "",
     url: `${baseUrl}/uploads/${encodeURIComponent(path.basename(file.path))}`,
     originalName: file.originalname || file.filename || "",
+    mimeType: file.mimetype || "",
+    size: Number(file.size || 0),
     uploadedAt: new Date(),
   };
+};
+
+const uploadCandidateFileToS3 = async (file, folder) => {
+  if (!file) return null;
+  console.log("[Candidate S3 Upload Debug]", {
+    fieldname: file.fieldname,
+    originalname: file.originalname,
+    mimetype: file.mimetype,
+    size: file.size,
+    hasBuffer: Boolean(file.buffer),
+    folder,
+  });
+
+  const uploadedFile = await uploadFileToS3({ file, folder });
+  file.s3Upload = uploadedFile;
+  return uploadedFile;
 };
 
 const mapVideoFile = (req, file, source = "uploaded") => {
@@ -553,12 +657,12 @@ export const submitCandidateStage2 = async (req, res) => {
     const parsedManagement =
       typeof managementAssessment === "string" ? JSON.parse(managementAssessment || "{}") : managementAssessment;
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const resumeUrl = `${baseUrl}/uploads/${encodeURIComponent(path.basename(req.file.path))}`;
+    const uploadedResume = await uploadCandidateFileToS3(req.file, "resumes/");
+    const resumeUrl = uploadedResume?.url || candidate.resumeUrl;
     const resumeDocument = mapDocumentFile(req, req.file);
 
     candidate.resumeUrl = resumeUrl;
-    candidate.resumeFileName = req.file.filename;
+    candidate.resumeFileName = uploadedResume?.originalName || req.file.originalname || candidate.resumeFileName;
     candidate.documents = {
       ...(candidate.documents || {}),
       resume: resumeDocument || candidate.documents?.resume || {},
@@ -607,7 +711,7 @@ export const submitCandidateStage2 = async (req, res) => {
       action: "DOCUMENTS_UPLOADED",
       targetType: "Candidate",
       targetId: String(candidate._id),
-      metadata: { stage: "stage2", fileName: req.file.filename },
+      metadata: { stage: "stage2", fileName: uploadedResume?.originalName || req.file.originalname },
     });
 
     return res.json({
@@ -738,15 +842,39 @@ export const updateMyCandidateDocuments = async (req, res) => {
   }
 
   const uploadedFiles = Array.isArray(req.files) ? req.files : [];
-  const resumeFile = uploadedFiles.find((file) => file.fieldname === "resume") || null;
-  const certificatesFile = uploadedFiles.find((file) => file.fieldname === "certificates") || null;
-  const supportingFiles = uploadedFiles.filter((file) => file.fieldname === "files");
+  const configuredFields = await getCandidateDocumentFieldSettings();
+  const enabledFields = configuredFields.filter((field) => field.status !== "disabled");
+  const enabledFieldIds = new Set(enabledFields.map((field) => field.fieldId));
+  const uploadedByFieldId = new Map(uploadedFiles.map((file) => [String(file.fieldname || "").trim().toLowerCase(), file]));
+  const resumeFile = uploadedByFieldId.get("resume") || null;
+  const certificatesFile = uploadedByFieldId.get("certificates") || null;
+  const certificateTypeId = String(req.body?.certificateTypeId || "").trim().toLowerCase();
+  const certificateTypeSettings = await getCertificateTypeSettings();
+  const selectedCertificateType = certificateTypeSettings.find((entry) => entry.typeId === certificateTypeId) || null;
+  const dynamicFiles = enabledFields
+    .map((field) => {
+      const file = uploadedByFieldId.get(field.fieldId);
+      return file ? { ...field, file } : null;
+    })
+    .filter(Boolean);
 
-  if (!resumeFile && !certificatesFile && supportingFiles.length === 0) {
+  if (!uploadedFiles.length) {
     return res.status(400).json({ success: false, message: "Upload at least one document." });
   }
 
+  const invalidField = uploadedFiles.find((file) => !enabledFieldIds.has(String(file.fieldname || "").trim().toLowerCase()));
+  if (invalidField) {
+    return res.status(400).json({ success: false, message: `Document field "${invalidField.fieldname}" is not enabled.` });
+  }
+
+  if (certificatesFile && !selectedCertificateType) {
+    return res.status(400).json({ success: false, message: "Select a valid certificate type before uploading." });
+  }
+
   for (const file of uploadedFiles) {
+    if (!CANDIDATE_DOCUMENT_ALLOWED_MIME_TYPES.has(String(file.mimetype || "").trim().toLowerCase())) {
+      return res.status(400).json({ success: false, message: "Only PDF, JPG, and PNG files are allowed." });
+    }
     const uploadValidation = await validateUploadedFileAgainstSettings(file);
     if (!uploadValidation.valid) {
       uploadedFiles.forEach((item) => removeUploadedFileIfExists(item.path));
@@ -754,25 +882,141 @@ export const updateMyCandidateDocuments = async (req, res) => {
     }
   }
 
+  await Promise.all([
+    resumeFile ? uploadCandidateFileToS3(resumeFile, "resumes/") : Promise.resolve(null),
+    certificatesFile ? uploadCandidateFileToS3(certificatesFile, "documents/").then((upload) => {
+      if (upload && selectedCertificateType) {
+        certificatesFile.s3Upload = {
+          ...upload,
+          documentId: createDocumentId(),
+          fieldId: "certificates",
+          label: "Certificates",
+          categoryId: selectedCertificateType.typeId,
+          categoryLabel: selectedCertificateType.label,
+        };
+      }
+      return upload;
+    }) : Promise.resolve(null),
+    ...dynamicFiles
+      .filter((entry) => !["resume", "certificates"].includes(entry.fieldId))
+      .map((entry) => uploadCandidateFileToS3(entry.file, "documents/").then((upload) => {
+        if (upload) {
+          entry.file.s3Upload = { ...upload, documentId: createDocumentId(), fieldId: entry.fieldId, label: entry.label };
+        }
+        return upload;
+      })),
+  ]);
+
+  if (resumeFile && candidate.documents?.resume?.url) {
+    await deleteFileByPublicUrl(candidate.documents.resume.url);
+  }
+  await Promise.all(
+    dynamicFiles
+      .filter((entry) => !["resume", "certificates"].includes(entry.fieldId))
+      .map((entry) => deleteFileByPublicUrl(findDynamicDocumentEntry(candidate, entry.fieldId)?.url))
+  );
+
+  const existingUploadedFiles = Array.isArray(candidate.documents?.uploadedFiles) ? candidate.documents.uploadedFiles : [];
+  const replacementFieldIds = new Set(
+    dynamicFiles
+      .filter((entry) => !["resume", "certificates"].includes(entry.fieldId))
+      .map((entry) => entry.fieldId)
+  );
   const nextUploadedFiles = [
-    ...(Array.isArray(candidate.documents?.uploadedFiles) ? candidate.documents.uploadedFiles : []),
-    ...supportingFiles.map((file) => mapDocumentFile(req, file)).filter(Boolean),
+    ...existingUploadedFiles.filter((file) => !file?.fieldId || !replacementFieldIds.has(file.fieldId)),
+    ...(certificatesFile && selectedCertificateType
+      ? [
+          mapDocumentFile(req, certificatesFile, {
+            documentId: certificatesFile.s3Upload?.documentId,
+            categoryId: selectedCertificateType.typeId,
+            categoryLabel: selectedCertificateType.label,
+          }),
+        ].filter(Boolean)
+      : []),
+    ...dynamicFiles
+      .filter((entry) => !["resume", "certificates"].includes(entry.fieldId))
+      .map((entry) => {
+        const mapped = mapDocumentFile(req, entry.file, { documentId: entry.file.s3Upload?.documentId });
+        return mapped ? { ...mapped, fieldId: entry.fieldId, label: entry.label } : null;
+      })
+      .filter(Boolean),
   ];
 
   candidate.documents = {
     ...(candidate.documents || {}),
     resume: mapDocumentFile(req, resumeFile) || candidate.documents?.resume || {},
-    certificates: mapDocumentFile(req, certificatesFile) || candidate.documents?.certificates || {},
+    certificates: candidate.documents?.certificates || {},
     uploadedFiles: nextUploadedFiles,
   };
 
   if (resumeFile) {
     candidate.resumeUrl = candidate.documents.resume?.url || candidate.resumeUrl;
-    candidate.resumeFileName = resumeFile.filename || candidate.resumeFileName;
+    candidate.resumeFileName = resumeFile.s3Upload?.originalName || resumeFile.originalname || candidate.resumeFileName;
+  }
+  await candidate.save();
+  return res.json({ success: true, message: "Candidate documents updated", data: serializeCandidateForResponse(req, req.user, candidate) });
+};
+
+export const deleteMyCandidateDocument = async (req, res) => {
+  const candidate = await findCandidateForUser(req.user);
+  if (!candidate) {
+    return res.status(404).json({ success: false, message: "Candidate application not found." });
+  }
+
+  const fieldId = String(req.params.fieldId || "").trim().toLowerCase();
+  const documentId = String(req.query?.documentId || "").trim();
+  if (!fieldId) {
+    return res.status(400).json({ success: false, message: "Document field is required." });
+  }
+
+  const configuredFields = await getCandidateDocumentFieldSettings();
+  const requiredFieldIds = new Set(configuredFields.filter((field) => field.status === "required").map((field) => field.fieldId));
+  if (requiredFieldIds.has(fieldId)) {
+    return res.status(422).json({ success: false, message: "Required documents cannot be removed until the requirement is changed." });
+  }
+
+  if (fieldId === "resume") {
+    await deleteFileByPublicUrl(candidate.documents?.resume?.url || candidate.resumeUrl);
+    candidate.resumeUrl = "";
+    candidate.resumeFileName = "";
+    candidate.documents = {
+      ...(candidate.documents || {}),
+      resume: {},
+    };
+  } else if (fieldId === "certificates") {
+    if (documentId) {
+      const existingFile = findUploadedDocumentById(candidate, documentId);
+      await deleteFileByPublicUrl(existingFile?.url);
+      candidate.documents = {
+        ...(candidate.documents || {}),
+        uploadedFiles: (Array.isArray(candidate.documents?.uploadedFiles) ? candidate.documents.uploadedFiles : []).filter(
+          (file) => file?.documentId !== documentId
+        ),
+      };
+    } else {
+      await deleteFileByPublicUrl(candidate.documents?.certificates?.url);
+      candidate.documents = {
+        ...(candidate.documents || {}),
+        certificates: {},
+      };
+    }
+  } else {
+    const existingFile = findDynamicDocumentEntry(candidate, fieldId);
+    await deleteFileByPublicUrl(existingFile?.url);
+    candidate.documents = {
+      ...(candidate.documents || {}),
+      uploadedFiles: (Array.isArray(candidate.documents?.uploadedFiles) ? candidate.documents.uploadedFiles : []).filter(
+        (file) => file?.fieldId !== fieldId
+      ),
+    };
   }
 
   await candidate.save();
-  return res.json({ success: true, message: "Candidate documents updated", data: serializeCandidateForResponse(req, req.user, candidate) });
+  return res.json({
+    success: true,
+    message: "Candidate document removed",
+    data: serializeCandidateForResponse(req, req.user, candidate),
+  });
 };
 
 export const uploadCandidateVideo = async (req, res) => {

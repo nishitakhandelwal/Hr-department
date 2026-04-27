@@ -13,6 +13,7 @@ type ProfileImageManagerProps = {
   onUpload: (file: File) => Promise<void>;
   onRemove: () => Promise<void>;
   disabled?: boolean;
+  showAvatar?: boolean;
 };
 
 const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
@@ -24,14 +25,32 @@ const ProfileImageManager: React.FC<ProfileImageManagerProps> = ({
   onUpload,
   onRemove,
   disabled = false,
+  showAvatar = true,
 }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [optimisticallyRemoved, setOptimisticallyRemoved] = useState(false);
+  const [optimisticPreviewUrl, setOptimisticPreviewUrl] = useState("");
 
-  const effectiveImageUrl = (optimisticallyRemoved ? "" : imageUrl) || "";
+  const effectiveImageUrl = optimisticPreviewUrl || (optimisticallyRemoved ? "" : imageUrl) || "";
+
+  React.useEffect(() => {
+    if (optimisticallyRemoved) {
+      setOptimisticPreviewUrl("");
+      return;
+    }
+    if (!imageUrl) {
+      setOptimisticPreviewUrl("");
+    }
+  }, [imageUrl, optimisticallyRemoved]);
+
+  React.useEffect(() => () => {
+    if (optimisticPreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(optimisticPreviewUrl);
+    }
+  }, [optimisticPreviewUrl]);
   const clearSelection = () => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -53,6 +72,14 @@ const ProfileImageManager: React.FC<ProfileImageManagerProps> = ({
       return;
     }
 
+    const nextPreviewUrl = URL.createObjectURL(file);
+    setOptimisticPreviewUrl((current) => {
+      if (current.startsWith("blob:")) {
+        URL.revokeObjectURL(current);
+      }
+      return nextPreviewUrl;
+    });
+
     setBusy(true);
     try {
       await onUpload(file);
@@ -72,6 +99,12 @@ const ProfileImageManager: React.FC<ProfileImageManagerProps> = ({
 
   const handleRemove = async () => {
     setOptimisticallyRemoved(true);
+    setOptimisticPreviewUrl((current) => {
+      if (current.startsWith("blob:")) {
+        URL.revokeObjectURL(current);
+      }
+      return "";
+    });
     setBusy(true);
     try {
       await onRemove();
@@ -91,21 +124,27 @@ const ProfileImageManager: React.FC<ProfileImageManagerProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-5 rounded-xl border border-border bg-card p-4 transition-all duration-200 sm:flex-row sm:items-center">
-      <div className="relative w-fit rounded-xl">
-        <ProfileAvatar
-          name={name}
-          imageUrl={effectiveImageUrl}
-          className="h-24 w-24 border border-border"
-          fallbackClassName="text-2xl"
-          allowTemporary={false}
-        />
-        <span className="absolute -bottom-1 -right-1 rounded-full bg-primary p-2 text-white shadow">
-          <Camera className="h-4 w-4" />
-        </span>
-      </div>
+    <div
+      className={`rounded-xl border border-border bg-card p-4 transition-all duration-200 ${
+        showAvatar ? "flex flex-col gap-5 sm:flex-row sm:items-center" : "space-y-3 text-center"
+      }`}
+    >
+      {showAvatar ? (
+        <div className="relative w-fit rounded-xl">
+          <ProfileAvatar
+            name={name}
+            imageUrl={effectiveImageUrl}
+            className="h-24 w-24 border border-border"
+            fallbackClassName="text-2xl"
+            allowTemporary={false}
+          />
+          <span className="absolute -bottom-1 -right-1 rounded-full bg-primary p-2 text-white shadow">
+            <Camera className="h-4 w-4" />
+          </span>
+        </div>
+      ) : null}
 
-      <div className="space-y-2">
+      <div className={showAvatar ? "space-y-2" : "space-y-3"}>
         <input
           ref={fileInputRef}
           type="file"
@@ -114,13 +153,15 @@ const ProfileImageManager: React.FC<ProfileImageManagerProps> = ({
           className="hidden"
           disabled={busy || disabled}
         />
-        <p className="text-xs font-medium text-[#5F5348]">JPG/PNG only, max 2MB. Changes reflect instantly in profile and navbar.</p>
+        <p className={`text-xs font-medium text-[#5F5348] ${showAvatar ? "" : "mx-auto max-w-xs"}`}>
+          JPG/PNG only, max 2MB. Changes reflect instantly in profile and navbar.
+        </p>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
               variant="outline"
-              className="rounded-lg transition-all duration-200 hover:-translate-y-0.5"
+              className={`rounded-lg transition-all duration-200 hover:-translate-y-0.5 ${showAvatar ? "" : "mx-auto flex"}`}
               disabled={busy || disabled}
             >
               {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}

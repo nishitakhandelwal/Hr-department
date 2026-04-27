@@ -81,11 +81,12 @@ const AdminDashboard: React.FC = () => {
     departmentsCovered: 0,
     totalCandidates: 0,
     totalEmployees: 0,
+    recentEmployees: [],
     events: [],
   });
-  const [employees, setEmployees] = React.useState<EmployeeRecord[]>([]);
   const hasLoadedOnceRef = React.useRef(false);
   const refreshInFlightRef = React.useRef(false);
+  const lastRefreshAtRef = React.useRef(0);
   const refreshDashboard = React.useCallback(
     async (options?: { showErrorToast?: boolean; silent?: boolean }) => {
       const showErrorToast = options?.showErrorToast ?? true;
@@ -101,16 +102,13 @@ const AdminDashboard: React.FC = () => {
       }
 
       try {
-        const [dashboardSummary, employeeRows] = await Promise.all([
-          apiService.getAdminDashboardSummary(),
-          apiService.listEmployees(),
-        ]);
+        const dashboardSummary = await apiService.getAdminDashboardSummary();
 
         React.startTransition(() => {
           setSummary(dashboardSummary);
-          setEmployees(employeeRows);
         });
         hasLoadedOnceRef.current = true;
+        lastRefreshAtRef.current = Date.now();
       } catch (error) {
         if (showErrorToast) {
           toast({
@@ -135,10 +133,10 @@ const AdminDashboard: React.FC = () => {
       if (document.visibilityState === "visible") {
         void refreshDashboard({ showErrorToast: false, silent: true });
       }
-    }, 30000);
+    }, 120000);
 
     const handleWindowFocus = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "visible" && Date.now() - lastRefreshAtRef.current > 60000) {
         void refreshDashboard({ showErrorToast: false, silent: true });
       }
     };
@@ -204,9 +202,9 @@ const AdminDashboard: React.FC = () => {
     ]
   );
 
-  const employeeRows = React.useMemo(() => employees.slice(0, 12), [employees]);
+  const employeeRows = React.useMemo(() => summary.recentEmployees || [], [summary.recentEmployees]);
 
-  if (initialLoading && summary.totalEmployees === 0 && employees.length === 0) {
+  if (initialLoading && summary.totalEmployees === 0 && employeeRows.length === 0) {
     return <PortalDashboardSkeleton />;
   }
 

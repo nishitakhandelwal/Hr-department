@@ -138,7 +138,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     navItems.find((item) => item.id === routeId)?.path || fallbackPath || getDefaultRoute();
   const isSidebarOpen = isMobile || isSidebarExpanded;
   const sidebarWidthClass = isSidebarOpen ? "w-64" : "w-16";
-  const sidebarShellClass = "sidebar-premium backdrop-blur-2xl";
+  const sidebarShellClass = "sidebar-premium backdrop-blur-sm";
   const sidebarBorderClass = "border-white/8";
   const sidebarMutedTextClass = "text-[var(--portal-sidebar-muted-text)]";
   const sidebarItemClass = "text-[var(--portal-sidebar-text)] hover:bg-[var(--portal-sidebar-item-hover)] hover:text-[var(--portal-sidebar-text)]";
@@ -178,6 +178,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     let mounted = true;
 
     const loadNotifications = async () => {
+      if (document.visibilityState !== "visible") return;
       try {
         setNotificationsLoading(true);
         const data = await apiService.listNotifications();
@@ -197,7 +198,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     void loadNotifications();
     const id = window.setInterval(() => {
       void loadNotifications();
-    }, 10000);
+    }, 60000);
 
     return () => {
       mounted = false;
@@ -339,7 +340,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               <div className="flex items-center gap-3">
               <button
                 onClick={toggleTheme}
-                className="rounded-2xl border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-3 text-[var(--portal-primary-text)] shadow-soft backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(var(--portal-primary-rgb),0.32)] hover:text-[var(--portal-primary-dark)]"
+                className="rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-3 text-[var(--portal-primary-text)] shadow-sm backdrop-blur-sm transition-colors duration-200 hover:border-[rgba(var(--portal-primary-rgb),0.32)] hover:text-[var(--portal-primary-dark)]"
                 aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
               >
                 {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -347,7 +348,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="relative rounded-2xl border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-3 text-[var(--portal-primary-text)] shadow-soft backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(var(--portal-primary-rgb),0.32)] hover:text-[var(--portal-primary-dark)]">
+                  <button className="relative rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-3 text-[var(--portal-primary-text)] shadow-sm backdrop-blur-sm transition-colors duration-200 hover:border-[rgba(var(--portal-primary-rgb),0.32)] hover:text-[var(--portal-primary-dark)]">
                     <Bell className="h-5 w-5" />
                     {unreadCount > 0 ? (
                       <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
@@ -356,7 +357,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                     ) : null}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-96 rounded-[24px] border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-0 shadow-card backdrop-blur-xl transition-colors duration-300">
+                <PopoverContent align="end" className="w-96 rounded-[24px] border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-0 shadow-lg backdrop-blur-sm transition-colors duration-200">
                   <div className="flex items-center justify-between border-b border-[var(--portal-surface-border)] px-4 py-4">
                     <div>
                       <h4 className="portal-heading text-sm font-semibold">{notificationsTitle}</h4>
@@ -376,8 +377,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                       <div
                         key={notification._id}
                         onClick={() => void handleNotificationClick(notification)}
-                        className={`cursor-pointer rounded-2xl border px-4 py-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(var(--portal-primary-rgb),0.24)] hover:bg-[var(--portal-subtle-surface)] ${
-                          !notification.read ? "border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] shadow-soft" : "border-transparent"
+                        className={`cursor-pointer rounded-2xl border px-4 py-3 transition-colors duration-200 hover:border-[rgba(var(--portal-primary-rgb),0.24)] hover:bg-[var(--portal-subtle-surface)] ${
+                          !notification.read ? "border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] shadow-sm" : "border-transparent"
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -395,14 +396,14 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               </Popover>
 
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center gap-3 rounded-2xl border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] px-2 py-2 shadow-soft backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(var(--portal-primary-rgb),0.32)]">
+                <DropdownMenuTrigger className="flex items-center gap-3 rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] px-2 py-2 shadow-sm backdrop-blur-sm transition-colors duration-200 hover:border-[rgba(var(--portal-primary-rgb),0.32)]">
                   <ProfileAvatar name={displayName} imageUrl={user?.profileImage || user?.profilePhotoUrl || ""} className="h-10 w-10" fallbackClassName="text-xs" />
                   <div className="hidden text-left md:block">
                     <p className="portal-heading text-sm font-semibold leading-none">{displayName}</p>
                     <p className="portal-muted mt-1 text-xs capitalize">{user?.role}</p>
                   </div>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-1.5 shadow-card backdrop-blur-xl transition-colors duration-300">
+                <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-1.5 shadow-lg backdrop-blur-sm transition-colors duration-200">
                   <DropdownMenuItem
                     className="rounded-xl px-3 py-2.5 portal-heading focus:bg-[var(--portal-subtle-surface)] focus:text-[var(--portal-heading-color)]"
                     onClick={() => navigate(resolveProfileRedirect(user))}
@@ -423,7 +424,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
         <main className="relative z-[1] flex-1 overflow-y-auto p-4 lg:p-6">
           {isPendingEmployee ? (
-            <div className={`mx-auto mb-4 max-w-[1600px] rounded-2xl px-4 py-3 text-sm backdrop-blur-xl ${theme === "dark" ? "border border-amber-300/20 bg-amber-400/10 text-amber-100" : "border border-amber-200 bg-amber-50 text-black"}`}>
+            <div className={`mx-auto mb-4 max-w-[1600px] rounded-2xl px-4 py-3 text-sm backdrop-blur-sm ${theme === "dark" ? "border border-amber-300/20 bg-amber-400/10 text-amber-100" : "border border-amber-200 bg-amber-50 text-black"}`}>
               {pendingEmployeeBanner}
             </div>
           ) : null}

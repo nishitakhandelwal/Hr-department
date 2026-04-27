@@ -14,6 +14,7 @@ import { clearUserProfileImage, setUserProfileImage } from "../services/profileI
 import { buildInvitationEmailLayout } from "../layouts/email/index.js";
 import { deleteUserCompletely } from "../services/userDeletionService.js";
 import { recordUserActivity } from "../services/activityLogService.js";
+import { uploadFileToS3 } from "../services/s3Service.js";
 
 const ACCESS_ROLES = ["super_admin", "admin", "hr_manager", "recruiter", "employee", "candidate"];
 const ACCOUNT_STATUSES = ["active", "disabled", "pending"];
@@ -24,6 +25,11 @@ const ROLE_LABELS = {
   recruiter: "Recruiter",
   candidate: "Candidate",
   employee: "Employee",
+};
+const DASHBOARD_SUMMARY_TTL_MS = 15 * 1000;
+let dashboardSummaryCache = {
+  expiresAt: 0,
+  data: null,
 };
 
 const toString = (value) => String(value ?? "").trim();
@@ -79,6 +85,10 @@ const sanitizeUser = (user) => {
   return raw;
 };
 
+const invalidateDashboardSummaryCache = () => {
+  dashboardSummaryCache = { expiresAt: 0, data: null };
+};
+
 const logUserActivity = async ({ user, action, details = "", ipAddress = "" }) => {
   return recordUserActivity({ user, action, details, ipAddress });
 };
@@ -96,9 +106,12 @@ const logAudit = async ({ actor, action, targetType = "", targetId = "", metadat
 };
 
 export const getUsers = async (_req, res) => {
-  const rows = await User.find().select("-password").sort({ createdAt: -1 });
+  const rows = await User.find()
+    .select("-password")
+    .sort({ createdAt: -1 })
+    .lean();
   const users = rows.map((row) => ({
-    ...row.toObject(),
+    ...row,
     accessRole: row.accessRole || normalizeAccessRole("", row.role),
     accountStatus: row.accountStatus || "active",
   }));
@@ -132,18 +145,18 @@ export const getManagedUsers = async (req, res) => {
   }
 
   if (activity) {
-    const activityRows = await UserActivity.find({ action: { $regex: activity, $options: "i" } }).select("userId");
+    const activityRows = await UserActivity.find({ action: { $regex: activity, $options: "i" } }).select("userId").lean();
     const userIds = [...new Set(activityRows.map((row) => String(row.userId)))];
     query._id = { $in: userIds };
   }
 
   const [rows, total] = await Promise.all([
-    User.find(query).select("-password").sort({ [sortBy]: sortOrder }).skip(skip).limit(limit),
+    User.find(query).select("-password").sort({ [sortBy]: sortOrder }).skip(skip).limit(limit).lean(),
     User.countDocuments(query),
   ]);
 
   const items = rows.map((row) => ({
-    ...row.toObject(),
+    ...row,
     accessRole: row.accessRole || normalizeAccessRole("", row.role),
     accountStatus: row.accountStatus || "active",
   }));
@@ -179,7 +192,7 @@ export const listUserActivities = async (req, res) => {
   }
 
   const [items, total] = await Promise.all([
-    UserActivity.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    UserActivity.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     UserActivity.countDocuments(query),
   ]);
 
@@ -214,7 +227,7 @@ export const listAuditLogs = async (req, res) => {
   }
 
   const [items, total] = await Promise.all([
-    AuditLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    AuditLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     AuditLog.countDocuments(query),
   ]);
 
@@ -251,6 +264,7 @@ export const createUser = async (req, res) => {
 
   const user = await User.create(payload);
   const safeUser = sanitizeUser(user);
+  invalidateDashboardSummaryCache();
 
   await logAudit({
     actor: req.user,
@@ -294,6 +308,7 @@ export const inviteUser = async (req, res) => {
   });
 
   const safeUser = sanitizeUser(user);
+  invalidateDashboardSummaryCache();
 
   await logAudit({
     actor: req.user,
@@ -363,6 +378,7 @@ export const updateUser = async (req, res) => {
     error.statusCode = 404;
     throw error;
   }
+  invalidateDashboardSummaryCache();
 
   await logAudit({
     actor: req.user,
@@ -382,45 +398,18 @@ export const updateUser = async (req, res) => {
 
 export const updateUserRole = async (req, res) => {
   if (!req.user) {
-    console.warn("[user.updateUserRole] Missing authenticated user", {
-      method: req.method,
-      path: req.originalUrl,
-      targetUserId: req.params.id,
-    });
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
   if (req.user.role !== "admin") {
-    console.warn("[user.updateUserRole] Forbidden role update attempt", {
-      actorUserId: String(req.user._id || ""),
-      actorRole: req.user.role,
-      actorAccessRole: req.user.accessRole,
-      targetUserId: req.params.id,
-      requestedAccessRole: req.body.accessRole,
-      tokenRole: req.auth?.role || null,
-      tokenAccessRole: req.auth?.accessRole || null,
-    });
     return res.status(403).json({ success: false, message: "Forbidden" });
   }
 
   if (String(req.user._id) === String(req.params.id)) {
-    console.warn("[user.updateUserRole] Admin attempted to change own role", {
-      actorUserId: String(req.user._id || ""),
-      actorAccessRole: req.user.accessRole,
-      requestedAccessRole: req.body.accessRole,
-    });
     return res.status(400).json({ success: false, message: "You cannot change your own role." });
   }
 
   const accessRole = normalizeAccessRole(req.body.accessRole);
-  console.info("[user.updateUserRole] Processing role update", {
-    actorUserId: String(req.user._id || ""),
-    actorRole: req.user.role,
-    actorAccessRole: req.user.accessRole,
-    targetUserId: req.params.id,
-    requestedAccessRole: req.body.accessRole,
-    normalizedAccessRole: accessRole,
-  });
 
   const user = await User.findByIdAndUpdate(
     req.params.id,
@@ -436,12 +425,9 @@ export const updateUserRole = async (req, res) => {
   ).select("-password");
 
   if (!user) {
-    console.warn("[user.updateUserRole] Target user not found", {
-      actorUserId: String(req.user._id || ""),
-      targetUserId: req.params.id,
-    });
     return res.status(404).json({ success: false, message: "User not found" });
   }
+  invalidateDashboardSummaryCache();
 
   await logAudit({
     actor: req.user,
@@ -481,6 +467,7 @@ export const updateUserStatus = async (req, res) => {
     },
     { new: true, runValidators: true }
   ).select("-password");
+  invalidateDashboardSummaryCache();
 
   await logAudit({
     actor: req.user,
@@ -504,6 +491,7 @@ export const updateUserSecurity = async (req, res) => {
   if (!user) {
     return res.status(404).json({ success: false, message: "User not found" });
   }
+  invalidateDashboardSummaryCache();
 
   await logAudit({
     actor: req.user,
@@ -524,6 +512,7 @@ export const updateUserPermissions = async (req, res) => {
   user.permissions = mergePermissions(user.accessRole, req.body.permissions, user.permissions);
   await user.save();
   const safeUser = sanitizeUser(user);
+  invalidateDashboardSummaryCache();
 
   await logAudit({
     actor: req.user,
@@ -539,6 +528,7 @@ export const updateUserPermissions = async (req, res) => {
 export const deleteUser = async (req, res) => {
   const result = await deleteUserCompletely(req.params.id);
   const user = result.user;
+  invalidateDashboardSummaryCache();
 
   await logAudit({
     actor: req.user,
@@ -552,62 +542,106 @@ export const deleteUser = async (req, res) => {
 };
 
 export const getAdminDashboardSummary = async (_req, res) => {
-  const [employees, candidates, leaves, payroll] = await Promise.all([
-    Employee.find().populate("userId", "name department").sort({ createdAt: -1 }).limit(500),
-    Candidate.find().sort({ createdAt: -1 }).limit(500),
-    Leave.find({ status: "pending" })
-      .populate({ path: "employeeId", populate: { path: "userId", select: "name" } })
+  if (dashboardSummaryCache.data && dashboardSummaryCache.expiresAt > Date.now()) {
+    res.set("Cache-Control", "private, max-age=15");
+    return res.json({
+      success: true,
+      message: "Fetched admin dashboard summary",
+      data: dashboardSummaryCache.data,
+    });
+  }
+
+  const [
+    activeEmployeesCount,
+    totalEmployees,
+    totalCandidates,
+    applicationsUnderReview,
+    pendingHrReviews,
+    pendingLeavesCount,
+    payrollTotals,
+    departmentRows,
+    recentEmployees,
+    leaves,
+    interviewCandidates,
+  ] = await Promise.all([
+    Employee.countDocuments({ status: { $in: ["active", "active_employee"] } }),
+    Employee.countDocuments(),
+    Candidate.countDocuments(),
+    Candidate.countDocuments({ status: { $in: ["Under Review", "Interview Scheduled"] } }),
+    Candidate.countDocuments({ stageCompleted: { $gte: 2 }, "adminReview.reviewedAt": { $exists: false } }),
+    Leave.countDocuments({ status: "pending" }),
+    Payroll.aggregate([{ $group: { _id: null, total: { $sum: { $ifNull: ["$netSalary", 0] } } } }]),
+    Employee.aggregate([
+      {
+        $group: {
+          _id: {
+            $ifNull: ["$department", "$departmentName"],
+          },
+        },
+      },
+      { $match: { _id: { $nin: [null, ""] } } },
+      { $count: "total" },
+    ]),
+    Employee.find()
+      .select("employeeId fullName email department designation salary status userId createdAt")
+      .populate("userId", "name email department")
       .sort({ createdAt: -1 })
-      .limit(20),
-    Payroll.find().sort({ year: -1, monthNumber: -1, createdAt: -1 }).limit(100),
+      .limit(12)
+      .lean(),
+    Leave.find({ status: "pending" })
+      .select("employeeId fromDate leaveType")
+      .populate({ path: "employeeId", select: "userId fullName", populate: { path: "userId", select: "name" } })
+      .sort({ createdAt: -1 })
+      .limit(6)
+      .lean(),
+    Candidate.find({ "interviewSchedule.date": { $exists: true, $ne: "" } })
+      .select("fullName positionApplied status interviewSchedule")
+      .sort({ "interviewSchedule.date": 1 })
+      .limit(6)
+      .lean(),
   ]);
 
-  const activeEmployeesCount = employees.filter((employee) => ["active", "active_employee"].includes(employee.status)).length;
-  const applicationsUnderReview = candidates.filter(
-    (candidate) => candidate.status === "Under Review" || candidate.status === "Interview Scheduled",
-  ).length;
-  const pendingHrReviews = candidates.filter(
-    (candidate) => Number(candidate.stageCompleted || 0) >= 2 && !candidate.adminReview?.reviewedAt,
-  ).length;
-  const totalPayrollValue = payroll.reduce((sum, row) => sum + Number(row.netSalary || 0), 0);
-  const departmentsCovered = new Set(
-    employees.map((employee) => employee.userId?.department || employee.department).filter(Boolean),
-  ).size;
+  const totalPayrollValue = Number(payrollTotals[0]?.total || 0);
+  const departmentsCovered = Number(departmentRows[0]?.total || 0);
 
-  const interviewEvents = candidates
-    .filter((candidate) => candidate.interviewSchedule?.date)
-    .slice(0, 10)
-    .map((candidate) => ({
-      id: `candidate-${candidate._id}`,
-      title: `${candidate.fullName || "Candidate"} interview`,
-      date: candidate.interviewSchedule?.date,
-      type: "meeting",
-      time: candidate.interviewSchedule?.time || "",
-      note: candidate.positionApplied || candidate.status,
-    }));
+  const interviewEvents = interviewCandidates.map((candidate) => ({
+    id: `candidate-${candidate._id}`,
+    title: `${candidate.fullName || "Candidate"} interview`,
+    date: candidate.interviewSchedule?.date,
+    type: "meeting",
+    time: candidate.interviewSchedule?.time || "",
+    note: candidate.positionApplied || candidate.status,
+  }));
 
   const leaveEvents = leaves.map((leave) => ({
     id: `leave-${leave._id}`,
-    title: `${leave.employeeId?.userId?.name || "Employee"} leave starts`,
+    title: `${leave.employeeId?.userId?.name || leave.employeeId?.fullName || "Employee"} leave starts`,
     date: leave.fromDate,
     type: "holiday",
     note: leave.leaveType ? `${leave.leaveType} request awaiting approval.` : "Pending leave request.",
   }));
 
+  const data = {
+    activeEmployeesCount,
+    applicationsUnderReview,
+    pendingHrReviews,
+    pendingLeavesCount,
+    totalPayrollValue,
+    departmentsCovered,
+    totalCandidates,
+    totalEmployees,
+    recentEmployees,
+    events: [...leaveEvents, ...interviewEvents].slice(0, 12),
+  };
+  dashboardSummaryCache = {
+    expiresAt: Date.now() + DASHBOARD_SUMMARY_TTL_MS,
+    data,
+  };
+  res.set("Cache-Control", "private, max-age=15");
   return res.json({
     success: true,
     message: "Fetched admin dashboard summary",
-    data: {
-      activeEmployeesCount,
-      applicationsUnderReview,
-      pendingHrReviews,
-      pendingLeavesCount: leaves.length,
-      totalPayrollValue,
-      departmentsCovered,
-      totalCandidates: candidates.length,
-      totalEmployees: employees.length,
-      events: [...leaveEvents, ...interviewEvents].slice(0, 12),
-    },
+    data,
   });
 };
 
@@ -620,9 +654,23 @@ export const updateUserProfileImage = async (req, res) => {
     return res.status(400).json({ success: false, message: "Please upload an image file." });
   }
 
+  console.log("[Managed User Profile Upload Debug] req.file", {
+    fieldname: req.file.fieldname,
+    originalname: req.file.originalname,
+    mimetype: req.file.mimetype,
+    size: req.file.size,
+    hasBuffer: Boolean(req.file.buffer),
+  });
+  console.log("[Managed User Profile Upload Debug] req.body", req.body);
+
+  const uploadedImage = await uploadFileToS3({
+    file: req.file,
+    folder: "profiles/",
+  });
+
   user = await setUserProfileImage({
     userId: user._id,
-    imageUrl: buildUploadsPublicPath("settings", req.file.filename),
+    imageUrl: uploadedImage.url,
   });
 
   await logAudit({
@@ -633,7 +681,15 @@ export const updateUserProfileImage = async (req, res) => {
     metadata: { email: user.email },
   });
 
-  return res.json({ success: true, message: "User profile image updated successfully.", data: user });
+  return res.json({
+    success: true,
+    message: "User profile image updated successfully.",
+    data: {
+      ...user.toObject(),
+      profileImage: uploadedImage.url,
+      profilePhotoUrl: uploadedImage.url,
+    },
+  });
 };
 
 export const removeUserProfileImage = async (req, res) => {

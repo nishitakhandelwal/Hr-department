@@ -375,6 +375,7 @@ const CandidateProfile: React.FC = () => {
             <ProfileImageManager
               name={user?.name || "Candidate"}
               imageUrl={profileImageUrl}
+              showAvatar={false}
               onUpload={async (file) => {
                 setUploadingPhoto(true);
                 try {

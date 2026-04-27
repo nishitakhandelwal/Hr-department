@@ -266,10 +266,7 @@ const AdminCandidates: React.FC = () => {
     }
   };
 
-  
   const handleSaveEvaluation = async (payload: CandidateEvaluationPayload) => {
-    console.log("Received payload:", payload);
-
     const candidateToSave =
       selectedCandidate ||
       candidates.find((item) => resolveCandidateId(item) === selectedCandidateId) ||

@@ -30,6 +30,79 @@ const mapLegacyCompany = (incoming) => ({
   description: incoming.description ?? "",
 });
 
+const ALLOWED_DOCUMENT_STATUSES = new Set(["required", "optional", "disabled"]);
+const DEFAULT_CANDIDATE_DOCUMENT_FIELDS = [
+  { fieldId: "resume", label: "Resume", status: "required" },
+  { fieldId: "pan-card", label: "PAN Card", status: "optional" },
+  { fieldId: "aadhaar-card", label: "Aadhaar Card", status: "optional" },
+  { fieldId: "passport-size-photo", label: "Passport Size Photo", status: "optional" },
+  { fieldId: "certificates", label: "Certificates", status: "optional" },
+];
+const DEFAULT_CERTIFICATE_TYPES = [
+  { typeId: "education", label: "Educational Certificate" },
+  { typeId: "experience", label: "Experience Certificate" },
+];
+
+const normalizeCandidateDocumentFields = (value) => {
+  const rawFields = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  const normalized = rawFields
+    .map((field, index) => {
+      const fieldId = String(field?.fieldId || field?.id || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const label = String(field?.label || "").trim();
+      const rawStatus = String(field?.status || "optional").trim().toLowerCase();
+      const status = ALLOWED_DOCUMENT_STATUSES.has(rawStatus) ? rawStatus : "optional";
+      return {
+        fieldId: fieldId || `document-${index + 1}`,
+        label: label || `Document ${index + 1}`,
+        status,
+      };
+    })
+    .filter((field) => {
+      if (!field.fieldId || seen.has(field.fieldId)) return false;
+      seen.add(field.fieldId);
+      return true;
+    });
+
+  for (const defaultField of DEFAULT_CANDIDATE_DOCUMENT_FIELDS) {
+    if (!normalized.find((field) => field.fieldId === defaultField.fieldId)) {
+      if (defaultField.fieldId === "resume") normalized.unshift(defaultField);
+      else normalized.push(defaultField);
+    }
+  }
+
+  return normalized;
+};
+
+const normalizeCertificateTypes = (value) => {
+  const rawTypes = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  const normalized = rawTypes
+    .map((entry, index) => {
+      const typeId = String(entry?.typeId || entry?.id || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const label = String(entry?.label || "").trim();
+      return {
+        typeId: typeId || `certificate-type-${index + 1}`,
+        label: label || `Certificate Type ${index + 1}`,
+      };
+    })
+    .filter((entry) => {
+      if (!entry.typeId || seen.has(entry.typeId)) return false;
+      seen.add(entry.typeId);
+      return true;
+    });
+
+  return normalized.length ? normalized : DEFAULT_CERTIFICATE_TYPES;
+};
+
 const validateSecurity = (security) => {
   const minLength = Number(security?.passwordPolicy?.minLength || 8);
   const sessionTimeoutMinutes = Number(security?.sessionTimeoutMinutes || 60);
@@ -54,6 +127,20 @@ const validateDocuments = (documents) => {
   const maxUploadSizeMb = Number(documents.maxUploadSizeMb || 0);
   if (maxUploadSizeMb < 1 || maxUploadSizeMb > 100) {
     return "Max upload size must be between 1 and 100 MB.";
+  }
+  const candidateFields = normalizeCandidateDocumentFields(documents?.candidateFields || DEFAULT_CANDIDATE_DOCUMENT_FIELDS);
+  if (!candidateFields.length) {
+    return "At least one candidate document field is required.";
+  }
+  if (candidateFields.some((field) => !field.label || !field.fieldId)) {
+    return "Each candidate document field must include an id and label.";
+  }
+  const certificateTypes = normalizeCertificateTypes(documents?.certificateTypes || DEFAULT_CERTIFICATE_TYPES);
+  if (!certificateTypes.length) {
+    return "At least one certificate type is required.";
+  }
+  if (certificateTypes.some((entry) => !entry.typeId || !entry.label)) {
+    return "Each certificate type must include an id and label.";
   }
   return "";
 };
@@ -111,6 +198,12 @@ export const getPublicSettings = async (_req, res) => {
       security: {
         otpLoginEnabled: settings.security?.otpLoginEnabled !== false,
       },
+      documents: {
+        allowedFileTypes: settings.documents?.allowedFileTypes || [],
+        maxUploadSizeMb: Number(settings.documents?.maxUploadSizeMb || 10),
+        candidateFields: normalizeCandidateDocumentFields(settings.documents?.candidateFields || DEFAULT_CANDIDATE_DOCUMENT_FIELDS),
+        certificateTypes: normalizeCertificateTypes(settings.documents?.certificateTypes || DEFAULT_CERTIFICATE_TYPES),
+      },
     },
   });
 };
@@ -142,7 +235,12 @@ export const updateSettings = async (req, res) => {
   }
 
   if (Object.keys(documents).length > 0) {
-    const documentsPatch = { ...toPlain(settings.documents), ...documents };
+    const documentsPatch = {
+      ...toPlain(settings.documents),
+      ...documents,
+      candidateFields: normalizeCandidateDocumentFields(documents.candidateFields ?? settings.documents?.candidateFields),
+      certificateTypes: normalizeCertificateTypes(documents.certificateTypes ?? settings.documents?.certificateTypes),
+    };
     const errorMessage = validateDocuments(documentsPatch);
     if (errorMessage) return res.status(422).json({ success: false, message: errorMessage });
     settings.documents = documentsPatch;
@@ -261,7 +359,12 @@ export const updatePreferenceSettings = async (req, res) => {
 export const updateDocumentSettings = async (req, res) => {
   const incoming = pickObject(parseMaybeJson(req.body.documents, req.body));
   const settings = await getSystemSettings();
-  const patch = { ...toPlain(settings.documents), ...incoming };
+  const patch = {
+    ...toPlain(settings.documents),
+    ...incoming,
+    candidateFields: normalizeCandidateDocumentFields(incoming.candidateFields ?? settings.documents?.candidateFields),
+    certificateTypes: normalizeCertificateTypes(incoming.certificateTypes ?? settings.documents?.certificateTypes),
+  };
   const errorMessage = validateDocuments(patch);
   if (errorMessage) return res.status(422).json({ success: false, message: errorMessage });
   settings.documents = patch;

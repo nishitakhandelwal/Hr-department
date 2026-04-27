@@ -21,6 +21,7 @@ import { API_ROLE_GROUPS } from "../config/permissions.config.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authorize, authorizeModule, protect } from "../middleware/authMiddleware.js";
 import { uploadProfilePhoto } from "../middleware/uploadMiddleware.js";
+import { uploadProfilePhotoMemory } from "../middleware/upload.js";
 import { validateRequest } from "../middleware/validateRequest.js";
 
 const router = Router();
@@ -113,7 +114,7 @@ router.put(
   authorizeModule("userManagement"),
   [param("id").isMongoId().withMessage("Invalid id.")],
   validateRequest,
-  uploadProfilePhoto,
+  uploadProfilePhotoMemory,
   asyncHandler(updateUserProfileImage)
 );
 router.delete(

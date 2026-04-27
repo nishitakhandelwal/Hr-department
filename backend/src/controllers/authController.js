@@ -13,6 +13,7 @@ import { createDefaultPermissions, normalizePermissions } from "../utils/permiss
 import { buildUploadsPublicPath } from "../utils/uploadUrls.js";
 import { clearUserProfileImage, setUserProfileImage } from "../services/profileImageService.js";
 import { recordUserActivity } from "../services/activityLogService.js";
+import { uploadFileToS3 } from "../services/s3Service.js";
 
 const LOCK_MINUTES = 15;
 const TWO_FACTOR_TTL_MINUTES = 10;
@@ -800,12 +801,25 @@ export const updateMyProfilePhoto = async (req, res) => {
     return res.status(400).json({ success: false, message: "Only JPG and PNG images are allowed." });
   }
 
+  console.log("[Profile Upload Debug] req.file", {
+    fieldname: req.file.fieldname,
+    originalname: req.file.originalname,
+    mimetype: req.file.mimetype,
+    size: req.file.size,
+    hasBuffer: Boolean(req.file.buffer),
+  });
+  console.log("[Profile Upload Debug] req.body", req.body);
+
   let user = await User.findById(req.user._id);
   if (!user) {
     return res.status(404).json({ success: false, message: "User not found." });
   }
 
-  const nextPhotoUrl = buildUploadsPublicPath("settings", req.file.filename);
+  const uploadedImage = await uploadFileToS3({
+    file: req.file,
+    folder: "profiles/",
+  });
+  const nextPhotoUrl = uploadedImage.url;
   user = await setUserProfileImage({ userId: user._id, imageUrl: nextPhotoUrl });
 
   const settings = await getSystemSettings({ lean: true });
@@ -814,6 +828,10 @@ export const updateMyProfilePhoto = async (req, res) => {
     success: true,
     message: "Profile photo updated successfully.",
     user: toSafeUser(user, settings),
+    data: {
+      imageUrl: nextPhotoUrl,
+      user: toSafeUser(user, settings),
+    },
   });
 };
 
@@ -829,12 +847,25 @@ export const uploadProfileImageViaSharedRoute = async (req, res) => {
     return res.status(400).json({ success: false, message: "Please upload a profile image file." });
   }
 
+  console.log("[Profile Upload Debug] req.file", {
+    fieldname: req.file.fieldname,
+    originalname: req.file.originalname,
+    mimetype: req.file.mimetype,
+    size: req.file.size,
+    hasBuffer: Boolean(req.file.buffer),
+  });
+  console.log("[Profile Upload Debug] req.body", req.body);
+
   let user = await User.findById(req.user._id);
   if (!user) {
     return res.status(404).json({ success: false, message: "User not found." });
   }
 
-  const imageUrl = buildUploadsPublicPath("profile", req.file.filename);
+  const uploadedImage = await uploadFileToS3({
+    file: req.file,
+    folder: "profiles/",
+  });
+  const imageUrl = uploadedImage.url;
   user = await setUserProfileImage({ userId: user._id, imageUrl });
 
   const settings = await getSystemSettings({ lean: true });

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Building2, Bell, LockKeyhole, Palette, Save, ShieldCheck, UserCircle, FileArchive, ClipboardList, RotateCcw, Download, SlidersHorizontal } from "lucide-react";
+import { Building2, Bell, LockKeyhole, Palette, Save, ShieldCheck, UserCircle, FileArchive, ClipboardList, RotateCcw, Download, SlidersHorizontal, Plus, Trash2 } from "lucide-react";
 import ImageWithFallback from "@/components/common/ImageWithFallback";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { apiService, type RuntimeConfigPayload, type SettingsPayload } from "@/s
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { useLabel, useSystemSettings } from "@/context/SystemSettingsContext";
+import { destructiveIconButtonClass } from "@/lib/destructive";
 import ProfileImageManager from "@/components/profile/ProfileImageManager";
 import { resolveCompanyLogoUrl } from "@/lib/images";
 
@@ -20,6 +21,11 @@ type SettingsSection = "profile" | "company" | "roles" | "security" | "notificat
 const allModuleKeys = ["dashboard", "candidates", "employees", "attendance", "payroll", "letters", "departments", "userManagement", "settings"] as const;
 const MAX_COMPANY_LOGO_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_COMPANY_LOGO_TYPES = ["image/jpeg", "image/png"];
+const DOCUMENT_FIELD_STATUS_OPTIONS = [
+  { value: "required", label: "Required" },
+  { value: "optional", label: "Optional" },
+  { value: "disabled", label: "Disabled" },
+] as const;
 
 const AdminSettings: React.FC = () => {
   const { toast } = useToast();
@@ -202,6 +208,8 @@ const AdminSettings: React.FC = () => {
       if (settings.documents.allowedFileTypes.length === 0) return "At least one file type is required.";
       if (settings.documents.maxUploadSizeMb < 1) return "Max upload size must be at least 1 MB.";
       if (!settings.documents.storageLocation.trim()) return "Storage location is required.";
+      if (!settings.documents.candidateFields.length) return "At least one candidate document field is required.";
+      if (!settings.documents.certificateTypes.length) return "At least one certificate type is required.";
     }
     if (activeSection === "audit" && settings.audit.retentionDays < 1) return "Retention days must be at least 1.";
     return "";
@@ -347,6 +355,113 @@ const AdminSettings: React.FC = () => {
   if (loading || !settings) {
     return <div className="text-sm text-muted-foreground">{commonLoadingSettings}</div>;
   }
+
+  const addCandidateDocumentField = () => {
+    setSettings((prev) =>
+      prev
+        ? {
+            ...prev,
+            documents: {
+              ...prev.documents,
+              candidateFields: [
+                ...prev.documents.candidateFields,
+                {
+                  fieldId: `document-${prev.documents.candidateFields.length + 1}`,
+                  label: `Document ${prev.documents.candidateFields.length + 1}`,
+                  status: "optional",
+                },
+              ],
+            },
+          }
+        : prev
+    );
+  };
+
+  const updateCandidateDocumentField = (
+    index: number,
+    patch: Partial<SettingsPayload["documents"]["candidateFields"][number]>
+  ) => {
+    setSettings((prev) =>
+      prev
+        ? {
+            ...prev,
+            documents: {
+              ...prev.documents,
+              candidateFields: prev.documents.candidateFields.map((field, fieldIndex) =>
+                fieldIndex === index ? { ...field, ...patch } : field
+              ),
+            },
+          }
+        : prev
+    );
+  };
+
+  const removeCandidateDocumentField = (index: number) => {
+    setSettings((prev) =>
+      prev
+        ? {
+            ...prev,
+            documents: {
+              ...prev.documents,
+              candidateFields: prev.documents.candidateFields.filter((_, fieldIndex) => fieldIndex !== index),
+            },
+          }
+        : prev
+    );
+  };
+
+  const addCertificateType = () => {
+    setSettings((prev) =>
+      prev
+        ? {
+            ...prev,
+            documents: {
+              ...prev.documents,
+              certificateTypes: [
+                ...prev.documents.certificateTypes,
+                {
+                  typeId: `certificate-type-${prev.documents.certificateTypes.length + 1}`,
+                  label: `Certificate Type ${prev.documents.certificateTypes.length + 1}`,
+                },
+              ],
+            },
+          }
+        : prev
+    );
+  };
+
+  const updateCertificateType = (
+    index: number,
+    patch: Partial<SettingsPayload["documents"]["certificateTypes"][number]>
+  ) => {
+    setSettings((prev) =>
+      prev
+        ? {
+            ...prev,
+            documents: {
+              ...prev.documents,
+              certificateTypes: prev.documents.certificateTypes.map((entry, entryIndex) =>
+                entryIndex === index ? { ...entry, ...patch } : entry
+              ),
+            },
+          }
+        : prev
+    );
+  };
+
+  const removeCertificateType = (index: number) => {
+    setSettings((prev) =>
+      prev
+        ? {
+            ...prev,
+            documents: {
+              ...prev.documents,
+              certificateTypes: prev.documents.certificateTypes.filter((_, entryIndex) => entryIndex !== index),
+            },
+          }
+        : prev
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -572,11 +687,132 @@ const AdminSettings: React.FC = () => {
             ) : null}
 
             {activeSection === "documents" ? (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-1.5 md:col-span-2"><Label>{documentsAllowedTypesLabel}</Label><Input value={settings.documents.allowedFileTypes.join(",")} onChange={(e) => setSettings((prev) => (prev ? { ...prev, documents: { ...prev.documents, allowedFileTypes: e.target.value.split(",").map((v) => v.trim()).filter(Boolean) } } : prev))} /></div>
                 <div className="space-y-1.5"><Label>{documentsMaxUploadLabel}</Label><Input type="number" value={settings.documents.maxUploadSizeMb} onChange={(e) => setSettings((prev) => (prev ? { ...prev, documents: { ...prev.documents, maxUploadSizeMb: Number(e.target.value || 10) } } : prev))} /></div>
                 <div className="space-y-1.5"><Label>{documentsStorageLabel}</Label><Input value={settings.documents.storageLocation} onChange={(e) => setSettings((prev) => (prev ? { ...prev, documents: { ...prev.documents, storageLocation: e.target.value } } : prev))} /></div>
                 <div className="space-y-1.5 md:col-span-2"><Label>{documentsNamingLabel}</Label><Input value={settings.documents.namingFormat} onChange={(e) => setSettings((prev) => (prev ? { ...prev, documents: { ...prev.documents, namingFormat: e.target.value } } : prev))} /></div>
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-border p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">Candidate document fields</p>
+                      <p className="text-xs text-muted-foreground">Only enabled fields appear in the candidate documents page.</p>
+                    </div>
+                    <Button type="button" variant="outline" onClick={addCandidateDocumentField}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Field
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {settings.documents.candidateFields.map((field, index) => {
+                      const isCoreField = field.fieldId === "resume" || field.fieldId === "certificates";
+                      return (
+                        <div key={`${field.fieldId}-${index}`} className="grid grid-cols-1 gap-3 rounded-lg border border-border p-3 md:grid-cols-[1fr_1.2fr_180px_auto] md:items-end">
+                          <div className="space-y-1.5">
+                            <Label>Field ID</Label>
+                            <Input
+                              value={field.fieldId}
+                              disabled={isCoreField}
+                              onChange={(e) =>
+                                updateCandidateDocumentField(index, {
+                                  fieldId: e.target.value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-"),
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Label</Label>
+                            <Input
+                              value={field.label}
+                              onChange={(e) => updateCandidateDocumentField(index, { label: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Status</Label>
+                            <select
+                              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                              value={field.status}
+                              onChange={(e) =>
+                                updateCandidateDocumentField(index, {
+                                  status: e.target.value as SettingsPayload["documents"]["candidateFields"][number]["status"],
+                                })
+                              }
+                            >
+                              {DOCUMENT_FIELD_STATUS_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={destructiveIconButtonClass}
+                              onClick={() => removeCandidateDocumentField(index)}
+                              disabled={isCoreField}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-border p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">Certificate types</p>
+                      <p className="text-xs text-muted-foreground">Candidates must choose one of these types before uploading a certificate file.</p>
+                    </div>
+                    <Button type="button" variant="outline" onClick={addCertificateType}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Type
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {settings.documents.certificateTypes.map((entry, index) => (
+                      <div key={`${entry.typeId}-${index}`} className="grid grid-cols-1 gap-3 rounded-lg border border-border p-3 md:grid-cols-[1fr_1.4fr_auto] md:items-end">
+                        <div className="space-y-1.5">
+                          <Label>Type ID</Label>
+                          <Input
+                            value={entry.typeId}
+                            onChange={(e) =>
+                              updateCertificateType(index, {
+                                typeId: e.target.value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-"),
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Label</Label>
+                          <Input
+                            value={entry.label}
+                            onChange={(e) => updateCertificateType(index, { label: e.target.value })}
+                          />
+                        </div>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={destructiveIconButtonClass}
+                            onClick={() => removeCertificateType(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : null}
 

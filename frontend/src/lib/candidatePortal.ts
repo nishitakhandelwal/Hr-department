@@ -91,11 +91,15 @@ export const getCandidatePortalStepLabel = (step: number) => {
 export const getCandidateProfileCompletion = (candidate: CandidateRecord | null, joiningForm: JoiningFormRecord | null) => {
   if (!candidate) return 0;
 
+  const certificateUploads =
+    (candidate.documents?.uploadedFiles || []).filter((file) => file?.fieldId === "certificates" && file.url).length ||
+    (candidate.documents?.certificates?.url ? 1 : 0);
+
   let completed = 0;
   if (candidate.stage1?.declarationAccepted) completed += 35;
   if ((candidate.stageCompleted || 0) >= 2) completed += 40;
   if (candidate.documents?.resume?.url || candidate.resumeUrl) completed += 10;
-  if (candidate.documents?.certificates?.url) completed += 5;
+  if (certificateUploads > 0) completed += 5;
   if ((candidate.documents?.uploadedFiles?.length || 0) > 0) completed += 5;
   if (joiningForm?.status === "Submitted" || candidate.joiningForm?.status === "Submitted") completed += 10;
 

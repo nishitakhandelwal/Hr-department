@@ -128,6 +128,17 @@ const DEFAULT_SETTINGS = {
     maxUploadSizeMb: 10,
     storageLocation: "uploads",
     namingFormat: "{timestamp}-{original}",
+    candidateFields: [
+      { fieldId: "resume", label: "Resume", status: "required" },
+      { fieldId: "pan-card", label: "PAN Card", status: "optional" },
+      { fieldId: "aadhaar-card", label: "Aadhaar Card", status: "optional" },
+      { fieldId: "passport-size-photo", label: "Passport Size Photo", status: "optional" },
+      { fieldId: "certificates", label: "Certificates", status: "optional" },
+    ],
+    certificateTypes: [
+      { typeId: "education", label: "Educational Certificate" },
+      { typeId: "experience", label: "Experience Certificate" },
+    ],
   },
   audit: {
     loggingEnabled: true,

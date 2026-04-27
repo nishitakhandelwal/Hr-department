@@ -175,20 +175,7 @@ const SignatureBlock: React.FC<{ label: string; value: string; align?: "left" | 
 );
 
 const cardBaseClass =
-  "relative mx-auto h-[530px] w-[336px] overflow-hidden rounded-[22px] border border-[#DDD5D0] bg-[linear-gradient(180deg,#FDFBF8_0%,#F7F3EE_100%)] shadow-[0_18px_44px_rgba(0,0,0,0.12)]";
-
-const WatermarkBuilding: React.FC<{ front?: boolean }> = ({ front = false }) => (
-  <div className={front ? "absolute bottom-0 right-[22px] h-[210px] w-[156px] opacity-[0.16]" : "absolute bottom-[12px] left-1/2 h-[250px] w-[190px] -translate-x-1/2 opacity-[0.14]"}>
-    <div className="absolute bottom-0 left-[70px] h-[198px] w-[70px] rounded-[16px] border-[8px] border-[#D9D2CA]" />
-    <div className="absolute bottom-0 left-[22px] h-[166px] w-[44px] rounded-[10px] border-[7px] border-[#DDD6CF]" />
-    <div className="absolute bottom-[118px] left-[44px] h-[88px] w-[74px] -rotate-[12deg] rounded-[14px] border-[6px] border-[#E4DDD6]" />
-    <div className="absolute bottom-[18px] left-[32px] h-[34px] w-[16px] border-[5px] border-[#E3DDD6]" />
-    <div className="absolute bottom-[70px] left-[32px] h-[34px] w-[16px] border-[5px] border-[#E3DDD6]" />
-    <div className="absolute bottom-[18px] left-[90px] h-[38px] w-[18px] border-[5px] border-[#E3DDD6]" />
-    <div className="absolute bottom-[74px] left-[90px] h-[38px] w-[18px] border-[5px] border-[#E3DDD6]" />
-    <div className="absolute bottom-[130px] left-[90px] h-[38px] w-[18px] border-[5px] border-[#E3DDD6]" />
-  </div>
-);
+  "relative mx-auto h-[530px] w-[336px] overflow-hidden rounded-[22px] border border-[#DDD8D1] bg-[linear-gradient(180deg,#F8F4EE_0%,#F2EFEA_48%,#ECE8E2_100%)] shadow-[0_18px_44px_rgba(0,0,0,0.12)]";
 
 const EmployeeIdCardDocument = React.forwardRef<HTMLDivElement, EmployeeIdCardDocumentProps>(
   (
@@ -226,13 +213,12 @@ const EmployeeIdCardDocument = React.forwardRef<HTMLDivElement, EmployeeIdCardDo
       <div ref={ref} className={className}>
         <div className="flex flex-col items-center gap-8">
           <section className={cardBaseClass}>
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,#FEFCFA_0%,#F6F2ED_100%)]" />
-            <div className="absolute right-[-6px] top-0 h-full w-[170px] bg-[linear-gradient(164deg,rgba(255,255,255,0)_0%,rgba(222,214,206,0.38)_47%,rgba(255,255,255,0.08)_100%)]" />
-            <div className="absolute right-[-42px] top-[304px] h-[150px] w-[204px] rotate-[11deg] rounded-[30px] border border-white/40 bg-white/35" />
-            <WatermarkBuilding front />
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,#F7F2EB_0%,#F2EEE8_52%,#EBE7E1_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_14%,rgba(255,255,255,0.6)_0%,rgba(255,255,255,0)_38%)]" />
+            <div className="absolute bottom-0 right-0 h-[170px] w-[150px] bg-[radial-gradient(circle_at_bottom_right,rgba(189,182,174,0.08)_0%,rgba(189,182,174,0.03)_38%,rgba(189,182,174,0)_72%)]" />
             <SideRail label={stripLabel} />
 
-            <div className="relative z-10 flex h-full w-full flex-col pb-[14px]" style={{ fontFamily: ID_CARD_FONT }}>
+            <div className="relative z-10 flex h-full w-full flex-col pb-[34px]" style={{ fontFamily: ID_CARD_FONT }}>
               <BrandHeader
                 companyName={companyName}
                 companyLogoUrl={companyLogoUrl}
@@ -264,7 +250,7 @@ const EmployeeIdCardDocument = React.forwardRef<HTMLDivElement, EmployeeIdCardDo
                 </div>
               </div>
 
-              <div className="mt-[24px] space-y-[8px] px-[82px]">
+              <div className="mt-[14px] space-y-[8px] px-[82px]">
                 <DetailsRow label="EMP.CODE:" value={employeeCode} />
                 <DetailsRow label="DESIGNATION:" value={designation} />
                 <DetailsRow label="DATE OF JOINING:" value={joiningDate} />
@@ -272,16 +258,16 @@ const EmployeeIdCardDocument = React.forwardRef<HTMLDivElement, EmployeeIdCardDo
                 <DetailsRow label="BIRTH DATE:" value={birthDate} />
               </div>
 
-              <div className="mt-auto px-[74px] pb-[2px]">
+              <div className="mt-auto px-[74px] pb-[18px]">
                 <SignatureBlock label="Authority Signature" value="" />
               </div>
             </div>
           </section>
 
           <section className={cardBaseClass}>
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,#FDFBFA_0%,#F7F4F1_100%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,#F8F4EE_0%,#F1EEE8_56%,#EBE8E2_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_16%,rgba(255,255,255,0.56)_0%,rgba(255,255,255,0)_38%)]" />
             <SideRail label={stripLabel} />
-            <WatermarkBuilding />
 
             <div className="relative z-10 flex h-full w-full flex-col pb-8" style={{ fontFamily: ID_CARD_FONT }}>
               <BrandHeader companyName={companyName} companyLogoUrl={companyLogoUrl} centered largeLogo />

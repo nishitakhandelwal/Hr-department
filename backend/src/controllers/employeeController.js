@@ -262,9 +262,21 @@ export const getEmployeeDashboardSummary = async (req, res) => {
   }
 
   const [attendanceRows, leaveRows, payrollRows] = await Promise.all([
-    Attendance.find({ employeeId: employee._id }).sort({ date: -1 }).limit(60),
-    Leave.find({ employeeId: employee._id }).sort({ createdAt: -1 }).limit(20),
-    Payroll.find({ employeeId: employee._id }).sort({ year: -1, monthNumber: -1, createdAt: -1 }).limit(12),
+    Attendance.find({ employeeId: employee._id })
+      .select("date checkIn checkOut hoursWorked status")
+      .sort({ date: -1 })
+      .limit(20)
+      .lean(),
+    Leave.find({ employeeId: employee._id })
+      .select("fromDate toDate status leaveType createdAt")
+      .sort({ createdAt: -1 })
+      .limit(12)
+      .lean(),
+    Payroll.find({ employeeId: employee._id })
+      .select("month netSalary year monthNumber createdAt")
+      .sort({ year: -1, monthNumber: -1, createdAt: -1 })
+      .limit(6)
+      .lean(),
   ]);
 
   const approvedLeaveDays = leaveRows
@@ -282,6 +294,7 @@ export const getEmployeeDashboardSummary = async (req, res) => {
       leaveRows,
       payrollRows,
       approvedLeaveDays,
+      profile: secureUploadUrls(employee, req, req.user),
     },
   });
 };

@@ -86,7 +86,7 @@ const collectUploads = (candidate: CandidateRecord | null) => {
       label: candidate.documents.certificates.originalName || "Certificate",
       url: candidate.documents.certificates.url,
       type: "document",
-      meta: "Certificate",
+      meta: candidate.documents.certificates.categoryLabel || "Certificate",
     });
   }
 
@@ -96,7 +96,10 @@ const collectUploads = (candidate: CandidateRecord | null) => {
       label: file.originalName || `Uploaded File ${index + 1}`,
       url: file.url,
       type: "document",
-      meta: "Supporting document",
+      meta:
+        file.fieldId === "certificates"
+          ? `Certificate${file.categoryLabel ? ` | ${file.categoryLabel}` : ""}`
+          : file.label || "Supporting document",
     });
   });
 

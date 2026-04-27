@@ -127,6 +127,7 @@ const EmployeeProfile: React.FC = () => {
             <ProfileImageManager
               name={profile.fullName || user?.name || "User"}
               imageUrl={profileImageUrl}
+              showAvatar={false}
               onUpload={async (file) => {
                 await apiService.updateMyProfilePhoto(file);
                 await refreshProfile();

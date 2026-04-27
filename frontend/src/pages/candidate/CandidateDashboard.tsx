@@ -162,7 +162,7 @@ const CandidateDashboard: React.FC = () => {
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-2xl">
                 <div className="portal-kicker">Candidate Overview</div>
-                <h2 className="portal-heading mt-5 text-3xl font-cursive font-normal leading-tight tracking-normal sm:text-5xl">
+                <h2 className="portal-heading mt-5 text-3xl font-semibold leading-tight tracking-normal sm:text-5xl">
                   {canApply ? "Your application journey starts here." : "Everything you need is organized in one calm workspace."}
                 </h2>
                 <p className="portal-copy mt-4 max-w-2xl text-sm leading-7 sm:text-base">

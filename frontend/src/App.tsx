@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,7 +12,27 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { APP_ROUTES, FALLBACK_ROUTE_COMPONENT } from "@/config/routes.config";
 import { resolveDefaultRedirect } from "@/config/navigation.config";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
+
+const RouteSkeleton = () => (
+  <div className="space-y-5">
+    <div className="h-8 w-56 animate-pulse rounded-lg bg-muted" />
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="h-28 animate-pulse rounded-2xl border border-border bg-card" />
+      ))}
+    </div>
+    <div className="h-80 animate-pulse rounded-2xl border border-border bg-card" />
+  </div>
+);
 
 const CandidatePortalShell = () => (
   <ProtectedRoute roles={["candidate"]}>
@@ -36,7 +56,11 @@ const renderRouteElement = (
 
   if (!config.component) return null;
   const Component = config.component;
-  let element = <Component />;
+  let element = (
+    <Suspense fallback={<RouteSkeleton />}>
+      <Component />
+    </Suspense>
+  );
 
   if (config.useAppLayout) {
     element = <AppLayout>{element}</AppLayout>;

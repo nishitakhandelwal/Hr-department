@@ -45,6 +45,27 @@ const payrollSettingsSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const candidateDocumentFieldSchema = new mongoose.Schema(
+  {
+    fieldId: { type: String, trim: true, required: true },
+    label: { type: String, trim: true, required: true },
+    status: {
+      type: String,
+      enum: ["required", "optional", "disabled"],
+      default: "optional",
+    },
+  },
+  { _id: false }
+);
+
+const certificateTypeSchema = new mongoose.Schema(
+  {
+    typeId: { type: String, trim: true, required: true },
+    label: { type: String, trim: true, required: true },
+  },
+  { _id: false }
+);
+
 const systemSettingsSchema = new mongoose.Schema(
   {
     key: { type: String, required: true, default: "global" },
@@ -104,6 +125,23 @@ const systemSettingsSchema = new mongoose.Schema(
       maxUploadSizeMb: { type: Number, min: 1, max: 100, default: 10 },
       storageLocation: { type: String, trim: true, default: "uploads" },
       namingFormat: { type: String, trim: true, default: "{timestamp}-{original}" },
+      candidateFields: {
+        type: [candidateDocumentFieldSchema],
+        default: () => ([
+          { fieldId: "resume", label: "Resume", status: "required" },
+          { fieldId: "pan-card", label: "PAN Card", status: "optional" },
+          { fieldId: "aadhaar-card", label: "Aadhaar Card", status: "optional" },
+          { fieldId: "passport-size-photo", label: "Passport Size Photo", status: "optional" },
+          { fieldId: "certificates", label: "Certificates", status: "optional" },
+        ]),
+      },
+      certificateTypes: {
+        type: [certificateTypeSchema],
+        default: () => ([
+          { typeId: "education", label: "Educational Certificate" },
+          { typeId: "experience", label: "Experience Certificate" },
+        ]),
+      },
     },
     audit: {
       loggingEnabled: { type: Boolean, default: true },

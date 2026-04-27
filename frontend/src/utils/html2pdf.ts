@@ -26,7 +26,6 @@ const validateExportElement = (element: HTMLElement | null) => {
 };
 
 export const downloadElementAsPdf = async (element: HTMLElement, fileName: string) => {
-  console.log("PDF Export Target:", element);
   validateExportElement(element);
   await waitForRender(300);
   validateExportElement(element);

@@ -41,6 +41,7 @@ const EmployeeDashboard: React.FC = () => {
     leaveRows: [],
     payrollRows: [],
     approvedLeaveDays: 0,
+    profile: undefined,
   });
   const [profile, setProfile] = React.useState<EmployeeProfile | null>(null);
 
@@ -49,14 +50,11 @@ const EmployeeDashboard: React.FC = () => {
       if (!user) return;
       setLoading(true);
       try {
-        const [dashboardSummary, employeeProfile] = await Promise.all([
-          apiService.getEmployeeDashboardSummary(),
-          apiService.getMyEmployeeProfile(),
-        ]);
+        const dashboardSummary = await apiService.getEmployeeDashboardSummary();
 
         React.startTransition(() => {
           setSummary(dashboardSummary);
-          setProfile(employeeProfile);
+          setProfile(dashboardSummary.profile || null);
         });
       } catch (error) {
         toast({

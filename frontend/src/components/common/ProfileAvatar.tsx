@@ -28,10 +28,23 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   allowTemporary = false,
 }) => {
   const resolvedImageUrl = resolveProfileImageUrl(imageUrl, { allowTemporary });
+  const cacheBustedImageUrl = React.useMemo(() => {
+    if (!resolvedImageUrl || resolvedImageUrl.startsWith("blob:") || resolvedImageUrl.startsWith("data:image/")) {
+      return resolvedImageUrl;
+    }
+
+    try {
+      const parsedUrl = new URL(resolvedImageUrl, window.location.origin);
+      parsedUrl.searchParams.set("t", String(Date.now()));
+      return parsedUrl.toString();
+    } catch {
+      return resolvedImageUrl;
+    }
+  }, [resolvedImageUrl]);
 
   return (
     <Avatar className={cn("rounded-full", className)}>
-      <AvatarImage src={resolvedImageUrl} alt={name || "Profile"} className="object-cover" />
+      <AvatarImage key={cacheBustedImageUrl} src={cacheBustedImageUrl} alt={name || "Profile"} className="object-cover" />
       <AvatarFallback className={cn("bg-primary/10 font-semibold text-primary", fallbackClassName)}>
         {getInitials(name)}
       </AvatarFallback>
