@@ -361,7 +361,7 @@ const CandidateProfile: React.FC = () => {
         }
       />
 
-      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
+      <Card className="border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] shadow-[var(--shadow-card)] dark:bg-[var(--portal-surface-bg-strong)]">
         <CardHeader>
           <CardTitle>Profile Image</CardTitle>
         </CardHeader>
@@ -568,8 +568,8 @@ const CandidateProfile: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
-        <CardHeader><CardTitle className="font-cursive text-2xl tracking-wide text-[#F5F5F5]">Stage 1 Details</CardTitle></CardHeader>
+      <Card className="border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] shadow-[var(--shadow-card)] dark:bg-[var(--portal-surface-bg-strong)]">
+        <CardHeader><CardTitle className="text-2xl font-semibold tracking-tight text-[var(--portal-heading-color)] dark:text-white">Stage 1 Details</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5"><Label>Full Name</Label><Input disabled={!editing} value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} /></div>
           <div className="space-y-1.5"><Label>Email</Label><Input disabled value={candidate?.email || ""} /></div>
@@ -587,11 +587,11 @@ const CandidateProfile: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
-        <CardHeader><CardTitle className="font-cursive text-2xl tracking-wide text-[#F5F5F5]">Qualification Details</CardTitle></CardHeader>
+      <Card className="border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] shadow-[var(--shadow-card)] dark:bg-[var(--portal-surface-bg-strong)]">
+        <CardHeader><CardTitle className="text-2xl font-semibold tracking-tight text-[var(--portal-heading-color)] dark:text-white">Qualification Details</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {(form.stage1.qualificationDetails?.qualifications || [emptyQualification]).map((item, index) => (
-            <div key={`qualification-${index}`} className="grid gap-3 rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.48)] p-4 md:grid-cols-4">
+            <div key={`qualification-${index}`} className="grid gap-3 rounded-xl border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] p-4 md:grid-cols-4 dark:bg-[rgba(255,255,255,0.02)]">
               <Input disabled={!editing} placeholder="Degree" value={item.degree || ""} onChange={(e) => updateQualification(index, "degree", e.target.value)} />
               <Input disabled={!editing} placeholder="Institute" value={item.institute || ""} onChange={(e) => updateQualification(index, "institute", e.target.value)} />
               <Input disabled={!editing} placeholder="Year" value={item.year || ""} onChange={(e) => updateQualification(index, "year", e.target.value)} />
@@ -605,8 +605,8 @@ const CandidateProfile: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
-        <CardHeader><CardTitle className="font-cursive text-2xl tracking-wide text-[#F5F5F5]">Stage 2 Details</CardTitle></CardHeader>
+      <Card className="border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] shadow-[var(--shadow-card)] dark:bg-[var(--portal-surface-bg-strong)]">
+        <CardHeader><CardTitle className="text-2xl font-semibold tracking-tight text-[var(--portal-heading-color)] dark:text-white">Stage 2 Details</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5"><Label>Notice Period</Label><Input disabled={!editing} value={form.stage2Details.noticePeriod || ""} onChange={(e) => setForm((prev) => ({ ...prev, stage2Details: { ...prev.stage2Details, noticePeriod: e.target.value } }))} /></div>
           <div className="space-y-1.5"><Label>Expected Salary</Label><Input disabled={!editing} type="number" inputMode="numeric" value={form.stage2Details.expectedSalary ?? ""} onChange={(e) => {
@@ -628,11 +628,11 @@ const CandidateProfile: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
-        <CardHeader><CardTitle className="font-cursive text-2xl tracking-wide text-[#F5F5F5]">References</CardTitle></CardHeader>
+      <Card className="border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] shadow-[var(--shadow-card)] dark:bg-[var(--portal-surface-bg-strong)]">
+        <CardHeader><CardTitle className="text-2xl font-semibold tracking-tight text-[var(--portal-heading-color)] dark:text-white">References</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {(form.stage2Details.references || [emptyReference]).map((item, index) => (
-            <div key={`reference-${index}`} className="grid gap-3 rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.48)] p-4 md:grid-cols-5">
+            <div key={`reference-${index}`} className="grid gap-3 rounded-xl border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] p-4 md:grid-cols-5 dark:bg-[rgba(255,255,255,0.02)]">
               <Input disabled={!editing} placeholder="Name" value={item.name || ""} onChange={(e) => updateReference(index, "name", e.target.value)} />
               <Input disabled={!editing} placeholder="Relationship" value={item.relationship || ""} onChange={(e) => updateReference(index, "relationship", e.target.value)} />
               <Input disabled={!editing} placeholder="Company" value={item.company || ""} onChange={(e) => updateReference(index, "company", e.target.value)} />
@@ -647,11 +647,11 @@ const CandidateProfile: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
-        <CardHeader><CardTitle className="font-cursive text-2xl tracking-wide text-[#F5F5F5]">Employment History</CardTitle></CardHeader>
+      <Card className="border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] shadow-[var(--shadow-card)] dark:bg-[var(--portal-surface-bg-strong)]">
+        <CardHeader><CardTitle className="text-2xl font-semibold tracking-tight text-[var(--portal-heading-color)] dark:text-white">Employment History</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {(form.stage2Details.employmentHistory || [emptyEmployment]).map((item, index) => (
-            <div key={`employment-${index}`} className="grid gap-3 rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.48)] p-4 md:grid-cols-5">
+            <div key={`employment-${index}`} className="grid gap-3 rounded-xl border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] p-4 md:grid-cols-5 dark:bg-[rgba(255,255,255,0.02)]">
               <Input disabled={!editing} placeholder="Company" value={item.company || ""} onChange={(e) => updateEmployment(index, "company", e.target.value)} />
               <Input disabled={!editing} placeholder="Designation" value={item.designation || ""} onChange={(e) => updateEmployment(index, "designation", e.target.value)} />
               <DatePicker disabled={!editing} value={item.from || ""} onChange={(e) => updateEmployment(index, "from", e.target.value)} />
@@ -667,7 +667,7 @@ const CandidateProfile: React.FC = () => {
       </Card>
 
       {editing ? (
-        <div className="flex flex-col gap-3 rounded-3xl border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-6 shadow-[0_18px_40px_rgba(166,124,82,0.16)] md:flex-row md:justify-end">
+        <div className="flex flex-col gap-3 rounded-3xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-6 shadow-[var(--shadow-card)] md:flex-row md:justify-end dark:bg-[var(--portal-surface-bg-strong)]">
           <Button variant="outline" onClick={() => {
             setEditing(false);
             setForm(createForm(candidate));

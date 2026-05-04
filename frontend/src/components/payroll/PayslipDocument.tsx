@@ -14,6 +14,8 @@ const COMPANY_DETAILS = {
   address: "2nd Floor,Class of Pearl,Income Tax Colony, Tonk Road, Jaipur",
   legal: "CIN: U70101RJ2011PLC035322 | GST: 08AAJCA5226A1Z3",
   contact: "Tel.: 0141-2970900 | Email: info@arihantgroupjaipur.com | URL: www.arihantgroupjaipur.com",
+  email: "info@arihantgroupjaipur.com",
+  website: "www.arihantgroupjaipur.com",
   logoSrc: companyLogo,
 };
 
@@ -26,13 +28,33 @@ const maskAccountNumber = (value?: string) => {
   return `${"*".repeat(Math.max(raw.length - 4, 0))}${raw.slice(-4)}`;
 };
 
+const resolveBankDetails = (record: PayrollRecord) => {
+  const employeeBankDetails =
+    record.employeeId && typeof record.employeeId === "object" && "bankDetails" in record.employeeId
+      ? record.employeeId.bankDetails
+      : undefined;
+
+  const activeBankDetails =
+    employeeBankDetails?.bankName ||
+    employeeBankDetails?.accountHolderName ||
+    employeeBankDetails?.accountNumber ||
+    employeeBankDetails?.ifscCode ||
+    employeeBankDetails?.branchName ||
+    employeeBankDetails?.paymentMode
+      ? employeeBankDetails
+      : record.bankDetails;
+
+  return activeBankDetails;
+};
+
 const buildBankDetailsText = (record: PayrollRecord) => {
+  const bankDetails = resolveBankDetails(record);
   const parts = [
-    record.bankDetails?.bankName,
-    record.bankDetails?.accountHolderName,
-    record.bankDetails?.accountNumber ? `A/C ${maskAccountNumber(record.bankDetails.accountNumber)}` : "",
-    record.bankDetails?.ifscCode ? `IFSC ${record.bankDetails.ifscCode}` : "",
-    record.bankDetails?.branchName,
+    bankDetails?.bankName,
+    bankDetails?.accountHolderName,
+    bankDetails?.accountNumber ? `A/C ${maskAccountNumber(bankDetails.accountNumber)}` : "",
+    bankDetails?.ifscCode ? `IFSC ${bankDetails.ifscCode}` : "",
+    bankDetails?.branchName,
   ].filter(Boolean);
 
   return parts.length ? parts.join(" | ") : "-";
@@ -158,6 +180,8 @@ const PayslipDocument = React.forwardRef<HTMLDivElement, PayslipDocumentProps>((
                   <tr><td className={labelCellClass}>Joining Date</td><td className={tableCellClass}>{formatDate(record.joiningDate)}</td></tr>
                   <tr><td className={labelCellClass}>Location</td><td className={tableCellClass}>{record.location || "-"}</td></tr>
                   <tr><td className={labelCellClass}>Payable Days</td><td className={tableCellClass}>{record.payableDays || 0} / {record.totalWorkingDays || 0}</td></tr>
+                  <tr><td className={labelCellClass}>Per Day Salary</td><td className={tableCellClass}>{currency.format(record.perDaySalary || 0)}</td></tr>
+                  <tr><td className={labelCellClass}>Payment Status</td><td className={tableCellClass}>{(record.paymentStatus || "unpaid").replaceAll("_", " ")}</td></tr>
                   <tr><td className={labelCellClass}>Bank Details</td><td className={tableCellClass}>{buildBankDetailsText(record)}</td></tr>
                 </tbody>
               </table>
@@ -172,8 +196,11 @@ const PayslipDocument = React.forwardRef<HTMLDivElement, PayslipDocumentProps>((
           <tr className="bg-slate-100">
             <th className={`${tableCellClass} text-left text-[9px] font-semibold uppercase tracking-[0.05em]`}>Present Days</th>
             <th className={`${tableCellClass} text-left text-[9px] font-semibold uppercase tracking-[0.05em]`}>Late Days</th>
+            <th className={`${tableCellClass} text-left text-[9px] font-semibold uppercase tracking-[0.05em]`}>Half Days</th>
             <th className={`${tableCellClass} text-left text-[9px] font-semibold uppercase tracking-[0.05em]`}>Absent Days</th>
+            <th className={`${tableCellClass} text-left text-[9px] font-semibold uppercase tracking-[0.05em]`}>Incomplete</th>
             <th className={`${tableCellClass} text-left text-[9px] font-semibold uppercase tracking-[0.05em]`}>Leave Days</th>
+            <th className={`${tableCellClass} text-left text-[9px] font-semibold uppercase tracking-[0.05em]`}>Earned Salary</th>
             <th className={`${tableCellClass} text-left text-[9px] font-semibold uppercase tracking-[0.05em]`}>Overtime Hours</th>
           </tr>
         </thead>
@@ -181,8 +208,11 @@ const PayslipDocument = React.forwardRef<HTMLDivElement, PayslipDocumentProps>((
           <tr>
             <td className={tableCellClass}>{record.presentDays}</td>
             <td className={tableCellClass}>{record.lateDays}</td>
+            <td className={tableCellClass}>{record.halfDays || 0}</td>
             <td className={tableCellClass}>{record.absentDays}</td>
+            <td className={tableCellClass}>{record.incompleteDays || 0}</td>
             <td className={tableCellClass}>{record.leaveDays}</td>
+            <td className={tableCellClass}>{currency.format(record.earnedSalary || record.earnedWages || 0)}</td>
             <td className={tableCellClass}>{record.overtimeHours || 0}</td>
           </tr>
         </tbody>

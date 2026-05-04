@@ -1,18 +1,39 @@
 import { Attendance } from "../models/Attendance.js";
 import { AttendanceCorrectionRequest } from "../models/AttendanceCorrectionRequest.js";
 import { Employee } from "../models/Employee.js";
+import { Payroll } from "../models/Payroll.js";
 import { ensureEmployeeProfileForUser } from "../services/employeeProfileService.js";
 import { validateGeoFence } from "../services/officeLocationService.js";
 import {
   createAdminNotifications,
   createNotificationForUser,
 } from "../services/recruitmentWorkflowService.js";
+import { getSystemSettings } from "../services/systemSettingsService.js";
+import {
+  ATTENDANCE_STATUSES,
+  combineDateAndTimeToUtc,
+  formatUtcTimeForDisplay,
+  getDateKeyInTimeZone,
+  getDatePartsInTimeZone,
+  normalizeAttendanceDate,
+  parseTimeStringToMinutes,
+  reconcileAttendanceRecord,
+  sanitizeAttendanceSettings,
+} from "../services/attendancePolicyService.js";
 import { deleteEntity } from "./crudFactory.js";
 
 const CHECK_IN = "check-in";
 const CHECK_OUT = "check-out";
-
 const GEO_FENCE_REQUIRED_MESSAGE = "You must be inside a configured office boundary to mark attendance.";
+
+const resolvePolicyContext = async () => {
+  const settings = await getSystemSettings({ lean: true });
+  const attendanceSettings = sanitizeAttendanceSettings(settings.attendance, settings.preferences?.timezone);
+  return {
+    attendanceSettings,
+    timezone: attendanceSettings.timezone,
+  };
+};
 
 const resolveEmployeeScope = async (user) => {
   if (!user) return null;
@@ -21,84 +42,10 @@ const resolveEmployeeScope = async (user) => {
   return employee?._id || null;
 };
 
-const normalizeAttendanceDate = (value) => {
-  const date = value ? new Date(value) : new Date();
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-};
-
-const isSameDay = (left, right) =>
-  left instanceof Date &&
-  right instanceof Date &&
-  left.getFullYear() === right.getFullYear() &&
-  left.getMonth() === right.getMonth() &&
-  left.getDate() === right.getDate();
-
-const parseTimeToMinutes = (value) => {
-  const text = String(value || "").trim().toUpperCase();
-  if (!text) return null;
-
-  const twentyFourHour = text.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
-  if (twentyFourHour) {
-    return Number(twentyFourHour[1]) * 60 + Number(twentyFourHour[2]);
-  }
-
-  const twelveHour = text.match(/^(0?\d|1[0-2]):([0-5]\d)\s?(AM|PM)$/);
-  if (!twelveHour) return null;
-
-  let hours = Number(twelveHour[1]) % 12;
-  const minutes = Number(twelveHour[2]);
-  if (twelveHour[3] === "PM") hours += 12;
-  return hours * 60 + minutes;
-};
-
-const formatStoredTime = (value) => {
-  const minutes = parseTimeToMinutes(value);
-  if (minutes === null) return "";
-  const hours24 = Math.floor(minutes / 60);
-  const mins = String(minutes % 60).padStart(2, "0");
-  const period = hours24 >= 12 ? "PM" : "AM";
-  const hours12 = hours24 % 12 || 12;
-  return `${String(hours12).padStart(2, "0")}:${mins} ${period}`;
-};
-
-const calculateHoursWorked = (checkIn, checkOut) => {
-  const checkInMinutes = parseTimeToMinutes(checkIn);
-  const checkOutMinutes = parseTimeToMinutes(checkOut);
-  if (checkInMinutes === null || checkOutMinutes === null || checkOutMinutes <= checkInMinutes) {
-    return 0;
-  }
-  return Number(((checkOutMinutes - checkInMinutes) / 60).toFixed(2));
-};
-
-const inferAttendanceStatus = (attendance) => {
-  if (attendance.status === "leave") return "leave";
-  if (attendance.checkIn || attendance.checkOut) return "present";
-  return attendance.status || "present";
-};
-
-const ensureTodayForEmployee = (date) => {
-  const today = normalizeAttendanceDate();
-  return isSameDay(date, today);
-};
-
 const formatRequestLabel = (type) => (type === CHECK_IN ? "check-in" : "check-out");
 
-const buildAttendanceState = (source = {}) => ({
-  checkIn: source.checkIn || "",
-  checkOut: source.checkOut || "",
-  status: source.status || "",
-  hoursWorked: source.hoursWorked,
-});
-
-const applyAttendanceState = (attendance, state = {}, payload = {}) => {
-  attendance.checkIn = state.checkIn || "";
-  attendance.checkOut = state.checkOut || "";
-  attendance.status = state.status || inferAttendanceStatus(attendance);
-  attendance.hoursWorked =
-    payload.hoursWorked !== undefined
-      ? Number(payload.hoursWorked || 0)
-      : calculateHoursWorked(attendance.checkIn, attendance.checkOut);
-};
+const ensureTodayForEmployee = (dateValue, timeZone) =>
+  getDateKeyInTimeZone(dateValue, timeZone) === getDateKeyInTimeZone(new Date(), timeZone);
 
 const parseCoordinate = (value) => {
   const parsed = Number(value);
@@ -157,76 +104,206 @@ const applyGeoFenceToAttendance = (attendance, action, geoData) => {
 
   if (action === CHECK_IN) {
     attendance.checkInLocation = buildGeoFencePayload(geoData.validation, geoData.latitude, geoData.longitude);
-    return;
-  }
-
-  if (action === CHECK_OUT) {
+  } else if (action === CHECK_OUT) {
     attendance.checkOutLocation = buildGeoFencePayload(geoData.validation, geoData.latitude, geoData.longitude);
   }
 };
 
-const mergeAttendancePayload = (baseAttendance = {}, payload = {}) => {
-  const nextState = buildAttendanceState(baseAttendance);
+const validateAttendanceTimes = ({ checkIn, checkOut, status, hasPunchEntries = false }) => {
+  const safeStatus = String(status || "").trim().toLowerCase();
+  const checkInMinutes = checkIn ? parseTimeStringToMinutes(checkIn) : null;
+  const checkOutMinutes = checkOut ? parseTimeStringToMinutes(checkOut) : null;
 
-  if (payload.checkIn !== undefined) {
-    nextState.checkIn = payload.checkIn ? formatStoredTime(payload.checkIn) : "";
-  }
-
-  if (payload.checkOut !== undefined) {
-    nextState.checkOut = payload.checkOut ? formatStoredTime(payload.checkOut) : "";
-  }
-
-  if (payload.status !== undefined) {
-    nextState.status = payload.status || "";
-  } else {
-    nextState.status = inferAttendanceStatus(nextState);
-  }
-
-  nextState.hoursWorked =
-    payload.hoursWorked !== undefined
-      ? Number(payload.hoursWorked || 0)
-      : calculateHoursWorked(nextState.checkIn, nextState.checkOut);
-
-  return nextState;
-};
-
-const validateAttendanceTimes = (state) => {
-  if (state.checkIn && !parseTimeToMinutes(state.checkIn)) {
+  if (checkIn && checkInMinutes === null) {
     return "Please provide a valid check-in time.";
   }
-
-  if (state.checkOut && !parseTimeToMinutes(state.checkOut)) {
+  if (checkOut && checkOutMinutes === null) {
     return "Please provide a valid check-out time.";
   }
-
-  if (state.checkIn && state.checkOut) {
-    const checkInMinutes = parseTimeToMinutes(state.checkIn);
-    const checkOutMinutes = parseTimeToMinutes(state.checkOut);
-    if (checkInMinutes === null || checkOutMinutes === null) {
-      return "Please provide valid attendance times.";
-    }
-    if (checkOutMinutes <= checkInMinutes) {
-      return "Check-out time must be after check-in time.";
-    }
+  if (checkInMinutes !== null && checkOutMinutes !== null && checkOutMinutes <= checkInMinutes) {
+    return "Check-out time must be after check-in time.";
+  }
+  if (
+    !hasPunchEntries &&
+    !checkIn &&
+    !checkOut &&
+    safeStatus &&
+    ![ATTENDANCE_STATUSES.ABSENT, ATTENDANCE_STATUSES.LEAVE].includes(safeStatus)
+  ) {
+    return "A manual status without punches must be absent or leave.";
   }
 
   return "";
 };
 
+const normalizePunchEntriesInput = (punchEntries, dateKey, timeZone) => {
+  if (!Array.isArray(punchEntries)) return { entries: [], error: "" };
+
+  const normalized = [];
+  for (const [index, entry] of punchEntries.entries()) {
+    if (typeof entry === "string") {
+      const minutes = parseTimeStringToMinutes(entry);
+      if (minutes === null) {
+        return { entries: [], error: `Punch entry ${index + 1} must contain a valid time.` };
+      }
+      normalized.push({
+        type: "punch",
+        timestamp: combineDateAndTimeToUtc(dateKey, entry, timeZone),
+        source: "manual",
+      });
+      continue;
+    }
+
+    if (!entry || typeof entry !== "object") {
+      return { entries: [], error: `Punch entry ${index + 1} is invalid.` };
+    }
+
+    const timeText = String(entry.time || "").trim();
+    const minutes = parseTimeStringToMinutes(timeText);
+    if (!timeText || minutes === null) {
+      return { entries: [], error: `Punch entry ${index + 1} must contain a valid time.` };
+    }
+
+    normalized.push({
+      type: String(entry.type || "punch"),
+      timestamp: combineDateAndTimeToUtc(dateKey, timeText, timeZone),
+      source: String(entry.source || "manual"),
+      location: entry.location && typeof entry.location === "object" ? entry.location : undefined,
+      note: entry.note ? String(entry.note) : undefined,
+    });
+  }
+
+  normalized.sort((left, right) => new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime());
+
+  return { entries: normalized, error: "" };
+};
+
+const isPayrollLockedForDate = async (employeeId, dateValue, timeZone) => {
+  const { year, month } = getDatePartsInTimeZone(dateValue, timeZone);
+  return Payroll.exists({
+    employeeId,
+    monthNumber: month,
+    year,
+    payrollLocked: true,
+  });
+};
+
+const loadAttendanceRecord = async (employeeId, dateValue, timeZone) => {
+  const normalizedDate = normalizeAttendanceDate(dateValue, timeZone);
+  return Attendance.findOne({ employeeId, date: normalizedDate });
+};
+
+const applyAttendancePayload = ({
+  attendance,
+  payload = {},
+  attendanceSettings,
+  timeZone,
+  source = "manual",
+}) => {
+  const nextDate = normalizeAttendanceDate(payload.date || attendance.date || new Date(), timeZone);
+  const nextDateKey = getDateKeyInTimeZone(nextDate, timeZone);
+  const explicitStatus = String(payload.status || attendance.status || "").trim().toLowerCase();
+
+  const checkInText =
+    payload.checkIn !== undefined
+      ? payload.checkIn
+      : attendance.checkInAt
+        ? formatUtcTimeForDisplay(attendance.checkInAt, timeZone)
+        : "";
+  const checkOutText =
+    payload.checkOut !== undefined
+      ? payload.checkOut
+      : attendance.checkOutAt
+        ? formatUtcTimeForDisplay(attendance.checkOutAt, timeZone)
+        : "";
+
+  const validationError = validateAttendanceTimes({
+    checkIn: checkInText,
+    checkOut: checkOutText,
+    status: explicitStatus,
+    hasPunchEntries: Array.isArray(payload.punchEntries) && payload.punchEntries.length > 0,
+  });
+  if (validationError) {
+    return validationError;
+  }
+
+  attendance.date = nextDate;
+  attendance.dateKey = nextDateKey;
+  attendance.isManual = source === "manual";
+
+  if (Array.isArray(payload.punchEntries) && payload.punchEntries.length) {
+    const { entries, error } = normalizePunchEntriesInput(payload.punchEntries, nextDateKey, timeZone);
+    if (error) {
+      return error;
+    }
+
+    attendance.punchEntries = entries;
+    attendance.checkInAt = entries[0]?.timestamp || null;
+    attendance.checkOutAt = entries.length > 1 ? entries[entries.length - 1].timestamp : null;
+  } else {
+    attendance.checkInAt = checkInText ? combineDateAndTimeToUtc(nextDateKey, checkInText, timeZone) : null;
+    attendance.checkOutAt = checkOutText ? combineDateAndTimeToUtc(nextDateKey, checkOutText, timeZone) : null;
+  }
+
+  reconcileAttendanceRecord({
+    attendance,
+    attendanceSettings,
+    timeZone,
+    explicitStatus,
+  });
+
+  return "";
+};
+
+const reconcileAttendanceCollection = async (rows, attendanceSettings, timeZone) => {
+  for (const attendance of rows) {
+    const before = JSON.stringify({
+      status: attendance.status,
+      isIncomplete: attendance.isIncomplete,
+      checkOut: attendance.checkOut,
+      hoursWorked: attendance.hoursWorked,
+      overtimeHours: attendance.overtimeHours,
+    });
+
+    reconcileAttendanceRecord({
+      attendance,
+      attendanceSettings,
+      timeZone,
+      explicitStatus: attendance.status,
+    });
+
+    const after = JSON.stringify({
+      status: attendance.status,
+      isIncomplete: attendance.isIncomplete,
+      checkOut: attendance.checkOut,
+      hoursWorked: attendance.hoursWorked,
+      overtimeHours: attendance.overtimeHours,
+    });
+
+    if (before !== after) {
+      await attendance.save();
+    }
+  }
+};
+
 export const getAttendance = async (req, res) => {
   const employeeScope = await resolveEmployeeScope(req.user);
-  const data = await Attendance.find(employeeScope ? { employeeId: employeeScope } : {})
+  const { attendanceSettings, timezone } = await resolvePolicyContext();
+  const rows = await Attendance.find(employeeScope ? { employeeId: employeeScope } : {})
     .populate({
       path: "employeeId",
       populate: { path: "userId", select: "name email" },
     })
     .populate("updatedBy", "name email")
     .sort({ date: -1 });
-  res.json({ success: true, message: "Fetched attendance", data });
+
+  await reconcileAttendanceCollection(rows, attendanceSettings, timezone);
+  res.json({ success: true, message: "Fetched attendance", data: rows });
 };
 
 export const createAttendance = async (req, res) => {
   const payload = { ...(req.body || {}) };
+  const { attendanceSettings, timezone } = await resolvePolicyContext();
   let geoFenceResult = null;
 
   if (req.user?.role === "employee") {
@@ -238,9 +315,18 @@ export const createAttendance = async (req, res) => {
     return res.status(400).json({ success: false, message: "Employee is required.", data: null });
   }
 
-  payload.date = normalizeAttendanceDate(payload.date);
+  const normalizedDate = normalizeAttendanceDate(payload.date, timezone);
+  payload.date = normalizedDate;
 
-  if (req.user?.role === "employee" && !ensureTodayForEmployee(payload.date)) {
+  if (await isPayrollLockedForDate(payload.employeeId, normalizedDate, timezone)) {
+    return res.status(409).json({
+      success: false,
+      message: "Attendance cannot be changed because payroll is already locked for this month.",
+      data: null,
+    });
+  }
+
+  if (req.user?.role === "employee" && !ensureTodayForEmployee(normalizedDate, timezone)) {
     return res.status(403).json({
       success: false,
       message: "Employees can only mark attendance for today. Use a correction request for past dates.",
@@ -259,51 +345,46 @@ export const createAttendance = async (req, res) => {
     }
   }
 
-  const existing = await Attendance.findOne({ employeeId: payload.employeeId, date: payload.date });
+  const existing = await loadAttendanceRecord(payload.employeeId, normalizedDate, timezone);
   if (existing) {
-    const mergedState = mergeAttendancePayload(
-      {
-        ...existing.toObject(),
-        checkIn: !existing.checkIn && payload.checkIn ? payload.checkIn : existing.checkIn,
-        checkOut: payload.checkOut || existing.checkOut,
-      },
-      { status: payload.status, hoursWorked: payload.hoursWorked }
-    );
-    const validationError = validateAttendanceTimes(mergedState);
-    if (validationError) {
-      return res.status(400).json({ success: false, message: validationError, data: null });
+    const errorMessage = applyAttendancePayload({
+      attendance: existing,
+      payload,
+      attendanceSettings,
+      timeZone: timezone,
+      source: req.user?.role === "employee" ? "geo" : "manual",
+    });
+    if (errorMessage) {
+      return res.status(400).json({ success: false, message: errorMessage, data: null });
     }
-    applyAttendanceState(existing, mergedState, { hoursWorked: payload.hoursWorked });
-    if (payload.checkIn && !existing.checkInLocation) {
-      applyGeoFenceToAttendance(existing, CHECK_IN, geoFenceResult);
-    }
-    if (payload.checkOut) {
-      applyGeoFenceToAttendance(existing, CHECK_OUT, geoFenceResult);
-    }
+    if (payload.checkIn) applyGeoFenceToAttendance(existing, CHECK_IN, geoFenceResult?.data);
+    if (payload.checkOut) applyGeoFenceToAttendance(existing, CHECK_OUT, geoFenceResult?.data);
+    existing.updatedBy = req.user?._id || null;
     await existing.save();
     return res.json({ success: true, message: "Attendance updated successfully", data: existing });
   }
 
   const created = new Attendance({
     employeeId: payload.employeeId,
-    date: payload.date,
-    checkIn: "",
-    checkOut: "",
-    status: payload.status || "present",
-    hoursWorked: 0,
+    date: normalizedDate,
+    dateKey: getDateKeyInTimeZone(normalizedDate, timezone),
+    status: payload.status || ATTENDANCE_STATUSES.PRESENT,
+    updatedBy: req.user?._id || null,
+    isManual: req.user?.role !== "employee",
   });
-  const createdState = mergeAttendancePayload(created.toObject(), payload);
-  const validationError = validateAttendanceTimes(createdState);
-  if (validationError) {
-    return res.status(400).json({ success: false, message: validationError, data: null });
+
+  const errorMessage = applyAttendancePayload({
+    attendance: created,
+    payload,
+    attendanceSettings,
+    timeZone: timezone,
+    source: req.user?.role === "employee" ? "geo" : "manual",
+  });
+  if (errorMessage) {
+    return res.status(400).json({ success: false, message: errorMessage, data: null });
   }
-  applyAttendanceState(created, createdState, payload);
-  if (payload.checkIn) {
-    applyGeoFenceToAttendance(created, CHECK_IN, geoFenceResult);
-  }
-  if (payload.checkOut) {
-    applyGeoFenceToAttendance(created, CHECK_OUT, geoFenceResult);
-  }
+  if (payload.checkIn) applyGeoFenceToAttendance(created, CHECK_IN, geoFenceResult?.data);
+  if (payload.checkOut) applyGeoFenceToAttendance(created, CHECK_OUT, geoFenceResult?.data);
   await created.save();
   return res.status(201).json({ success: true, message: "Created successfully", data: created });
 };
@@ -316,12 +397,22 @@ export const updateAttendance = async (req, res) => {
     throw error;
   }
 
+  const { attendanceSettings, timezone } = await resolvePolicyContext();
+
+  if (await isPayrollLockedForDate(attendance.employeeId, attendance.date, timezone)) {
+    return res.status(409).json({
+      success: false,
+      message: "Attendance cannot be changed because payroll is already locked for this month.",
+      data: null,
+    });
+  }
+
   if (req.user?.role === "employee") {
     const employee = await ensureEmployeeProfileForUser(req.user);
     if (!employee || String(attendance.employeeId) !== String(employee._id)) {
       return res.status(403).json({ success: false, message: "Forbidden", data: null });
     }
-    if (!ensureTodayForEmployee(normalizeAttendanceDate(attendance.date))) {
+    if (!ensureTodayForEmployee(attendance.date, timezone)) {
       return res.status(403).json({
         success: false,
         message: "Employees cannot edit past attendance directly. Submit a correction request instead.",
@@ -346,19 +437,20 @@ export const updateAttendance = async (req, res) => {
     }
   }
 
-  const nextState = mergeAttendancePayload(attendance.toObject(), payload);
-  const validationError = validateAttendanceTimes(nextState);
-  if (validationError) {
-    return res.status(400).json({ success: false, message: validationError, data: null });
+  const errorMessage = applyAttendancePayload({
+    attendance,
+    payload,
+    attendanceSettings,
+    timeZone: timezone,
+    source: req.user?.role === "employee" ? "geo" : "manual",
+  });
+  if (errorMessage) {
+    return res.status(400).json({ success: false, message: errorMessage, data: null });
   }
 
-  applyAttendanceState(attendance, nextState, payload);
-  if (payload.checkIn !== undefined) {
-    applyGeoFenceToAttendance(attendance, CHECK_IN, geoFenceResult);
-  }
-  if (payload.checkOut !== undefined) {
-    applyGeoFenceToAttendance(attendance, CHECK_OUT, geoFenceResult);
-  }
+  if (payload.checkIn !== undefined) applyGeoFenceToAttendance(attendance, CHECK_IN, geoFenceResult?.data);
+  if (payload.checkOut !== undefined) applyGeoFenceToAttendance(attendance, CHECK_OUT, geoFenceResult?.data);
+  attendance.updatedBy = req.user?._id || null;
   await attendance.save();
   return res.json({ success: true, message: "Updated successfully", data: attendance });
 };
@@ -415,6 +507,17 @@ export const markGeoAttendance = async (req, res) => {
     });
   }
 
+  const { attendanceSettings, timezone } = await resolvePolicyContext();
+  const todayDate = normalizeAttendanceDate(new Date(), timezone);
+
+  if (await isPayrollLockedForDate(employee._id, todayDate, timezone)) {
+    return res.status(409).json({
+      success: false,
+      message: "Attendance cannot be changed because payroll is already locked for this month.",
+      data: null,
+    });
+  }
+
   const geoFenceResult = await validateEmployeeGeoFence(req.body || {});
   if (!geoFenceResult.ok) {
     return res.status(geoFenceResult.statusCode).json({
@@ -425,65 +528,67 @@ export const markGeoAttendance = async (req, res) => {
   }
 
   const now = new Date();
-  const date = normalizeAttendanceDate(now);
-  const timeText = formatStoredTime(
-    `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-  );
+  const timeText = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-  let attendance = await Attendance.findOne({ employeeId: employee._id, date });
+  let attendance = await loadAttendanceRecord(employee._id, todayDate, timezone);
   if (!attendance) {
     attendance = new Attendance({
       employeeId: employee._id,
-      date,
-      status: "present",
-      checkIn: "",
-      checkOut: "",
-      hoursWorked: 0,
+      date: todayDate,
+      dateKey: getDateKeyInTimeZone(todayDate, timezone),
+      updatedBy: req.user?._id || null,
     });
   }
 
-  if (action === CHECK_IN) {
-    if (attendance.checkIn) {
-      return res.status(409).json({
-        success: false,
-        message: "Check-in has already been recorded for today.",
-        data: {
-          attendance,
-          validation: geoFenceResult.data.validation,
-        },
-      });
-    }
-
-    attendance.checkIn = timeText;
-    attendance.status = "present";
-    applyGeoFenceToAttendance(attendance, CHECK_IN, geoFenceResult.data);
+  if (action === CHECK_IN && attendance.checkInAt) {
+    return res.status(409).json({
+      success: false,
+      message: "Check-in has already been recorded for today.",
+      data: {
+        attendance,
+        validation: geoFenceResult.data.validation,
+      },
+    });
   }
 
-  if (action === CHECK_OUT) {
-    if (!attendance.checkIn) {
-      return res.status(400).json({
-        success: false,
-        message: "You must check in before checking out.",
-        data: null,
-      });
-    }
-    if (attendance.checkOut) {
-      return res.status(409).json({
-        success: false,
-        message: "Check-out has already been recorded for today.",
-        data: {
-          attendance,
-          validation: geoFenceResult.data.validation,
-        },
-      });
-    }
-
-    attendance.checkOut = timeText;
-    attendance.status = "present";
-    applyGeoFenceToAttendance(attendance, CHECK_OUT, geoFenceResult.data);
+  if (action === CHECK_OUT && attendance.checkOutAt) {
+    return res.status(409).json({
+      success: false,
+      message: "Check-out has already been recorded for today.",
+      data: {
+        attendance,
+        validation: geoFenceResult.data.validation,
+      },
+    });
   }
 
-  attendance.hoursWorked = calculateHoursWorked(attendance.checkIn, attendance.checkOut);
+  if (action === CHECK_OUT && !attendance.checkInAt) {
+    return res.status(400).json({
+      success: false,
+      message: "You must check in before checking out.",
+      data: null,
+    });
+  }
+
+  const payload = {
+    date: todayDate,
+    checkIn: action === CHECK_IN ? timeText : undefined,
+    checkOut: action === CHECK_OUT ? timeText : undefined,
+    status: attendance.status,
+  };
+  const errorMessage = applyAttendancePayload({
+    attendance,
+    payload,
+    attendanceSettings,
+    timeZone: timezone,
+    source: "geo",
+  });
+  if (errorMessage) {
+    return res.status(400).json({ success: false, message: errorMessage, data: null });
+  }
+
+  applyGeoFenceToAttendance(attendance, action, geoFenceResult.data);
+  attendance.updatedBy = req.user?._id || null;
   await attendance.save();
 
   const populatedAttendance = await Attendance.findById(attendance._id)
@@ -517,43 +622,51 @@ export const adminOverrideAttendance = async (req, res) => {
     return res.status(404).json({ success: false, message: "Employee not found.", data: null });
   }
 
-  const date = normalizeAttendanceDate(req.body?.date);
-  const existing = await Attendance.findOne({ employeeId, date });
-  const baseAttendance =
+  const { attendanceSettings, timezone } = await resolvePolicyContext();
+  const date = normalizeAttendanceDate(req.body?.date, timezone);
+  if (await isPayrollLockedForDate(employeeId, date, timezone)) {
+    return res.status(409).json({
+      success: false,
+      message: "Attendance cannot be changed because payroll is already locked for this month.",
+      data: null,
+    });
+  }
+
+  const existing = await loadAttendanceRecord(employeeId, date, timezone);
+  const attendance =
     existing ||
     new Attendance({
       employeeId,
       date,
-      checkIn: "",
-      checkOut: "",
-      status: "present",
-      hoursWorked: 0,
-      isManual: true,
+      dateKey: getDateKeyInTimeZone(date, timezone),
       updatedBy: req.user?._id || null,
+      isManual: true,
     });
 
   const payload = {
+    date,
     checkIn: req.body?.checkIn,
     checkOut: req.body?.checkOut,
     status: req.body?.status,
-    hoursWorked: req.body?.hoursWorked,
   };
 
-  const nextState = mergeAttendancePayload(baseAttendance.toObject(), payload);
-  const validationError = validateAttendanceTimes(nextState);
-  if (validationError) {
-    return res.status(400).json({ success: false, message: validationError, data: null });
+  const errorMessage = applyAttendancePayload({
+    attendance,
+    payload,
+    attendanceSettings,
+    timeZone: timezone,
+    source: "manual",
+  });
+  if (errorMessage) {
+    return res.status(400).json({ success: false, message: errorMessage, data: null });
   }
 
-  applyAttendanceState(baseAttendance, nextState, payload);
-  baseAttendance.employeeId = employee._id;
-  baseAttendance.date = date;
-  baseAttendance.isManual = true;
-  baseAttendance.updatedBy = req.user?._id || null;
+  attendance.employeeId = employee._id;
+  attendance.updatedBy = req.user?._id || null;
+  attendance.isManual = true;
+  await attendance.save();
 
-  await baseAttendance.save();
-
-  const populatedAttendance = await Attendance.findById(baseAttendance._id)
+  const populatedAttendance = await Attendance.findById(attendance._id)
     .populate({
       path: "employeeId",
       populate: { path: "userId", select: "name email" },
@@ -573,18 +686,19 @@ export const requestAttendanceCorrection = async (req, res) => {
     return res.status(400).json({ success: false, message: "Employee profile not found.", data: null });
   }
 
-  const date = normalizeAttendanceDate(req.body?.date);
-  const today = normalizeAttendanceDate();
+  const { timezone } = await resolvePolicyContext();
+  const date = normalizeAttendanceDate(req.body?.date, timezone);
+  const today = normalizeAttendanceDate(new Date(), timezone);
 
   if (date > today) {
     return res.status(400).json({ success: false, message: "Future dates are not allowed.", data: null });
   }
 
   const type = req.body?.type;
-  const time = formatStoredTime(req.body?.time);
+  const time = String(req.body?.time || "").trim();
   const reason = String(req.body?.reason || "").trim();
 
-  if (!time) {
+  if (parseTimeStringToMinutes(time) === null) {
     return res.status(400).json({ success: false, message: "Please provide a valid time.", data: null });
   }
 
@@ -602,8 +716,8 @@ export const requestAttendanceCorrection = async (req, res) => {
     });
   }
 
-  const attendance = await Attendance.findOne({ employeeId: employee._id, date });
-  if ((type === CHECK_IN && attendance?.checkIn) || (type === CHECK_OUT && attendance?.checkOut)) {
+  const attendance = await loadAttendanceRecord(employee._id, date, timezone);
+  if ((type === CHECK_IN && attendance?.checkInAt) || (type === CHECK_OUT && attendance?.checkOutAt)) {
     return res.status(400).json({
       success: false,
       message: `A ${formatRequestLabel(type)} entry already exists for this date.`,
@@ -616,7 +730,7 @@ export const requestAttendanceCorrection = async (req, res) => {
     employeeId: employee._id,
     date,
     type,
-    time,
+    time: formatUtcTimeForDisplay(combineDateAndTimeToUtc(date, time, timezone), timezone),
     reason,
     status: "pending",
   });
@@ -688,34 +802,42 @@ export const reviewAttendanceCorrection = async (req, res) => {
   request.reviewedAt = new Date();
 
   if (action === "approved") {
-    let attendance = await Attendance.findOne({ employeeId: request.employeeId, date: request.date });
-    if (!attendance) {
-      attendance = new Attendance({
-        employeeId: request.employeeId,
-        date: request.date,
-        checkIn: "",
-        checkOut: "",
-        hoursWorked: 0,
-        status: "present",
+    const { attendanceSettings, timezone } = await resolvePolicyContext();
+    if (await isPayrollLockedForDate(request.employeeId, request.date, timezone)) {
+      return res.status(409).json({
+        success: false,
+        message: "Attendance cannot be changed because payroll is already locked for this month.",
+        data: null,
       });
     }
 
-    if (request.type === CHECK_IN) {
-      if (attendance.checkIn) {
-        return res.status(400).json({ success: false, message: "Attendance already has a check-in entry.", data: null });
-      }
-      attendance.checkIn = request.time;
+    let attendance = await loadAttendanceRecord(request.employeeId, request.date, timezone);
+    if (!attendance) {
+      attendance = new Attendance({
+        employeeId: request.employeeId,
+        date: normalizeAttendanceDate(request.date, timezone),
+        dateKey: getDateKeyInTimeZone(request.date, timezone),
+        updatedBy: req.user?._id || null,
+        isManual: true,
+      });
     }
 
-    if (request.type === CHECK_OUT) {
-      if (attendance.checkOut) {
-        return res.status(400).json({ success: false, message: "Attendance already has a check-out entry.", data: null });
-      }
-      attendance.checkOut = request.time;
+    const payload =
+      request.type === CHECK_IN
+        ? { date: request.date, checkIn: request.time, status: attendance.status }
+        : { date: request.date, checkOut: request.time, status: attendance.status };
+    const errorMessage = applyAttendancePayload({
+      attendance,
+      payload,
+      attendanceSettings,
+      timeZone: timezone,
+      source: "manual",
+    });
+    if (errorMessage) {
+      return res.status(400).json({ success: false, message: errorMessage, data: null });
     }
-
-    const nextState = mergeAttendancePayload(attendance.toObject(), {});
-    applyAttendanceState(attendance, nextState, {});
+    attendance.updatedBy = req.user?._id || null;
+    attendance.isManual = true;
     await attendance.save();
   }
 

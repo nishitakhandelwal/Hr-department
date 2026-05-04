@@ -110,7 +110,7 @@ const EmployeeProfile: React.FC = () => {
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="border-[#2A2623] text-center shadow-[0_18px_40px_rgba(166,124,82,0.16)]">
+        <Card className="border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] text-center shadow-[0_12px_30px_rgba(15,23,42,0.08)] dark:bg-[#0a0a0a] dark:shadow-[0_18px_40px_rgba(0,0,0,0.36)]">
           <CardContent className="space-y-4 pt-6">
             <ProfileAvatar
               name={profile.fullName || user?.name || "User"}
@@ -149,18 +149,22 @@ const EmployeeProfile: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-[#2A2623] shadow-[0_18px_40px_rgba(166,124,82,0.16)] lg:col-span-2">
+        <Card className="border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] shadow-[0_12px_30px_rgba(15,23,42,0.08)] dark:bg-[#0a0a0a] dark:shadow-[0_18px_40px_rgba(0,0,0,0.36)] lg:col-span-2">
           <CardHeader>
             <CardTitle>Profile Details</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? <p className="mb-4 text-sm text-muted-foreground">Loading profile...</p> : null}
-            {profileError ? <p className="mb-4 rounded-xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">{profileError}</p> : null}
+            {profileError ? (
+              <p className="mb-4 rounded-xl border border-slate-300 bg-slate-100 px-4 py-3 text-sm text-slate-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+                {profileError}
+              </p>
+            ) : null}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               {detailRows.map((item) => (
                 <div key={item.label} className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">{item.label}</Label>
-                  <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-foreground">
+                  <div className="rounded-xl border border-border bg-slate-50 px-4 py-3 text-sm text-foreground dark:bg-muted/30">
                     {item.value}
                   </div>
                 </div>

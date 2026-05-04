@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Building2, Bell, LockKeyhole, Palette, Save, ShieldCheck, UserCircle, FileArchive, ClipboardList, RotateCcw, Download, SlidersHorizontal, Plus, Trash2 } from "lucide-react";
+import { Building2, Bell, LockKeyhole, Palette, Save, ShieldCheck, UserCircle, FileArchive, ClipboardList, RotateCcw, Download, SlidersHorizontal, Plus, Trash2, Clock } from "lucide-react";
 import ImageWithFallback from "@/components/common/ImageWithFallback";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import { destructiveIconButtonClass } from "@/lib/destructive";
 import ProfileImageManager from "@/components/profile/ProfileImageManager";
 import { resolveCompanyLogoUrl } from "@/lib/images";
 
-type SettingsSection = "profile" | "company" | "roles" | "security" | "notifications" | "preferences" | "documents" | "audit" | "runtime";
+type SettingsSection = "profile" | "company" | "roles" | "security" | "notifications" | "preferences" | "attendance" | "documents" | "audit" | "runtime";
 
 const allModuleKeys = ["dashboard", "candidates", "employees", "attendance", "payroll", "letters", "departments", "userManagement", "settings"] as const;
 const MAX_COMPANY_LOGO_SIZE_BYTES = 5 * 1024 * 1024;
@@ -47,6 +47,7 @@ const AdminSettings: React.FC = () => {
   const securitySectionLabel = useLabel("admin.settings.section.security");
   const notificationsSectionLabel = useLabel("admin.settings.section.notifications");
   const preferencesSectionLabel = useLabel("admin.settings.section.preferences");
+  const attendanceSectionLabel = useLabel("admin.settings.section.attendance", "Attendance");
   const documentsSectionLabel = useLabel("admin.settings.section.documents");
   const auditSectionLabel = useLabel("admin.settings.section.audit");
   const runtimeSectionLabel = useLabel("admin.settings.section.runtime");
@@ -75,6 +76,12 @@ const AdminSettings: React.FC = () => {
   const preferencesTimezoneLabel = useLabel("admin.settings.preferences.timezone");
   const preferencesDateFormatLabel = useLabel("admin.settings.preferences.dateFormat");
   const preferencesCurrencyFormatLabel = useLabel("admin.settings.preferences.currencyFormat");
+  const attendancePunchInLabel = useLabel("admin.settings.attendance.standardPunchIn", "Standard punch-in time");
+  const attendanceGraceLabel = useLabel("admin.settings.attendance.gracePeriod", "Grace period (minutes)");
+  const attendanceHalfDayLabel = useLabel("admin.settings.attendance.halfDayCutoff", "Half-day cutoff time");
+  const attendanceMinimumHoursLabel = useLabel("admin.settings.attendance.minimumHours", "Minimum working hours");
+  const attendanceMissingPunchLabel = useLabel("admin.settings.attendance.missingPunchOut", "Missing punch-out handling");
+  const attendanceAutoCloseLabel = useLabel("admin.settings.attendance.autoClose", "Auto-close time");
   const documentsAllowedTypesLabel = useLabel("admin.settings.documents.allowedTypes");
   const documentsMaxUploadLabel = useLabel("admin.settings.documents.maxUpload");
   const documentsStorageLabel = useLabel("admin.settings.documents.storage");
@@ -141,6 +148,7 @@ const AdminSettings: React.FC = () => {
       { key: "security", label: securitySectionLabel, icon: LockKeyhole },
       { key: "notifications", label: notificationsSectionLabel, icon: Bell },
       { key: "preferences", label: preferencesSectionLabel, icon: Palette },
+      { key: "attendance", label: attendanceSectionLabel, icon: Clock },
       { key: "documents", label: documentsSectionLabel, icon: FileArchive },
       { key: "audit", label: auditSectionLabel, icon: ClipboardList },
       { key: "runtime", label: runtimeSectionLabel, icon: SlidersHorizontal },
@@ -152,6 +160,7 @@ const AdminSettings: React.FC = () => {
       securitySectionLabel,
       notificationsSectionLabel,
       preferencesSectionLabel,
+      attendanceSectionLabel,
       documentsSectionLabel,
       auditSectionLabel,
       runtimeSectionLabel,
@@ -210,6 +219,13 @@ const AdminSettings: React.FC = () => {
       if (!settings.documents.storageLocation.trim()) return "Storage location is required.";
       if (!settings.documents.candidateFields.length) return "At least one candidate document field is required.";
       if (!settings.documents.certificateTypes.length) return "At least one certificate type is required.";
+    }
+    if (activeSection === "attendance") {
+      if (!/^\d{2}:\d{2}$/.test(settings.attendance.standardPunchInTime)) return "Standard punch-in time must be in HH:MM format.";
+      if (!/^\d{2}:\d{2}$/.test(settings.attendance.halfDayCutoffTime)) return "Half-day cutoff must be in HH:MM format.";
+      if (!/^\d{2}:\d{2}$/.test(settings.attendance.autoCloseTime)) return "Auto-close time must be in HH:MM format.";
+      if (settings.attendance.gracePeriodMinutes < 0) return "Grace period cannot be negative.";
+      if (settings.attendance.minimumWorkingHours < 1) return "Minimum working hours must be at least 1.";
     }
     if (activeSection === "audit" && settings.audit.retentionDays < 1) return "Retention days must be at least 1.";
     return "";
@@ -274,6 +290,10 @@ const AdminSettings: React.FC = () => {
       if (activeSection === "preferences") {
         const preferences = await apiService.updatePreferenceSettings(settings.preferences);
         updated = { ...settings, preferences };
+      }
+      if (activeSection === "attendance") {
+        const attendance = await apiService.updateAttendanceSettings(settings.attendance);
+        updated = { ...settings, attendance };
       }
       if (activeSection === "documents") {
         const documents = await apiService.updateDocumentSettings(settings.documents);
@@ -683,6 +703,17 @@ const AdminSettings: React.FC = () => {
                 <div className="space-y-1.5"><Label>{preferencesTimezoneLabel}</Label><Input value={settings.preferences.timezone} onChange={(e) => setSettings((prev) => (prev ? { ...prev, preferences: { ...prev.preferences, timezone: e.target.value } } : prev))} /></div>
                 <div className="space-y-1.5"><Label>{preferencesDateFormatLabel}</Label><Input value={settings.preferences.dateFormat} onChange={(e) => setSettings((prev) => (prev ? { ...prev, preferences: { ...prev.preferences, dateFormat: e.target.value } } : prev))} /></div>
                 <div className="space-y-1.5"><Label>{preferencesCurrencyFormatLabel}</Label><Input value={settings.preferences.currencyFormat} onChange={(e) => setSettings((prev) => (prev ? { ...prev, preferences: { ...prev.preferences, currencyFormat: e.target.value.toUpperCase() } } : prev))} /></div>
+              </div>
+            ) : null}
+
+            {activeSection === "attendance" ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-1.5"><Label>{attendancePunchInLabel}</Label><Input type="time" value={settings.attendance.standardPunchInTime} onChange={(e) => setSettings((prev) => (prev ? { ...prev, attendance: { ...prev.attendance, standardPunchInTime: e.target.value } } : prev))} /></div>
+                <div className="space-y-1.5"><Label>{attendanceGraceLabel}</Label><Input type="number" min="0" value={settings.attendance.gracePeriodMinutes} onChange={(e) => setSettings((prev) => (prev ? { ...prev, attendance: { ...prev.attendance, gracePeriodMinutes: Number(e.target.value || 0) } } : prev))} /></div>
+                <div className="space-y-1.5"><Label>{attendanceHalfDayLabel}</Label><Input type="time" value={settings.attendance.halfDayCutoffTime} onChange={(e) => setSettings((prev) => (prev ? { ...prev, attendance: { ...prev.attendance, halfDayCutoffTime: e.target.value } } : prev))} /></div>
+                <div className="space-y-1.5"><Label>{attendanceMinimumHoursLabel}</Label><Input type="number" min="1" value={settings.attendance.minimumWorkingHours} onChange={(e) => setSettings((prev) => (prev ? { ...prev, attendance: { ...prev.attendance, minimumWorkingHours: Number(e.target.value || 1) } } : prev))} /></div>
+                <div className="space-y-1.5"><Label>{attendanceMissingPunchLabel}</Label><select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={settings.attendance.missingPunchOutHandling} onChange={(e) => setSettings((prev) => (prev ? { ...prev, attendance: { ...prev.attendance, missingPunchOutHandling: e.target.value as "auto_close" | "mark_incomplete" } } : prev))}><option value="mark_incomplete">Mark incomplete</option><option value="auto_close">Auto close</option></select></div>
+                <div className="space-y-1.5"><Label>{attendanceAutoCloseLabel}</Label><Input type="time" value={settings.attendance.autoCloseTime} onChange={(e) => setSettings((prev) => (prev ? { ...prev, attendance: { ...prev.attendance, autoCloseTime: e.target.value } } : prev))} /></div>
               </div>
             ) : null}
 

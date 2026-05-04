@@ -6,20 +6,20 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "relative inline-flex items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-2xl text-sm font-semibold ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:scale-[1.03] active:scale-[0.98]",
+  "relative inline-flex items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-2xl text-sm font-semibold ring-offset-background transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "border border-white/20 bg-[linear-gradient(135deg,var(--portal-primary-solid),var(--portal-primary-dark))] text-primary-foreground shadow-[0_18px_48px_rgba(var(--portal-primary-rgb),0.26)] before:absolute before:inset-x-6 before:top-0 before:h-px before:bg-white/60 before:opacity-80 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(var(--portal-primary-rgb),0.38)] dark:border-[var(--border)] dark:text-[#1A1816] dark:shadow-[0_6px_20px_rgba(166,124,82,0.4)] dark:hover:shadow-[0_10px_30px_rgba(166,124,82,0.5)]",
+          "border border-[#1f2937] bg-[#1f2937] text-white hover:bg-[#111827] dark:border-[#374151] dark:bg-[#374151] dark:hover:bg-[#4b5563]",
         destructive:
-          "border border-red-400/20 bg-[linear-gradient(135deg,#fb7185_0%,#ef4444_100%)] text-destructive-foreground shadow-[0_16px_36px_rgba(239,68,68,0.28)] before:absolute before:inset-x-6 before:top-0 before:h-px before:bg-white/55 hover:-translate-y-1 hover:shadow-[0_22px_44px_rgba(239,68,68,0.36)]",
+          "border border-[#7f1d1d] bg-[#991b1b] text-white hover:bg-[#7f1d1d]",
         outline:
-          "border border-[rgba(86,72,58,0.12)] bg-white/70 text-foreground shadow-soft backdrop-blur-xl before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-white/50 hover:-translate-y-1 hover:border-primary/30 hover:bg-[rgba(var(--portal-primary-rgb),0.08)] hover:text-primary hover:shadow-card-hover dark:border-[var(--border)] dark:bg-[var(--bg-surface,#1A1816)] dark:text-[var(--text-primary,#F5F5F5)] dark:before:bg-white/5 dark:hover:bg-[var(--bg-elevated,#23201D)] dark:hover:border-[rgba(230,199,163,0.2)] dark:hover:shadow-[0_12px_30px_rgba(0,0,0,0.35)]",
+          "border border-[var(--portal-surface-border)] bg-white text-foreground shadow-none hover:border-[#cbd5e1] hover:bg-[#f8fafc] hover:text-foreground dark:border-[var(--border)] dark:bg-[var(--bg-surface,#1A1816)] dark:text-[var(--text-primary,#F5F5F5)] dark:hover:bg-[var(--bg-elevated,#23201D)]",
         secondary:
-          "border border-[rgba(200,162,124,0.26)] bg-[linear-gradient(135deg,rgba(200,162,124,0.24),rgba(139,94,60,0.18))] text-[#5d3c23] shadow-soft before:absolute before:inset-x-6 before:top-0 before:h-px before:bg-white/35 hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(139,94,60,0.18)] dark:border-[rgba(230,199,163,0.16)] dark:bg-[linear-gradient(135deg,rgba(230,199,163,0.12),rgba(166,124,82,0.12))] dark:text-[#f3e4d2]",
-        ghost: "text-muted-foreground hover:bg-white/[0.06] hover:text-primary",
-        link: "text-primary underline-offset-4 hover:underline",
+          "border border-[#e2e8f0] bg-[#f1f5f9] text-[#1f2937] shadow-none hover:bg-[#e2e8f0] dark:border-[#374151] dark:bg-[#1f2937] dark:text-[#f3f4f6] dark:hover:bg-[#374151]",
+        ghost: "text-muted-foreground hover:bg-[#f1f5f9] hover:text-foreground dark:hover:bg-white/[0.06] dark:hover:text-white",
+        link: "text-[#1f2937] underline-offset-4 hover:underline dark:text-white",
       },
       size: {
         default: "h-11 px-5 py-2.5",

@@ -57,6 +57,13 @@ type CorrectionRow = {
   adminRemarks: string;
 };
 
+const formatAttendanceStatus = (row: AttendanceRecord) => {
+  const normalized = String(row.status || "present")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+  return row.isIncomplete ? `${normalized} (Incomplete)` : normalized;
+};
+
 const formatDateLabel = (value: string) =>
   new Date(value).toLocaleDateString("en-US", {
     month: "short",
@@ -119,7 +126,7 @@ const AdminAttendance: React.FC = () => {
     date: "",
     checkIn: "",
     checkOut: "",
-    status: "present" as "present" | "late" | "absent" | "leave",
+    status: "present" as "present" | "late" | "half_day" | "absent" | "leave",
   });
   const { toast } = useToast();
   const canManageLocations = user?.accessRole === "super_admin" || user?.accessRole === "admin" || user?.role === "admin";
@@ -142,8 +149,8 @@ const AdminAttendance: React.FC = () => {
         checkIn: row.checkIn || "-",
         checkOut: row.checkOut || "-",
         hours: row.hoursWorked ? `${row.hoursWorked}h` : "-",
-        status: row.status ? String(row.status).charAt(0).toUpperCase() + String(row.status).slice(1) : "Present",
-        entryType: row.isManual ? "Manual Entry" : "",
+        status: formatAttendanceStatus(row),
+        entryType: row.isManual ? "Manual Entry" : row.isIncomplete ? "Incomplete" : "",
         isManual: Boolean(row.isManual),
       }));
 
@@ -185,7 +192,13 @@ const AdminAttendance: React.FC = () => {
   const filteredAttendance = rows.filter((row) => {
     const term = appliedFilters.search.toLowerCase();
     const matchesSearch = !term || row.name.toLowerCase().includes(term) || row.date.toLowerCase().includes(term);
-    const matchesStatus = !appliedFilters.status || row.status === appliedFilters.status;
+    const normalizedStatus = row.status.toLowerCase();
+    const requestedStatus = appliedFilters.status.toLowerCase();
+    const matchesStatus =
+      !appliedFilters.status ||
+      normalizedStatus === requestedStatus ||
+      normalizedStatus.startsWith(`${requestedStatus} (`) ||
+      (requestedStatus === "incomplete" && normalizedStatus.includes("incomplete"));
     const matchesDate =
       !appliedFilters.date ||
       row.date === new Date(appliedFilters.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -227,7 +240,7 @@ const AdminAttendance: React.FC = () => {
         date: row.dateISO,
         checkIn: formatTimeInput(row.checkIn === "-" ? "" : row.checkIn),
         checkOut: formatTimeInput(row.checkOut === "-" ? "" : row.checkOut),
-        status: row.status.toLowerCase() as "present" | "late" | "absent" | "leave",
+        status: row.status.toLowerCase().replace(" (incomplete)", "").replaceAll(" ", "_") as "present" | "late" | "half_day" | "absent" | "leave",
       });
     } else {
       setOverrideMode("create");
@@ -350,7 +363,7 @@ const AdminAttendance: React.FC = () => {
             </Button>
             <Button
               variant="outline"
-              className="gap-2 rounded-xl border-slate-200 bg-white/90"
+              className="gap-2 rounded-xl border-[var(--portal-surface-border)] bg-white/90 text-[var(--portal-heading-color)] hover:bg-[rgba(var(--portal-primary-rgb),0.08)] dark:bg-[#0f0f0f] dark:text-white dark:hover:bg-[#161616] dark:hover:text-white"
               onClick={() => setFiltersOpen(true)}
             >
               <Filter className="h-4 w-4" />
@@ -377,7 +390,7 @@ const AdminAttendance: React.FC = () => {
       </div>
 
       <Tabs defaultValue="attendance" className="space-y-4">
-        <TabsList className="rounded-2xl bg-white p-1 shadow-card">
+        <TabsList className="rounded-2xl bg-white/88 p-1 shadow-card dark:bg-[#0f0f0f]">
           <TabsTrigger value="attendance" className="rounded-xl px-4">Attendance Records</TabsTrigger>
           <TabsTrigger value="corrections" className="rounded-xl px-4">Correction Requests</TabsTrigger>
           <TabsTrigger value="locations" className="rounded-xl px-4">Office Locations</TabsTrigger>
@@ -503,6 +516,8 @@ const AdminAttendance: React.FC = () => {
             options: [
               { label: "Present", value: "Present" },
               { label: "Late", value: "Late" },
+              { label: "Half Day", value: "Half Day" },
+              { label: "Incomplete", value: "Incomplete" },
               { label: "Absent", value: "Absent" },
               { label: "Leave", value: "Leave" },
             ],
@@ -565,7 +580,7 @@ const AdminAttendance: React.FC = () => {
                 onValueChange={(value) =>
                   setOverrideForm((prev) => ({
                     ...prev,
-                    status: value as "present" | "late" | "absent" | "leave",
+                    status: value as "present" | "late" | "half_day" | "absent" | "leave",
                   }))
                 }
                 disabled={overrideLoading}
@@ -576,6 +591,7 @@ const AdminAttendance: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="present">Present</SelectItem>
                   <SelectItem value="late">Late</SelectItem>
+                  <SelectItem value="half_day">Half Day</SelectItem>
                   <SelectItem value="absent">Absent</SelectItem>
                   <SelectItem value="leave">Leave</SelectItem>
                 </SelectContent>

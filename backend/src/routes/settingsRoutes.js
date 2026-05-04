@@ -6,6 +6,7 @@ import {
   getPublicSettings,
   getSettings,
   resetDefaults,
+  updateAttendanceSettings,
   updateAuditSettings,
   updateCompanySettings,
   updateDocumentSettings,
@@ -34,6 +35,7 @@ router.put("/rbac", asyncHandler(updateRbacSettings));
 router.put("/security", asyncHandler(updateSecuritySettings));
 router.put("/notifications", asyncHandler(updateNotificationSettings));
 router.put("/preferences", asyncHandler(updatePreferenceSettings));
+router.put("/attendance", asyncHandler(updateAttendanceSettings));
 router.put("/documents", asyncHandler(updateDocumentSettings));
 router.put("/audit", asyncHandler(updateAuditSettings));
 router.post("/reset-defaults", asyncHandler(resetDefaults));

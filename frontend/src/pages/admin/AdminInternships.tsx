@@ -1,11 +1,13 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, MoreHorizontal, Trash2 } from "lucide-react";
+
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/DatePicker";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -14,39 +16,42 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { destructiveButtonClass } from "@/lib/destructive";
 import { apiService, type CandidateRecord, type InternshipRecord } from "@/services/api";
 
-type InternshipDecision = "approve" | "reject" | "extend";
-type InternshipActionOption = { key: InternshipDecision; label: string };
+type InternshipAction = NonNullable<InternshipRecord["availableActions"]>[number];
 
-const getInternshipActions = (status: InternshipRecord["status"]): InternshipActionOption[] => {
-  if (status === "Assigned" || status === "In Progress" || status === "Extended") {
-    return [
-      { key: "approve", label: "Approve" },
-      { key: "extend", label: "Extend" },
-      { key: "reject", label: "Reject" },
-    ];
-  }
-  if (status === "Approved") {
-    return [{ key: "extend", label: "Extend" }];
-  }
-  return [];
-};
+const resolveCandidateId = (candidate?: CandidateRecord | null) => candidate?._id || "";
+const resolveCandidate = (candidateId: InternshipRecord["candidateId"]) =>
+  candidateId && typeof candidateId === "object" ? candidateId : null;
 
-const actionLabelMap: Record<InternshipDecision, string> = {
-  approve: "approved",
-  reject: "rejected",
-  extend: "extended",
-};
-
-const resolveCandidateId = (candidate?: CandidateRecord | null) => candidate?.id || candidate?._id || "";
 const isEligibleForInternship = (candidate: CandidateRecord) =>
   ["Selected", "Internship", "Offered"].includes(String(candidate.status || "").trim());
+
+const statusClassMap: Record<string, string> = {
+  Active: "text-slate-700",
+  Completed: "text-slate-700",
+  Cancelled: "text-rose-600",
+  "Converted to Employee": "text-violet-700",
+};
+
+const formatDate = (value?: string | null) =>
+  value
+    ? new Date(value).toLocaleDateString("en-US", {
+        month: "numeric",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "-";
+
+const normalizeStatus = (status?: string) => status || "Active";
 
 const AdminInternships: React.FC = () => {
   const { toast } = useToast();
@@ -57,12 +62,19 @@ const AdminInternships: React.FC = () => {
   const [endDate, setEndDate] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [decisionDialogOpen, setDecisionDialogOpen] = useState(false);
-  const [decisionTarget, setDecisionTarget] = useState<InternshipRecord | null>(null);
-  const [decisionAction, setDecisionAction] = useState<"approve" | "reject" | "extend" | null>(null);
-  const [decisionNote, setDecisionNote] = useState("");
-  const [decisionEndDate, setDecisionEndDate] = useState("");
-  const [decisionSaving, setDecisionSaving] = useState(false);
+  const [actionDialogOpen, setActionDialogOpen] = useState(false);
+  const [actionTarget, setActionTarget] = useState<InternshipRecord | null>(null);
+  const [selectedAction, setSelectedAction] = useState<InternshipAction | null>(null);
+  const [actionForm, setActionForm] = useState({
+    note: "",
+    reason: "",
+    newEndDate: "",
+    joiningDate: "",
+    designation: "",
+    salary: "",
+    departmentId: "",
+  });
+  const [actionSaving, setActionSaving] = useState(false);
   const [deletingInternshipId, setDeletingInternshipId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -74,7 +86,11 @@ const AdminInternships: React.FC = () => {
       setCandidates(candidateRows);
       setInternships(internshipRows);
     } catch (error) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to load internships", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load internships",
+        variant: "destructive",
+      });
     }
   }, [toast]);
 
@@ -82,16 +98,21 @@ const AdminInternships: React.FC = () => {
     void load();
   }, [load]);
 
-  const eligibleCandidates = candidates.filter(isEligibleForInternship);
+  const eligibleCandidates = useMemo(() => candidates.filter(isEligibleForInternship), [candidates]);
 
   const assign = async () => {
     if (!candidateId || !startDate || !endDate) {
-      toast({ title: "Required", description: "Candidate, start date and end date are required.", variant: "destructive" });
+      toast({
+        title: "Required",
+        description: "Candidate, start date and end date are required.",
+        variant: "destructive",
+      });
       return;
     }
     setSaving(true);
     try {
-      await apiService.createInternship({ candidateId, startDate, endDate, notes });
+      const created = await apiService.createInternship({ candidateId, startDate, endDate, notes });
+      setInternships((current) => [created, ...current]);
       toast({ title: "Assigned", description: "Internship assigned successfully." });
       setCandidateId("");
       setStartDate("");
@@ -99,42 +120,92 @@ const AdminInternships: React.FC = () => {
       setNotes("");
       await load();
     } catch (error) {
-      toast({ title: "Assignment failed", description: error instanceof Error ? error.message : "Unable to assign internship", variant: "destructive" });
+      toast({
+        title: "Assignment failed",
+        description: error instanceof Error ? error.message : "Unable to assign internship",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  const takeDecision = (record: InternshipRecord, action: InternshipDecision) => {
-    setDecisionTarget(record);
-    setDecisionAction(action);
-    setDecisionNote("");
-    setDecisionEndDate("");
-    setDecisionDialogOpen(true);
+  const openActionDialog = (record: InternshipRecord, action: InternshipAction) => {
+    setActionTarget(record);
+    setSelectedAction(action);
+    setActionForm({
+      note: "",
+      reason: "",
+      newEndDate: "",
+      joiningDate: "",
+      designation: "",
+      salary: "",
+      departmentId: "",
+    });
+    setActionDialogOpen(true);
   };
 
-  const submitDecision = async () => {
-    if (!decisionTarget || !decisionAction) return;
-    if (decisionAction === "extend" && !decisionEndDate) {
-      toast({ title: "New end date required", description: "Please select the extended end date.", variant: "destructive" });
+  const closeActionDialog = () => {
+    setActionDialogOpen(false);
+    setActionTarget(null);
+    setSelectedAction(null);
+    setActionForm({
+      note: "",
+      reason: "",
+      newEndDate: "",
+      joiningDate: "",
+      designation: "",
+      salary: "",
+      departmentId: "",
+    });
+  };
+
+  const submitAction = async () => {
+    if (!actionTarget || !selectedAction) return;
+
+    if (selectedAction.requiresEndDate && !actionForm.newEndDate) {
+      toast({
+        title: "New end date required",
+        description: "Please select the updated internship end date.",
+        variant: "destructive",
+      });
       return;
     }
 
-    setDecisionSaving(true);
-    try {
-      await apiService.decideInternship(decisionTarget._id, {
-        action: decisionAction,
-        note: decisionNote,
-        newEndDate: decisionAction === "extend" ? decisionEndDate : undefined,
+    if (selectedAction.requiresReason && !actionForm.reason.trim()) {
+      toast({
+        title: "Cancellation reason required",
+        description: "Please provide the cancellation reason before proceeding.",
+        variant: "destructive",
       });
-      toast({ title: "Updated", description: `Internship ${actionLabelMap[decisionAction]} successfully.` });
-      setDecisionDialogOpen(false);
-      setDecisionTarget(null);
+      return;
+    }
+
+    setActionSaving(true);
+    try {
+      const updated = await apiService.performInternshipAction(actionTarget._id, {
+        action: selectedAction.key,
+        note: actionForm.note.trim() || undefined,
+        reason: actionForm.reason.trim() || undefined,
+        newEndDate: actionForm.newEndDate || undefined,
+        joiningDate: actionForm.joiningDate || undefined,
+        designation: actionForm.designation.trim() || undefined,
+        departmentId: actionForm.departmentId || undefined,
+        salary: actionForm.salary ? Number(actionForm.salary) : undefined,
+      });
+
+      setInternships((current) => current.map((item) => (item._id === updated._id ? updated : item)));
+      toast({ title: "Updated", description: `${selectedAction.label} applied successfully.` });
+      closeActionDialog();
       await load();
     } catch (error) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to update internship", variant: "destructive" });
+      toast({
+        title: "Action failed",
+        description: error instanceof Error ? error.message : "Unable to update internship",
+        variant: "destructive",
+      });
     } finally {
-      setDecisionSaving(false);
+      setActionSaving(false);
     }
   };
 
@@ -142,10 +213,15 @@ const AdminInternships: React.FC = () => {
     setDeletingInternshipId(internshipId);
     try {
       await apiService.deleteInternship(internshipId);
+      setInternships((current) => current.filter((item) => item._id !== internshipId));
       toast({ title: "Deleted", description: "Internship record removed successfully." });
       await load();
     } catch (error) {
-      toast({ title: "Delete failed", description: error instanceof Error ? error.message : "Failed to delete internship", variant: "destructive" });
+      toast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Failed to delete internship",
+        variant: "destructive",
+      });
     } finally {
       setDeletingInternshipId(null);
     }
@@ -153,7 +229,10 @@ const AdminInternships: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Internships" subtitle="Assign internship/probation and track completion decisions" />
+      <PageHeader
+        title="Internships"
+        subtitle="Assign internship/probation and track completion decisions"
+      />
 
       <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="mb-3 font-semibold">Assign Internship</h3>
@@ -161,25 +240,31 @@ const AdminInternships: React.FC = () => {
           <select
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             value={candidateId}
-            onChange={(e) => setCandidateId(e.target.value)}
+            onChange={(event) => setCandidateId(event.target.value)}
           >
             <option value="">{eligibleCandidates.length ? "Select candidate" : "No eligible candidates available"}</option>
             {eligibleCandidates.map((candidate) => {
               const id = resolveCandidateId(candidate);
               if (!id) return null;
-              return <option key={id} value={id}>{candidate.fullName} ({candidate.status})</option>;
+              return (
+                <option key={id} value={id}>
+                  {candidate.fullName} ({candidate.status})
+                </option>
+              );
             })}
           </select>
-          <DatePicker value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          <DatePicker value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          <Input placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <DatePicker value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+          <DatePicker value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+          <Input placeholder="Notes" value={notes} onChange={(event) => setNotes(event.target.value)} />
         </div>
         {eligibleCandidates.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">
             No candidates are currently eligible for internship assignment. Use the Applicants workflow to move a candidate into `Selected`, `Internship`, or `Offered`.
           </p>
         ) : null}
-        <Button className="mt-3" onClick={() => void assign()} disabled={saving || eligibleCandidates.length === 0}>{saving ? "Assigning..." : "Assign Internship"}</Button>
+        <Button className="mt-3" onClick={() => void assign()} disabled={saving || eligibleCandidates.length === 0}>
+          {saving ? "Assigning..." : "Assign Internship"}
+        </Button>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-card">
@@ -194,130 +279,177 @@ const AdminInternships: React.FC = () => {
           </thead>
           <tbody>
             {internships.map((item) => {
-              const candidate = typeof item.candidateId === "object" ? item.candidateId : null;
+              const candidate = resolveCandidate(item.candidateId);
+              const availableActions = item.availableActions || [];
+              const status = normalizeStatus(item.status);
+              const extendAction = availableActions.find((action) => action.key === "extend") || null;
+              const cancelAction = availableActions.find((action) => action.key === "cancel") || null;
+              const convertAction = availableActions.find((action) => action.key === "convert_to_employee") || null;
+
               return (
                 <tr key={item._id} className="border-t border-border">
-                  <td className="px-4 py-3">{candidate?.fullName || String(item.candidateId)}</td>
-                  <td className="px-4 py-3">{new Date(item.startDate).toLocaleDateString()} - {new Date(item.endDate).toLocaleDateString()}</td>
-                  <td className="px-4 py-3">{item.status}</td>
                   <td className="px-4 py-3">
-                    {(() => {
-                      const actions = getInternshipActions(item.status);
-                      const primaryAction = actions[0];
-                      const secondaryActions = actions.slice(1);
-
-                      if (!primaryAction) {
-                        return (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                className="h-9 w-9 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                aria-label={`More internship actions for ${candidate?.fullName || "candidate"}`}
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40 rounded-2xl border-slate-200 p-2 shadow-lg">
-                              <DropdownMenuItem
-                                className="rounded-xl px-3 py-2.5 text-red-600 focus:bg-red-50 focus:text-red-700"
-                                disabled={deletingInternshipId === item._id}
-                                onClick={() => void handleDeleteInternship(item._id)}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                {deletingInternshipId === item._id ? "Deleting..." : "Delete"}
+                    <div className="font-medium text-slate-900">{candidate?.fullName || String(item.candidateId)}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div>{formatDate(item.startDate)} - {formatDate(item.endDate)}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-sm font-medium ${statusClassMap[status] || "text-slate-700"}`}>
+                      {status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      {extendAction ? (
+                        <Button
+                          className="h-8 rounded-xl bg-slate-800 px-4 text-white hover:bg-slate-900"
+                          onClick={() => openActionDialog(item, extendAction)}
+                        >
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Extend
+                        </Button>
+                      ) : null}
+                      {cancelAction || convertAction || deletingInternshipId === item._id || !extendAction ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50"
+                              aria-label={`More internship actions for ${candidate?.fullName || "candidate"}`}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52 rounded-2xl border-slate-200 p-2 shadow-lg">
+                            {extendAction ? (
+                              <DropdownMenuItem className="rounded-xl px-3 py-2.5" onClick={() => openActionDialog(item, extendAction)}>
+                                Extend Internship
                               </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        );
-                      }
-
-                      return (
-                        <div className="flex items-center justify-start gap-2">
-                          <Button
-                            size="sm"
-                            className="h-9 rounded-xl bg-slate-900 px-4 text-white hover:bg-slate-800"
-                            onClick={() => takeDecision(item, primaryAction.key)}
-                          >
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                            {primaryAction.label}
-                          </Button>
-
-                          {secondaryActions.length ? (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  size="icon"
-                                  variant="outline"
-                                  className="h-9 w-9 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                  aria-label={`More internship actions for ${candidate?.fullName || "candidate"}`}
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-40 rounded-2xl border-slate-200 p-2 shadow-lg">
-                                {secondaryActions.map((action) => (
-                                  <DropdownMenuItem
-                                    key={action.key}
-                                    className="rounded-xl px-3 py-2.5"
-                                    onClick={() => takeDecision(item, action.key)}
-                                  >
-                                    {action.label}
-                                  </DropdownMenuItem>
-                                ))}
-                                <DropdownMenuItem
-                                  className="rounded-xl px-3 py-2.5 text-red-600 focus:bg-red-50 focus:text-red-700"
-                                  disabled={deletingInternshipId === item._id}
-                                  onClick={() => void handleDeleteInternship(item._id)}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  {deletingInternshipId === item._id ? "Deleting..." : "Delete"}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          ) : null}
-                        </div>
-                      );
-                    })()}
+                            ) : null}
+                            {convertAction ? (
+                              <DropdownMenuItem className="rounded-xl px-3 py-2.5" onClick={() => openActionDialog(item, convertAction)}>
+                                Convert to Employee
+                              </DropdownMenuItem>
+                            ) : null}
+                            {cancelAction ? (
+                              <DropdownMenuItem
+                                className={`rounded-xl px-3 py-2.5 ${destructiveButtonClass}`}
+                                onClick={() => openActionDialog(item, cancelAction)}
+                              >
+                                Cancel Internship
+                              </DropdownMenuItem>
+                            ) : null}
+                            {(extendAction || cancelAction || convertAction) ? <DropdownMenuSeparator /> : null}
+                            <DropdownMenuItem
+                              className={`${destructiveButtonClass} rounded-xl px-3 py-2.5 focus:bg-[#9f1239] focus:text-white`}
+                              disabled={deletingInternshipId === item._id}
+                              onClick={() => void handleDeleteInternship(item._id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {deletingInternshipId === item._id ? "Deleting..." : "Delete Record"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : null}
+                      {!extendAction && !cancelAction && !convertAction ? (
+                        <span className="text-sm text-muted-foreground">No actions</span>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               );
             })}
             {internships.length === 0 ? (
               <tr>
-                <td className="px-4 py-4 text-muted-foreground" colSpan={4}>No internships found.</td>
+                <td className="px-4 py-4 text-muted-foreground" colSpan={4}>
+                  No internships found.
+                </td>
               </tr>
             ) : null}
           </tbody>
         </table>
       </div>
 
-      <Dialog open={decisionDialogOpen} onOpenChange={setDecisionDialogOpen}>
+      <Dialog
+        open={actionDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeActionDialog();
+            return;
+          }
+          setActionDialogOpen(true);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {decisionAction === "extend" ? "Extend Internship" : "Update Internship"}
-            </DialogTitle>
+            <DialogTitle>{selectedAction?.confirmTitle || "Internship Action"}</DialogTitle>
+            <DialogDescription>{selectedAction?.confirmDescription || "Review the action details before proceeding."}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {decisionAction === "extend" ? (
+            {selectedAction?.requiresEndDate ? (
               <div className="space-y-1.5">
                 <Label>New End Date</Label>
-                <DatePicker value={decisionEndDate} onChange={(e) => setDecisionEndDate(e.target.value)} />
+                <DatePicker value={actionForm.newEndDate} onChange={(event) => setActionForm((current) => ({ ...current, newEndDate: event.target.value }))} />
               </div>
             ) : null}
+
+            {selectedAction?.key === "convert_to_employee" ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Joining Date</Label>
+                  <DatePicker value={actionForm.joiningDate} onChange={(event) => setActionForm((current) => ({ ...current, joiningDate: event.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Salary</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={actionForm.salary}
+                    onChange={(event) => setActionForm((current) => ({ ...current, salary: event.target.value }))}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>Designation</Label>
+                  <Input
+                    value={actionForm.designation}
+                    onChange={(event) => setActionForm((current) => ({ ...current, designation: event.target.value }))}
+                    placeholder="Optional override, otherwise candidate role will be used"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {selectedAction?.key === "cancel" ? (
+              <div className="space-y-1.5">
+                <Label>Cancellation Reason</Label>
+                <Textarea
+                  value={actionForm.reason}
+                  onChange={(event) => setActionForm((current) => ({ ...current, reason: event.target.value }))}
+                  placeholder="Optional reason to store with the cancellation record."
+                  rows={4}
+                />
+              </div>
+            ) : null}
+
             <div className="space-y-1.5">
-              <Label>{decisionAction === "extend" ? "Extension Reason" : "Remarks"}</Label>
-              <Input value={decisionNote} onChange={(e) => setDecisionNote(e.target.value)} placeholder="Optional notes" />
+              <Label>{selectedAction?.key === "cancel" ? "Additional Notes" : "Notes"}</Label>
+              <Textarea
+                value={actionForm.note}
+                onChange={(event) => setActionForm((current) => ({ ...current, note: event.target.value }))}
+                placeholder="Optional remarks for the audit trail."
+                rows={3}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDecisionDialogOpen(false)}>
-              Cancel
+            <Button variant="outline" onClick={closeActionDialog}>
+              Close
             </Button>
-            <Button onClick={() => void submitDecision()} disabled={!decisionAction || decisionSaving}>
-              {decisionSaving ? "Saving..." : "Save"}
+            <Button onClick={() => void submitAction()} disabled={!selectedAction || actionSaving}>
+              {actionSaving ? "Saving..." : selectedAction?.label || "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

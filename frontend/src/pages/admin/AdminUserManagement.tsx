@@ -16,7 +16,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useSystemSettings } from "@/context/SystemSettingsContext";
 import { useToast } from "@/hooks/use-toast";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import { destructiveIconButtonClass } from "@/lib/destructive";
+import { destructiveButtonClass, destructiveIconButtonClass } from "@/lib/destructive";
 import {
   apiService,
   type AuditLogItem,
@@ -465,9 +465,9 @@ const AdminUserManagement: React.FC = () => {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard title="Total Users" value={summaryStats.totalUsers} change="All registered accounts" changeType="positive" icon={Users} color="primary" />
         <StatCard title="Active HR Staff" value={summaryStats.activeHr} change="HR Managers currently active" changeType="positive" icon={UserRoundCheck} color="success" />
-        <StatCard title="Candidates Registered" value={summaryStats.candidatesRegistered} change="Candidate accounts" changeType="neutral" icon={UserPlus} color="info" />
+        <StatCard title="Candidates Registered" value={summaryStats.candidatesRegistered} change="Candidate accounts" changeType="neutral" icon={UserPlus} color="primary" />
         <StatCard title="Pending Applications" value={summaryStats.pendingApplications} change="Candidates under process" changeType="neutral" icon={Briefcase} color="warning" />
-        <StatCard title="Active Recruiters" value={summaryStats.activeRecruiters} change="Recruiter accounts active" changeType="positive" icon={ShieldCheck} color="primary" />
+        <StatCard title="Active Recruiters" value={summaryStats.activeRecruiters} change="Recruiter accounts active" changeType="positive" icon={ShieldCheck} color="success" />
       </div>
 
       <Tabs defaultValue="users">
@@ -846,7 +846,7 @@ const AdminUserManagement: React.FC = () => {
                     onChange={(event) => void handleUserImageChange(event)}
                     disabled={updatingUserImage}
                   />
-                  <Button variant="destructive" type="button" onClick={() => void handleRemoveUserImage()} disabled={updatingUserImage}>
+                  <Button className={destructiveButtonClass} type="button" onClick={() => void handleRemoveUserImage()} disabled={updatingUserImage}>
                     {updatingUserImage ? "Updating..." : "Remove Image"}
                   </Button>
                 </div>

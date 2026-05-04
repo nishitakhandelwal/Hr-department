@@ -1281,17 +1281,17 @@ export const assignInternshipToCandidate = async (req, res) => {
     candidateId: candidate._id,
     startDate: start,
     endDate: end,
-    status: "Assigned",
+    status: "Active",
     notes: toString(notes),
     assignedBy: req.user?._id ?? null,
-    history: [{ action: "assigned", note: toString(notes), by: req.user?._id ?? null }],
+    history: [{ action: "assigned", label: "Assigned", note: toString(notes), statusFrom: "", statusTo: "Active", by: req.user?._id ?? null }],
   });
 
   candidate.status = "Internship";
   candidate.stageCompleted = Math.max(Number(candidate.stageCompleted || 0), 5);
   candidate.internship = {
     isAssigned: true,
-    status: "Assigned",
+    status: "Active",
     startDate: start,
     endDate: end,
     extensionDate: null,

@@ -85,18 +85,18 @@ const CandidateApply: React.FC = () => {
     return POSITION_OPTIONS.includes(form.positionApplied as (typeof POSITION_OPTIONS)[number]) ? form.positionApplied : "Other";
   }, [form.positionApplied, positionMode]);
   const formCardClassName =
-    "border border-[rgba(230,199,163,0.16)] bg-[linear-gradient(180deg,rgba(28,24,22,0.98),rgba(20,18,17,0.96))] shadow-[0_26px_70px_rgba(0,0,0,0.28)]";
-  const sectionTitleClassName = "text-[30px] font-semibold tracking-tight text-[#f6efe5]";
-  const sectionBodyClassName = "text-sm text-[#c8b8a6]";
-  const labelClassName = "text-sm font-medium text-[#d6b27c]";
-  const cardContentClassName = "bg-transparent text-[#c8b8a6]";
+    "border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] shadow-[0_26px_70px_rgba(15,23,42,0.08)] dark:border-[rgba(230,199,163,0.16)] dark:bg-[linear-gradient(180deg,rgba(28,24,22,0.98),rgba(20,18,17,0.96))] dark:shadow-[0_26px_70px_rgba(0,0,0,0.28)]";
+  const sectionTitleClassName = "text-[30px] font-semibold tracking-tight text-[var(--portal-heading-color)] dark:text-[#f6efe5]";
+  const sectionBodyClassName = "text-sm text-[var(--portal-muted-color)] dark:text-[#c8b8a6]";
+  const labelClassName = "text-sm font-medium text-[var(--portal-primary-text)] dark:text-[#d6b27c]";
+  const cardContentClassName = "bg-transparent text-[var(--portal-muted-color)] dark:text-[#c8b8a6]";
   const fieldClassName =
-    "border-[rgba(230,199,163,0.14)] bg-[#2a2724] text-[#f5efe7] placeholder:text-[#9f907f] shadow-[0_10px_30px_rgba(0,0,0,0.22)] hover:border-[#c69442]/45 focus-visible:border-[#d6b27c] focus-visible:ring-[#d6b27c]/20 [color-scheme:dark]";
+    "border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface-strong)] text-[var(--portal-heading-color)] placeholder:text-[var(--portal-muted-color)] shadow-[0_10px_30px_rgba(15,23,42,0.06)] hover:border-[rgba(var(--portal-primary-rgb),0.24)] focus-visible:border-[rgba(var(--portal-primary-rgb),0.36)] focus-visible:ring-[rgba(var(--portal-primary-rgb),0.14)] dark:border-[rgba(230,199,163,0.14)] dark:bg-[#2a2724] dark:text-[#f5efe7] dark:placeholder:text-[#9f907f] dark:shadow-[0_10px_30px_rgba(0,0,0,0.22)] dark:hover:border-[#c69442]/45 dark:focus-visible:border-[#d6b27c] dark:focus-visible:ring-[#d6b27c]/20 dark:[color-scheme:dark]";
   const selectTriggerClassName =
-    "border-[rgba(230,199,163,0.14)] bg-[#161413] text-[#f5efe7] shadow-[0_10px_30px_rgba(0,0,0,0.22)] hover:border-[#c69442]/45 focus:ring-[#d6b27c]/20 data-[placeholder]:text-[#9f907f]";
-  const selectContentClassName = "border-[rgba(230,199,163,0.14)] bg-[#1b1817] text-[#f5efe7]";
-  const selectItemClassName = "text-[#f5efe7] focus:bg-[rgba(214,178,124,0.14)] focus:text-[#f6d7a5]";
-  const outlineButtonClassName = "border-[rgba(230,199,163,0.16)] bg-[rgba(36,31,29,0.92)] text-[#f0dfc7] hover:border-[#d6b27c]/40 hover:bg-[rgba(56,46,39,0.96)] hover:text-[#f6efe5]";
+    "border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface-strong)] text-[var(--portal-heading-color)] shadow-[0_10px_30px_rgba(15,23,42,0.06)] hover:border-[rgba(var(--portal-primary-rgb),0.24)] focus:ring-[rgba(var(--portal-primary-rgb),0.14)] data-[placeholder]:text-[var(--portal-muted-color)] dark:border-[rgba(230,199,163,0.14)] dark:bg-[#161413] dark:text-[#f5efe7] dark:shadow-[0_10px_30px_rgba(0,0,0,0.22)] dark:hover:border-[#c69442]/45 dark:focus:ring-[#d6b27c]/20 dark:data-[placeholder]:text-[#9f907f]";
+  const selectContentClassName = "border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] text-[var(--portal-heading-color)] dark:border-[rgba(230,199,163,0.14)] dark:bg-[#1b1817] dark:text-[#f5efe7]";
+  const selectItemClassName = "text-[var(--portal-heading-color)] focus:bg-[rgba(var(--portal-primary-rgb),0.08)] focus:text-[var(--portal-heading-color)] dark:text-[#f5efe7] dark:focus:bg-[rgba(214,178,124,0.14)] dark:focus:text-[#f6d7a5]";
+  const outlineButtonClassName = "border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface-strong)] text-[var(--portal-heading-color)] hover:border-[rgba(var(--portal-primary-rgb),0.24)] hover:bg-[rgba(var(--portal-primary-rgb),0.08)] hover:text-[var(--portal-heading-color)] dark:border-[rgba(230,199,163,0.16)] dark:bg-[rgba(36,31,29,0.92)] dark:text-[#f0dfc7] dark:hover:border-[#d6b27c]/40 dark:hover:bg-[rgba(56,46,39,0.96)] dark:hover:text-[#f6efe5]";
 
   useEffect(() => {
     if (!isCandidateUser) return;
@@ -245,12 +245,12 @@ const CandidateApply: React.FC = () => {
       <div className="mx-auto max-w-5xl space-y-6">
         <Card className={formCardClassName}>
           <CardHeader>
-            <CardTitle className="text-[28px] font-semibold text-[#7a5720]">Candidate Portal Workflow</CardTitle>
+            <CardTitle className="text-[28px] font-semibold text-[var(--portal-primary-text)] dark:text-[#d6b27c]">Candidate Portal Workflow</CardTitle>
           </CardHeader>
           <CardContent className={`${cardContentClassName} ${sectionBodyClassName}`}>
             Stage 1: Application Form. Stage 2: HR Review and Interview Processing. Stage 3: Final Decision.
             {isCandidateUser && (
-              <div className="mt-2 text-[#efe2d1]">
+              <div className="mt-2 text-[var(--portal-heading-color)] dark:text-[#efe2d1]">
                 Current Status: <span className="font-semibold">{myApplication?.status || "Not Applied"}</span>
               </div>
             )}
@@ -278,7 +278,7 @@ const CandidateApply: React.FC = () => {
                     value={form.email}
                     readOnly
                     disabled={isLocked}
-                    className={`${fieldClassName} ${user?.email ? "cursor-not-allowed bg-[#24211f] text-[#d6b27c]" : ""}`}
+                    className={`${fieldClassName} ${user?.email ? "cursor-not-allowed bg-[rgba(var(--portal-primary-rgb),0.08)] text-[var(--portal-primary-text)] dark:bg-[#24211f] dark:text-[#d6b27c]" : ""}`}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -392,7 +392,7 @@ const CandidateApply: React.FC = () => {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-[#f0dfc7]">Qualification Details</h3>
+                  <h3 className="font-semibold text-[var(--portal-heading-color)] dark:text-[#f0dfc7]">Qualification Details</h3>
                   <Button type="button" variant="outline" className={outlineButtonClassName} disabled={isLocked} onClick={() => setQualifications((prev) => [...prev, emptyQualification()])}>
                     Add Row
                   </Button>
@@ -400,7 +400,7 @@ const CandidateApply: React.FC = () => {
                 {qualifications.map((qualification, index) => (
                   <div
                     key={index}
-                    className="grid gap-3 rounded-[22px] border border-[rgba(230,199,163,0.14)] bg-[rgba(36,31,29,0.86)] p-4 shadow-[0_16px_40px_rgba(0,0,0,0.22)] sm:grid-cols-4"
+                    className="grid gap-3 rounded-[22px] border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] p-4 shadow-[0_16px_40px_rgba(15,23,42,0.06)] sm:grid-cols-4 dark:border-[rgba(230,199,163,0.14)] dark:bg-[rgba(36,31,29,0.86)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.22)]"
                   >
                     <Input
                       className={fieldClassName}
@@ -460,14 +460,14 @@ const CandidateApply: React.FC = () => {
                 ))}
               </div>
 
-              <div className="flex items-start gap-2 rounded-[22px] border border-[rgba(230,199,163,0.14)] bg-[rgba(36,31,29,0.86)] p-4 shadow-[0_16px_40px_rgba(0,0,0,0.22)]">
+              <div className="flex items-start gap-2 rounded-[22px] border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] p-4 shadow-[0_16px_40px_rgba(15,23,42,0.06)] dark:border-[rgba(230,199,163,0.14)] dark:bg-[rgba(36,31,29,0.86)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.22)]">
                 <Checkbox
                   className="border-[rgba(230,199,163,0.24)] data-[state=checked]:border-[#d6b27c] data-[state=checked]:bg-[#d6b27c] data-[state=checked]:text-[#1a1714]"
                   disabled={isLocked}
                   checked={form.declarationAccepted}
                   onCheckedChange={(checked) => setForm((prev) => ({ ...prev, declarationAccepted: Boolean(checked) }))}
                 />
-                <p className="text-sm text-[#c8b8a6]">
+                <p className="text-sm text-[var(--portal-copy-color)] dark:text-[#c8b8a6]">
                   I declare that all details provided are true and correct to the best of my knowledge.
                 </p>
               </div>

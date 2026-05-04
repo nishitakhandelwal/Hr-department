@@ -8,6 +8,7 @@ type ProfileMetaItem = {
   label: string;
   value: string;
   icon: LucideIcon;
+  tone?: "success" | "process" | "finance" | "pending" | "teal";
 };
 
 type PortalProfileCardProps = {
@@ -18,6 +19,14 @@ type PortalProfileCardProps = {
   meta: ProfileMetaItem[];
 };
 
+const toneClassMap = {
+  success: "border border-[#16a34a]/20 bg-[#16a34a] text-white shadow-[0_8px_18px_rgba(22,163,74,0.16)]",
+  process: "border border-[#2563eb]/20 bg-[#2563eb] text-white shadow-[0_8px_18px_rgba(37,99,235,0.16)]",
+  finance: "border border-[#7c3aed]/20 bg-[#7c3aed] text-white shadow-[0_8px_18px_rgba(124,58,237,0.16)]",
+  pending: "border border-[#e11d48]/20 bg-[#e11d48] text-white shadow-[0_8px_18px_rgba(225,29,72,0.16)]",
+  teal: "border border-[#0f766e]/20 bg-[#0f766e] text-white shadow-[0_8px_18px_rgba(15,118,110,0.16)]",
+};
+
 const PortalProfileCard: React.FC<PortalProfileCardProps> = ({ name, roleLabel, subtitle, imageUrl, meta }) => {
   return (
     <motion.section
@@ -26,7 +35,6 @@ const PortalProfileCard: React.FC<PortalProfileCardProps> = ({ name, roleLabel, 
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
       className="dashboard-panel relative overflow-hidden"
     >
-      <div className="portal-orb pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full blur-2xl" />
       <div className="relative">
         <div className="mb-5 flex items-center gap-4">
           <ProfileAvatar
@@ -49,7 +57,7 @@ const PortalProfileCard: React.FC<PortalProfileCardProps> = ({ name, roleLabel, 
         <div className="mt-5 grid gap-3">
           {meta.map((item) => (
             <div key={item.label} className="dashboard-subtle-card flex items-center gap-3">
-              <div className="portal-accent-icon flex h-11 w-11 items-center justify-center rounded-[18px]">
+              <div className={`flex h-11 w-11 items-center justify-center rounded-[18px] border ${toneClassMap[item.tone || "process"]}`}>
                 <item.icon className="h-4 w-4" />
               </div>
               <div>

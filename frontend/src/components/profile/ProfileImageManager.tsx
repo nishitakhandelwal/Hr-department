@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import ProfileAvatar from "@/components/common/ProfileAvatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { destructiveButtonClass } from "@/lib/destructive";
 
 type ProfileImageManagerProps = {
   name: string;
@@ -153,7 +154,7 @@ const ProfileImageManager: React.FC<ProfileImageManagerProps> = ({
           className="hidden"
           disabled={busy || disabled}
         />
-        <p className={`text-xs font-medium text-[#5F5348] ${showAvatar ? "" : "mx-auto max-w-xs"}`}>
+        <p className={`text-xs font-medium text-[var(--portal-muted-color)] dark:text-slate-400 ${showAvatar ? "" : "mx-auto max-w-xs"}`}>
           JPG/PNG only, max 2MB. Changes reflect instantly in profile and navbar.
         </p>
         <DropdownMenu>
@@ -176,7 +177,7 @@ const ProfileImageManager: React.FC<ProfileImageManagerProps> = ({
             <DropdownMenuItem
               onClick={() => setRemoveOpen(true)}
               disabled={busy || disabled || !imageUrl}
-              className="text-destructive focus:text-destructive"
+              className={`${destructiveButtonClass} focus:bg-[#9f1239] focus:text-white`}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Remove Image

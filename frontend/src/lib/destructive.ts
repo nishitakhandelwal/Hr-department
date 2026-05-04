@@ -1,5 +1,5 @@
 export const destructiveButtonClass =
-  "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500";
+  "border border-[#7f1024] bg-[linear-gradient(180deg,#ff6b7f_0%,#e11d48_18%,#be123c_62%,#881337_100%)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.72),inset_0_-2px_6px_rgba(127,16,36,0.45),0_12px_24px_rgba(190,24,93,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[linear-gradient(180deg,#ff7b8e_0%,#f43f5e_20%,#d41445_62%,#9f1239_100%)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(127,16,36,0.52),0_16px_30px_rgba(190,24,93,0.34)] active:translate-y-0 focus-visible:ring-[#e11d48]";
 
 export const destructiveIconButtonClass =
-  "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500";
+  "border border-[#7f1024] bg-[linear-gradient(180deg,#ff6b7f_0%,#e11d48_18%,#be123c_62%,#881337_100%)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.72),inset_0_-2px_6px_rgba(127,16,36,0.45),0_10px_22px_rgba(190,24,93,0.26)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[linear-gradient(180deg,#ff7b8e_0%,#f43f5e_20%,#d41445_62%,#9f1239_100%)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(127,16,36,0.52),0_14px_28px_rgba(190,24,93,0.32)] active:translate-y-0 focus-visible:ring-[#e11d48]";

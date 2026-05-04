@@ -327,7 +327,7 @@ export type CandidateRecord = {
   };
   internship?: {
     isAssigned?: boolean;
-    status?: "Not Assigned" | "Assigned" | "In Progress" | "Approved" | "Rejected" | "Extended";
+    status?: "Not Assigned" | "Assigned" | "In Progress" | "Approved" | "Rejected" | "Extended" | "Active" | "Completed" | "Cancelled" | "Converted to Employee";
     startDate?: string | null;
     endDate?: string | null;
     extensionDate?: string | null;
@@ -438,8 +438,14 @@ export type AttendanceRecord = {
   date: string;
   checkIn?: string;
   checkOut?: string;
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
   hoursWorked?: number;
+  workingMinutes?: number;
+  overtimeHours?: number;
   status?: string;
+  isIncomplete?: boolean;
+  statusReason?: string;
   isManual?: boolean;
   checkInLocation?: {
     latitude: number;
@@ -521,6 +527,30 @@ export type EmployeeRecord = {
     branchName?: string;
     paymentMode?: string;
   };
+  salaryStructure?: {
+    employeeId?: string;
+    salaryType?: "monthly" | "daily" | "hourly";
+    monthlyGrossSalary?: number;
+    dailyWage?: number;
+    hourlyWage?: number;
+    standardDailyHours?: number;
+    basicSalaryType?: "fixed" | "percentage";
+    basicSalaryValue?: number;
+    hraType?: "fixed" | "percentage";
+    hraValue?: number;
+    specialAllowanceType?: "fixed" | "percentage" | "remainder";
+    specialAllowanceValue?: number;
+    otherAllowance?: number;
+    bonus?: number;
+    deductions?: number;
+    tax?: number;
+    pfEnabled?: boolean;
+    esiEnabled?: boolean;
+    finePerAbsentDay?: number;
+    finePerLateMark?: number;
+    overtimeRatePerHour?: number;
+    isConfigured?: boolean;
+  };
   educationDetails?: Array<{
     degreeOrDiploma?: string;
     university?: string;
@@ -537,6 +567,75 @@ export type EmployeeRecord = {
   status?: "active" | "inactive";
   createdAt: string;
   updatedAt: string;
+};
+
+export type OffboardingStatus = "pending" | "approved" | "completed" | "rejected";
+
+export type OffboardingDocument = {
+  key?: string;
+  url?: string;
+  originalName?: string;
+  mimeType?: string;
+  size?: number;
+  uploadedAt?: string | null;
+};
+
+export type OffboardingRecord = {
+  _id: string;
+  employeeRef?: string | EmployeeRecord | null;
+  employeeCode?: string;
+  employeeId?: string;
+  employeeName?: string;
+  employeeEmail?: string;
+  department?: string;
+  managerName?: string;
+  reportingPerson?: string;
+  joiningDate?: string | null;
+  exitType?: "resignation" | "termination" | "absconding";
+  noticePeriod?: string;
+  lastWorkingDay?: string | null;
+  actualLastWorkingDay?: string | null;
+  exitInterviewStatus?: OffboardingStatus;
+  clearanceStatus?: {
+    hr?: OffboardingStatus;
+    it?: OffboardingStatus;
+    finance?: OffboardingStatus;
+  };
+  assetsReturnStatus?: OffboardingStatus;
+  fnfStatus?: OffboardingStatus;
+  rehireEligibility?: "eligible" | "not_eligible" | "under_review";
+  status?: OffboardingStatus;
+  remarks?: string;
+  employeeRemarks?: string;
+  documents?: {
+    relievingLetter?: OffboardingDocument;
+    experienceLetter?: OffboardingDocument;
+    clearanceForm?: OffboardingDocument;
+    exitForm?: OffboardingDocument;
+  };
+  employeeChecklist?: {
+    exitFormSubmitted?: boolean;
+    exitInterviewCompleted?: boolean;
+    assetsReturned?: boolean;
+    documentsAcknowledged?: boolean;
+  };
+  resignationRequest?: {
+    status?: "pending" | "approved" | "rejected";
+    reason?: string;
+    comments?: string;
+    noticePeriod?: string;
+    lastWorkingDay?: string | null;
+    submittedAt?: string | null;
+    reviewedAt?: string | null;
+    reviewedByName?: string;
+    reviewComments?: string;
+  } | null;
+  offboardingStartedAt?: string | null;
+  name?: string;
+  reason?: string;
+  lastDay?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type JoiningFormPrefillData = {
@@ -568,10 +667,64 @@ export type InternshipRecord = {
   candidateId: string | CandidateRecord;
   startDate: string;
   endDate: string;
-  status: "Assigned" | "In Progress" | "Approved" | "Rejected" | "Extended" | "Completed";
+  status:
+    | "Assigned"
+    | "In Progress"
+    | "Approved"
+    | "Rejected"
+    | "Extended"
+    | "Completed"
+    | "Active"
+    | "Cancelled"
+    | "Converted to Employee";
   notes?: string;
   extensionReason?: string;
   extendedTill?: string | null;
+  extensionHistory?: Array<{
+    previousEndDate: string;
+    newEndDate: string;
+    reason?: string;
+    note?: string;
+    at?: string;
+    by?: string | { _id?: string; name?: string; email?: string };
+  }>;
+  completion?: {
+    completedAt?: string | null;
+    completedBy?: string | { _id?: string; name?: string; email?: string };
+    note?: string;
+  };
+  cancellation?: {
+    cancelledAt?: string | null;
+    cancelledBy?: string | { _id?: string; name?: string; email?: string };
+    reason?: string;
+    note?: string;
+  };
+  conversion?: {
+    convertedAt?: string | null;
+    convertedBy?: string | { _id?: string; name?: string; email?: string };
+    employeeId?: string | { _id?: string; employeeId?: string; fullName?: string; designation?: string; email?: string } | null;
+    note?: string;
+  };
+  history?: Array<{
+    action: string;
+    label?: string;
+    note?: string;
+    statusFrom?: string;
+    statusTo?: string;
+    metadata?: Record<string, unknown>;
+    at?: string;
+    by?: string | { _id?: string; name?: string; email?: string };
+  }>;
+  availableActions?: Array<{
+    key: "extend" | "complete" | "cancel" | "convert_to_employee";
+    label: string;
+    destructive?: boolean;
+    requiresNote?: boolean;
+    requiresReason?: boolean;
+    requiresEndDate?: boolean;
+    confirmTitle?: string;
+    confirmDescription?: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 };
@@ -646,13 +799,23 @@ export type PayrollRecord = {
   year: number;
   presentDays: number;
   lateDays: number;
+  halfDays?: number;
   absentDays: number;
   leaveDays: number;
+  incompleteDays?: number;
+  latePenaltyDays?: number;
+  attendanceUnits?: number;
+  payableHours?: number;
   overtimeHours: number;
   totalWorkingDays: number;
   payableDays: number;
+  salaryType?: "monthly" | "daily" | "hourly";
+  salaryBasisAmount?: number;
+  perDaySalary?: number;
+  perHourSalary?: number;
   fullWages: number;
   earnedWages?: number;
+  earnedSalary?: number;
   basicSalary: number;
   hra: number;
   allowances: number;
@@ -665,6 +828,10 @@ export type PayrollRecord = {
   deductions: number;
   tax: number;
   fineAmount: number;
+  attendanceDeductionAmount?: number;
+  latePenaltyDeductionAmount?: number;
+  halfDayDeductionAmount?: number;
+  incompleteDeductionAmount?: number;
   pfEmployee: number;
   esiEmployee: number;
   advanceDeduction?: number;
@@ -676,6 +843,27 @@ export type PayrollRecord = {
   deductionBreakdown?: Array<{ label: string; amount: number }>;
   amountInWords?: string;
   status?: string;
+  payrollLocked?: boolean;
+  lockedAt?: string | null;
+  processedAt?: string | null;
+  policySnapshot?: {
+    attendance?: Record<string, unknown>;
+    payroll?: Record<string, unknown>;
+  };
+  paymentStatus?: "unpaid" | "partially_paid" | "paid";
+  paidAmount?: number;
+  unpaidAmount?: number;
+  lastPaymentDate?: string | null;
+  paymentMethod?: string;
+  paymentReference?: string;
+  paymentNotes?: string;
+  paymentHistory?: Array<{
+    amount: number;
+    paymentDate?: string | null;
+    paymentMethod?: string;
+    reference?: string;
+    notes?: string;
+  }>;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -711,9 +899,14 @@ export type PayrollSettings = {
   fixedWorkingDays: number;
   standardDailyHours: number;
   includePaidLeaveInWages: boolean;
+  halfDayPayableFraction: number;
+  incompleteDayPayableFraction: number;
+  lateToHalfDayEnabled: boolean;
+  lateToHalfDayThreshold: number;
   latePenaltyAmount: number;
   absentPenaltyAmount: number;
   overtimeMultiplier: number;
+  freezePayrollOnGenerate: boolean;
   pf: {
     enabled: boolean;
     employeeRate: number;
@@ -929,6 +1122,14 @@ export type SettingsPayload = {
     dateFormat: string;
     currencyFormat: string;
   };
+  attendance: {
+    standardPunchInTime: string;
+    gracePeriodMinutes: number;
+    halfDayCutoffTime: string;
+    minimumWorkingHours: number;
+    missingPunchOutHandling: "auto_close" | "mark_incomplete";
+    autoCloseTime: string;
+  };
   documents: {
     allowedFileTypes: string[];
     maxUploadSizeMb: number;
@@ -948,6 +1149,7 @@ export type SettingsPayload = {
     loggingEnabled: boolean;
     retentionDays: number;
   };
+  payroll: PayrollSettings;
 };
 
 export type PublicSettingsPayload = {
@@ -1161,6 +1363,46 @@ export const apiService = {
     const { data } = await api.get<ApiResponse<T[]>>(`/${resource}`);
     return data.data;
   },
+  async listOffboarding() {
+    const { data } = await api.get<ApiResponse<OffboardingRecord[]>>("/offboarding");
+    return data.data;
+  },
+  async createOffboarding(payload: Partial<OffboardingRecord> & Record<string, unknown>) {
+    const { data } = await api.post<ApiResponse<OffboardingRecord>>("/offboarding", payload);
+    return data.data;
+  },
+  async updateOffboarding(offboardingId: string, payload: Partial<OffboardingRecord> & Record<string, unknown>) {
+    const { data } = await api.put<ApiResponse<OffboardingRecord>>(`/offboarding/${offboardingId}`, payload);
+    return data.data;
+  },
+  async deleteOffboarding(offboardingId: string) {
+    const { data } = await api.delete<ApiResponse<OffboardingRecord>>(`/offboarding/${offboardingId}`);
+    return data.data;
+  },
+  async getMyOffboarding() {
+    const { data } = await api.get<ApiResponse<OffboardingRecord | null>>("/offboarding/me");
+    return data.data;
+  },
+  async submitMyResignation(payload: { reason: string; lastWorkingDay: string; noticePeriod: string; comments?: string }) {
+    const { data } = await api.post<ApiResponse<OffboardingRecord>>("/offboarding/me/resignation", payload);
+    return data.data;
+  },
+  async updateMyOffboardingActions(payload: {
+    completeExitInterview?: boolean;
+    confirmAssetReturn?: boolean;
+    acknowledgeDocuments?: boolean;
+    employeeRemarks?: string;
+    documents?: {
+      exitForm?: OffboardingDocument;
+    };
+  }) {
+    const { data } = await api.put<ApiResponse<OffboardingRecord>>("/offboarding/me/actions", payload);
+    return data.data;
+  },
+  async reviewResignationRequest(offboardingId: string, payload: { decision: "approved" | "rejected"; reviewComments?: string }) {
+    const { data } = await api.put<ApiResponse<OffboardingRecord>>(`/offboarding/${offboardingId}/resignation-review`, payload);
+    return data.data;
+  },
   async getPayroll(params?: { month?: number; year?: number }) {
     const { data } = await api.get<ApiResponse<PayrollRecord[]>>("/payroll", { params });
     return data.data;
@@ -1228,10 +1470,28 @@ export const apiService = {
       fileName: match?.[1],
     };
   },
+  async updatePayrollPayment(
+    payrollId: string,
+    payload: {
+      action?: "record" | "reset";
+      amount?: number;
+      paymentDate?: string;
+      paymentMethod?: string;
+      reference?: string;
+      notes?: string;
+    }
+  ) {
+    const { data } = await api.patch<ApiResponse<PayrollRecord>>(`/payroll/${payrollId}/payment`, payload);
+    return data.data;
+  },
   async updateEmployeeSalaryStructure(
     employeeId: string,
     payload: {
+      salaryType?: "monthly" | "daily" | "hourly";
       monthlyGrossSalary?: number;
+      dailyWage?: number;
+      hourlyWage?: number;
+      standardDailyHours?: number;
       basicSalaryType?: "fixed" | "percentage";
       basicSalaryValue?: number;
       hraType?: "fixed" | "percentage";
@@ -1461,7 +1721,8 @@ export const apiService = {
     date: string;
     checkIn?: string;
     checkOut?: string;
-    status?: "present" | "late" | "absent" | "leave";
+    punchEntries?: Array<string | { time: string; type?: string; source?: string; location?: Record<string, unknown>; note?: string }>;
+    status?: "present" | "late" | "half_day" | "absent" | "leave";
   }) {
     const { data } = await api.post<ApiResponse<AttendanceRecord>>("/attendance/override", payload);
     return data.data;
@@ -1746,9 +2007,34 @@ export const apiService = {
     const { data } = await api.put<ApiResponse<InternshipRecord>>(`/internships/${id}`, payload);
     return data.data;
   },
+  async performInternshipAction(
+    id: string,
+    payload: {
+      action: "extend" | "complete" | "cancel" | "convert_to_employee";
+      note?: string;
+      reason?: string;
+      newEndDate?: string;
+      departmentId?: string;
+      designation?: string;
+      salary?: number;
+      joiningDate?: string;
+    }
+  ) {
+    const { data } = await api.patch<ApiResponse<InternshipRecord>>(`/internships/${id}/action`, payload);
+    return data.data;
+  },
   async decideInternship(
     id: string,
-    payload: { action: "approve" | "reject" | "extend"; note?: string; newEndDate?: string }
+    payload: {
+      action: "extend" | "complete" | "cancel" | "convert_to_employee";
+      note?: string;
+      reason?: string;
+      newEndDate?: string;
+      departmentId?: string;
+      designation?: string;
+      salary?: number;
+      joiningDate?: string;
+    }
   ) {
     const { data } = await api.patch<ApiResponse<InternshipRecord>>(`/internships/${id}/decision`, payload);
     return data.data;
@@ -2019,6 +2305,10 @@ export const apiService = {
   },
   async updatePreferenceSettings(preferences: Partial<SettingsPayload["preferences"]>) {
     const { data } = await api.put<ApiResponse<SettingsPayload["preferences"]>>("/settings/preferences", { preferences });
+    return data.data;
+  },
+  async updateAttendanceSettings(attendance: Partial<SettingsPayload["attendance"]>) {
+    const { data } = await api.put<ApiResponse<SettingsPayload["attendance"]>>("/settings/attendance", { attendance });
     return data.data;
   },
   async updateDocumentSettings(documents: Partial<SettingsPayload["documents"]>) {

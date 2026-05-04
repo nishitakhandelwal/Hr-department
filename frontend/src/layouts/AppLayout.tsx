@@ -139,11 +139,15 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   const isSidebarOpen = isMobile || isSidebarExpanded;
   const sidebarWidthClass = isSidebarOpen ? "w-64" : "w-16";
   const sidebarShellClass = "sidebar-premium backdrop-blur-sm";
-  const sidebarBorderClass = "border-white/8";
+  const sidebarBorderClass = "border-[var(--portal-sidebar-border)]";
   const sidebarMutedTextClass = "text-[var(--portal-sidebar-muted-text)]";
-  const sidebarItemClass = "text-[var(--portal-sidebar-text)] hover:bg-[var(--portal-sidebar-item-hover)] hover:text-[var(--portal-sidebar-text)]";
-  const sidebarIconBubbleClass = "bg-[var(--portal-sidebar-icon-bubble)] group-hover:bg-[var(--portal-sidebar-icon-bubble-hover)]";
-  const sidebarLogoutClass = "border border-[#7f1d1d]/16 bg-transparent text-[#7f1d1d] shadow-none hover:-translate-y-0.5 hover:border-[#7f1d1d]/26 hover:bg-[linear-gradient(135deg,rgba(127,29,29,0.96),rgba(136,19,55,0.9))] hover:text-[#fff1f2] hover:shadow-[0_20px_36px_rgba(127,29,29,0.22)] dark:border-[#fecdd3]/12 dark:text-[#f8c7cf] dark:hover:text-white";
+  const sidebarItemClass =
+    "border border-transparent text-[var(--portal-sidebar-text)] hover:border-[var(--portal-hover-border-strong)] hover:bg-[var(--portal-sidebar-item-hover)] hover:text-[var(--portal-sidebar-text)]";
+  const sidebarIconBubbleClass =
+    "bg-[var(--portal-sidebar-icon-bubble)] text-[var(--portal-sidebar-text)] group-hover:bg-[var(--portal-sidebar-icon-bubble-hover)] group-hover:text-[var(--portal-sidebar-text)]";
+  const sidebarLogoutClass = "border border-slate-300 bg-transparent text-slate-700 shadow-none hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800 dark:hover:text-white";
+  const dropdownLogoutClass =
+    "rounded-xl border border-slate-300 bg-transparent px-3 py-2.5 text-slate-700 shadow-none transition-colors duration-200 hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 focus:bg-slate-100 focus:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white dark:focus:bg-slate-800 dark:focus:text-white";
 
   const clearCollapseTimeout = () => {
     if (collapseTimeoutRef.current !== null) {
@@ -297,14 +301,16 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               className={({ isActive }) =>
                 `group flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-medium transition-all duration-300 ease-in-out ${
                   isActive
-                    ? "nav-pill-active border border-white/12 bg-[linear-gradient(135deg,var(--portal-primary-solid),var(--portal-primary-dark))] text-[hsl(var(--sidebar-primary-foreground))]"
+                    ? "nav-pill-active border border-[#cbd5e1] bg-[#f1f5f9] text-[#1f2937] shadow-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     : sidebarItemClass
                 } ${!isSidebarOpen ? "justify-center" : ""}`
               }
             >
               <div
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ease-in-out ${
-                  !isSidebarOpen ? "" : sidebarIconBubbleClass
+                  !isSidebarOpen
+                    ? ""
+                    : sidebarIconBubbleClass
                 }`}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0 [stroke-width:2.35]" />
@@ -340,7 +346,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               <div className="flex items-center gap-3">
               <button
                 onClick={toggleTheme}
-                className="rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-3 text-[var(--portal-primary-text)] shadow-sm backdrop-blur-sm transition-colors duration-200 hover:border-[rgba(var(--portal-primary-rgb),0.32)] hover:text-[var(--portal-primary-dark)]"
+                className="rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-3 text-[var(--portal-primary-text)] shadow-none transition-colors duration-200 hover:border-[#cbd5e1] hover:bg-[#f8fafc] hover:text-[var(--portal-primary-dark)]"
                 aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
               >
                 {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -348,16 +354,16 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="relative rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-3 text-[var(--portal-primary-text)] shadow-sm backdrop-blur-sm transition-colors duration-200 hover:border-[rgba(var(--portal-primary-rgb),0.32)] hover:text-[var(--portal-primary-dark)]">
+                  <button className="relative rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-3 text-[var(--portal-primary-text)] shadow-none transition-colors duration-200 hover:border-[#cbd5e1] hover:bg-[#f8fafc] hover:text-[var(--portal-primary-dark)]">
                     <Bell className="h-5 w-5" />
                     {unreadCount > 0 ? (
-                      <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                      <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#1f2937] text-[10px] font-bold text-white">
                         {unreadCount}
                       </span>
                     ) : null}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-96 rounded-[24px] border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-0 shadow-lg backdrop-blur-sm transition-colors duration-200">
+                <PopoverContent align="end" className="w-96 rounded-[24px] border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-0 shadow-[0_12px_28px_rgba(15,23,42,0.08)] transition-colors duration-200">
                   <div className="flex items-center justify-between border-b border-[var(--portal-surface-border)] px-4 py-4">
                     <div>
                       <h4 className="portal-heading text-sm font-semibold">{notificationsTitle}</h4>
@@ -377,12 +383,12 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                       <div
                         key={notification._id}
                         onClick={() => void handleNotificationClick(notification)}
-                        className={`cursor-pointer rounded-2xl border px-4 py-3 transition-colors duration-200 hover:border-[rgba(var(--portal-primary-rgb),0.24)] hover:bg-[var(--portal-subtle-surface)] ${
+                        className={`cursor-pointer rounded-2xl border px-4 py-3 transition-colors duration-200 hover:border-[#cbd5e1] hover:bg-[var(--portal-subtle-surface)] ${
                           !notification.read ? "border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface)] shadow-sm" : "border-transparent"
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${!notification.read ? "bg-primary" : "bg-slate-300"}`} />
+                          <div className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${!notification.read ? "bg-[#1f2937]" : "bg-slate-300"}`} />
                           <div>
                             <p className="portal-heading text-sm font-semibold">{notification.title}</p>
                             <p className="portal-copy mt-1 text-xs leading-5">{notification.message}</p>
@@ -396,14 +402,14 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               </Popover>
 
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center gap-3 rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] px-2 py-2 shadow-sm backdrop-blur-sm transition-colors duration-200 hover:border-[rgba(var(--portal-primary-rgb),0.32)]">
+                <DropdownMenuTrigger className="flex items-center gap-3 rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] px-2 py-2 shadow-none transition-colors duration-200 hover:border-[#cbd5e1] hover:bg-[#f8fafc]">
                   <ProfileAvatar name={displayName} imageUrl={user?.profileImage || user?.profilePhotoUrl || ""} className="h-10 w-10" fallbackClassName="text-xs" />
                   <div className="hidden text-left md:block">
                     <p className="portal-heading text-sm font-semibold leading-none">{displayName}</p>
                     <p className="portal-muted mt-1 text-xs capitalize">{user?.role}</p>
                   </div>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-1.5 shadow-lg backdrop-blur-sm transition-colors duration-200">
+                <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] p-1.5 shadow-[0_12px_28px_rgba(15,23,42,0.08)] transition-colors duration-200">
                   <DropdownMenuItem
                     className="rounded-xl px-3 py-2.5 portal-heading focus:bg-[var(--portal-subtle-surface)] focus:text-[var(--portal-heading-color)]"
                     onClick={() => navigate(resolveProfileRedirect(user))}
@@ -411,7 +417,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                     {isPendingEmployee ? getLabel("nav.employee.joiningForm", "Joining Form") : profileLabel}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="mx-1 my-1 bg-[var(--portal-surface-border)]" />
-                  <DropdownMenuItem onClick={handleLogout} className="rounded-xl px-3 py-2.5 text-destructive focus:bg-[rgba(239,68,68,0.12)] focus:text-destructive">
+                  <DropdownMenuItem onClick={handleLogout} className={dropdownLogoutClass}>
                     <LogOut className="mr-2 h-4 w-4" />
                     {logoutLabel}
                   </DropdownMenuItem>
@@ -424,7 +430,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
         <main className="relative z-[1] flex-1 overflow-y-auto p-4 lg:p-6">
           {isPendingEmployee ? (
-            <div className={`mx-auto mb-4 max-w-[1600px] rounded-2xl px-4 py-3 text-sm backdrop-blur-sm ${theme === "dark" ? "border border-amber-300/20 bg-amber-400/10 text-amber-100" : "border border-amber-200 bg-amber-50 text-black"}`}>
+            <div className={`mx-auto mb-4 max-w-[1600px] rounded-2xl px-4 py-3 text-sm ${theme === "dark" ? "border border-slate-700 bg-slate-900 text-slate-200" : "border border-slate-300 bg-slate-100 text-slate-900"}`}>
               {pendingEmployeeBanner}
             </div>
           ) : null}

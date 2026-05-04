@@ -14,18 +14,18 @@ interface StatCardProps {
 }
 
 const colorMap = {
-  primary: "portal-accent-icon border border-white/20",
-  success: "bg-[linear-gradient(135deg,#dcead8_0%,#cadec9_100%)] text-[#243126] border border-[#bfd1bb] shadow-[0_16px_30px_rgba(82,110,87,0.16)] dark:bg-[linear-gradient(135deg,#1a1816,#23201d)] dark:text-[#E6C7A3] dark:border-[#2A2623] dark:shadow-[0_0_20px_rgba(230,199,163,0.14)]",
-  warning: "bg-[linear-gradient(135deg,#f2dfbd_0%,#ebce95_100%)] text-[#3b2814] border border-[#dfbf81] shadow-[0_16px_30px_rgba(154,116,65,0.18)] dark:bg-[linear-gradient(135deg,#1a1816,#23201d)] dark:text-[#E6C7A3] dark:border-[#2A2623] dark:shadow-[0_0_20px_rgba(230,199,163,0.14)]",
-  info: "bg-[linear-gradient(135deg,#ead8c6_0%,#ddb895_100%)] text-[#24170d] border border-[#cfa57d] shadow-[0_16px_30px_rgba(109,79,55,0.18)] dark:bg-[linear-gradient(135deg,#1a1816,#23201d)] dark:text-[#E6C7A3] dark:border-[#2A2623] dark:shadow-[0_0_20px_rgba(230,199,163,0.14)]",
+  primary: "border border-[#2563eb]/20 bg-[#2563eb] text-white shadow-[0_10px_22px_rgba(37,99,235,0.18)] dark:border-[#60a5fa]/16 dark:bg-[#1d4ed8] dark:text-white dark:shadow-[0_10px_22px_rgba(29,78,216,0.2)]",
+  success: "border border-[#16a34a]/20 bg-[#16a34a] text-white shadow-[0_10px_22px_rgba(22,163,74,0.18)] dark:border-[#4ade80]/16 dark:bg-[#15803d] dark:text-white dark:shadow-[0_10px_22px_rgba(21,128,61,0.2)]",
+  warning: "border border-[#e11d48]/20 bg-[#e11d48] text-white shadow-[0_10px_22px_rgba(225,29,72,0.18)] dark:border-[#fb7185]/16 dark:bg-[#be123c] dark:text-white dark:shadow-[0_10px_22px_rgba(190,18,60,0.2)]",
+  info: "border border-[#7c3aed]/20 bg-[#7c3aed] text-white shadow-[0_10px_22px_rgba(124,58,237,0.18)] dark:border-[#a78bfa]/16 dark:bg-[#6d28d9] dark:text-white dark:shadow-[0_10px_22px_rgba(109,40,217,0.2)]",
   destructive: "bg-[linear-gradient(135deg,#fbe7e3_0%,#f6d5cf_100%)] text-[#ac5f55] border border-[#efc9c1] dark:bg-[linear-gradient(135deg,rgba(239,68,68,0.18),rgba(251,113,133,0.08))] dark:text-[#ffc7c7] dark:border-[rgba(239,68,68,0.18)]",
 };
 
 const accentMap = {
-  primary: "from-[rgba(var(--portal-primary-rgb),0.22)] via-[rgba(var(--portal-primary-rgb),0.1)] to-transparent",
-  success: "from-[#bed4b9]/80 via-[#edf5e7]/55 to-transparent dark:from-[rgba(34,197,94,0.22)] dark:via-transparent",
-  warning: "from-[#e1bd82]/80 via-[#f7ebd0]/55 to-transparent dark:from-[rgba(245,158,11,0.22)] dark:via-transparent",
-  info: "from-[#dec4ab]/80 via-[#f5ece3]/55 to-transparent dark:from-[rgba(166,124,82,0.24)] dark:via-transparent",
+  primary: "from-[#60a5fa]/85 via-[#1d4ed8]/45 to-transparent dark:from-[#93c5fd]/55 dark:via-transparent",
+  success: "from-[#4ade80]/85 via-[#15803d]/45 to-transparent dark:from-[#86efac]/55 dark:via-transparent",
+  warning: "from-[#fb7185]/85 via-[#be123c]/45 to-transparent dark:from-[#fda4af]/55 dark:via-transparent",
+  info: "from-[#a78bfa]/85 via-[#7c3aed]/45 to-transparent dark:from-[#c4b5fd]/55 dark:via-transparent",
   destructive: "from-[#e8b8af]/80 via-[#fae9e4]/55 to-transparent dark:from-[rgba(239,68,68,0.22)] dark:via-transparent",
 };
 
@@ -51,8 +51,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         onClick ? "cursor-pointer hover:-translate-y-1.5 hover:shadow-card-hover" : ""
       }`}
     >
-      <div className={`pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-br ${accentMap[color]} opacity-90`} />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-28 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.52),transparent_72%)]" />
+      <div className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r ${accentMap[color]} opacity-30`} />
       <div className="flex items-start justify-between gap-4">
         <div className="relative min-w-0 space-y-2">
           <p className="portal-muted text-sm font-medium">{title}</p>

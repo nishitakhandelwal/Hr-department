@@ -27,7 +27,7 @@ export const attendanceTableColumns: DataTableColumn<AttendanceRow>[] = [
     label: "Entry",
     render: (item) =>
       item.entryType ? (
-        <span className="inline-flex items-center rounded-full border border-[rgba(230,199,163,0.22)] bg-[rgba(230,199,163,0.08)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#E6C7A3]">
+        <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700 dark:border-white/12 dark:bg-white/8 dark:text-neutral-200">
           {item.entryType}
         </span>
       ) : (

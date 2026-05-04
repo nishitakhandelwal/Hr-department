@@ -170,24 +170,24 @@ const AdminLetters: React.FC = () => {
         action={
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gradient-primary text-primary-foreground gap-2">
+              <Button className="gap-2">
                 <Plus className="w-4 h-4" />
                 Create Letter
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-6xl h-[92vh] overflow-hidden flex flex-col">
+            <DialogContent className="max-w-6xl h-[92vh] overflow-hidden flex flex-col border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] dark:bg-[#0a0a0a]">
               <DialogHeader>
                 <DialogTitle>Corporate HR Letter Generator (Preview Mode)</DialogTitle>
               </DialogHeader>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden flex-1">
-                <div className="overflow-y-auto border rounded-lg p-4 space-y-3">
+                <div className="overflow-y-auto rounded-2xl border border-[var(--portal-surface-border)] bg-white/88 p-4 space-y-3 dark:bg-[#0f0f0f]">
                   <div className="space-y-2">
                     <Label htmlFor="letter-type">Letter Type</Label>
                     <select
                       id="letter-type"
                       value={selectedType}
                       onChange={(e) => setSelectedType(e.target.value as CorporateLetterType)}
-                      className="w-full h-10 border border-input bg-background px-3 py-2 text-sm rounded-md"
+                      className="w-full h-10 rounded-xl border border-[var(--portal-surface-border)] bg-white px-3 py-2 text-sm text-[var(--portal-heading-color)] dark:bg-[#111111] dark:text-white"
                     >
                       {corporateLetterTypes.map((type) => (
                         <option key={type} value={type}>
@@ -285,7 +285,7 @@ const AdminLetters: React.FC = () => {
                   </div>
                 </div>
 
-                <div ref={previewRef} className="overflow-auto border rounded-lg bg-muted/20">
+                <div ref={previewRef} className="overflow-auto rounded-2xl border border-[var(--portal-surface-border)] bg-white dark:bg-[#0b0b0b]">
                   <style>{letterPrintCss}</style>
                   <div ref={exportContentRef} dangerouslySetInnerHTML={{ __html: letterHtml }} />
                 </div>
@@ -301,7 +301,7 @@ const AdminLetters: React.FC = () => {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className="bg-card rounded-xl p-5 border border-border shadow-card hover:shadow-card-hover transition-shadow cursor-pointer group"
+            className="rounded-xl border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-5 shadow-card transition-shadow hover:shadow-card-hover cursor-pointer group dark:bg-[#0f0f0f]"
           >
             <div className={`w-10 h-10 rounded-lg ${letterColors[i % letterColors.length]} flex items-center justify-center mb-3`}>
               <FileText className="w-5 h-5" />
@@ -312,7 +312,7 @@ const AdminLetters: React.FC = () => {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 text-xs gap-1"
+                className="h-7 text-xs gap-1 border-[var(--portal-surface-border)] bg-white text-[var(--portal-heading-color)] hover:bg-[rgba(var(--portal-primary-rgb),0.08)] dark:border-white/12 dark:bg-[#111111] dark:text-white dark:hover:bg-[#161616] dark:hover:text-white"
                 onClick={() => {
                   setSelectedType(letter);
                   setDialogOpen(true);
@@ -321,7 +321,7 @@ const AdminLetters: React.FC = () => {
                 <Eye className="w-3 h-3" />
                 Preview
               </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => undefined}><Send className="w-3 h-3" />Email</Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-[var(--portal-surface-border)] bg-white text-[var(--portal-heading-color)] hover:bg-[rgba(var(--portal-primary-rgb),0.08)] dark:border-white/12 dark:bg-[#111111] dark:text-white dark:hover:bg-[#161616] dark:hover:text-white" onClick={() => undefined}><Send className="w-3 h-3" />Email</Button>
             </div>
           </motion.div>
         ))}

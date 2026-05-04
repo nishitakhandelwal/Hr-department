@@ -53,7 +53,7 @@ export const createDefaultPermissions = (accessRole) => {
       : isRecruiter
       ? ["/recruiter/dashboard", "/admin/candidates"]
       : isEmployee
-      ? ["/employee/dashboard", "/employee/profile", "/employee/attendance", "/employee/leave", "/employee/payroll", "/employee/letters"]
+      ? ["/employee/dashboard", "/employee/profile", "/employee/attendance", "/employee/leave", "/employee/offboarding", "/employee/payroll", "/employee/letters"]
       : ["/candidate/dashboard", "/candidate/stage2", "/apply"],
   };
 };

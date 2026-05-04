@@ -114,7 +114,7 @@ const EmployeeLeave: React.FC = () => {
         <StatCard title="Used" value={`${usedDays} days`} change="Across submitted requests" icon={CalendarDays} color="warning" delay={1} />
         <StatCard title="Pending" value={pendingRequests} change="Awaiting action" icon={CalendarDays} color="success" delay={2} />
       </div>
-      {errorMessage ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{errorMessage}</div> : null}
+      {errorMessage ? <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{errorMessage}</div> : null}
       {loading ? (
         <div className="text-sm text-muted-foreground">Loading leave data...</div>
       ) : (
@@ -131,7 +131,7 @@ const EmployeeLeave: React.FC = () => {
       )}
 
       <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
-        <DialogContent>
+        <DialogContent className="border-[var(--portal-surface-border)] bg-[#0a0a0a]">
           <DialogHeader><DialogTitle>Apply for Leave</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-1.5">

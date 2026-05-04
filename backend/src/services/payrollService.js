@@ -1,5 +1,7 @@
 import { LOGO_URL } from "../utils/logo.js";
 import { renderPdfBufferFromHtml } from "../utils/pdfBrowser.js";
+import { env } from "../config/env.js";
+import { ATTENDANCE_STATUSES, sanitizeAttendanceSettings } from "./attendancePolicyService.js";
 
 const MONTH_NAMES = [
   "January",
@@ -112,40 +114,30 @@ const resolveComponentAmount = ({ total, baseAmount, type, value, remainderBase 
 
 export const buildSalaryStructureSnapshot = (employee) => {
   const salaryStructure = employee?.salaryStructure || {};
-  const monthlyGrossSalary = toPositiveNumber(salaryStructure.monthlyGrossSalary || employee?.salary || 0);
-  const basicSalary = resolveComponentAmount({
-    total: monthlyGrossSalary,
-    baseAmount: monthlyGrossSalary,
-    type: salaryStructure.basicSalaryType || "percentage",
-    value: salaryStructure.basicSalaryValue ?? 40,
-  });
-  const hra = resolveComponentAmount({
-    total: monthlyGrossSalary,
-    baseAmount: basicSalary,
-    type: salaryStructure.hraType || "percentage",
-    value: salaryStructure.hraValue ?? 40,
-  });
-  const specialAllowance = resolveComponentAmount({
-    total: monthlyGrossSalary,
-    baseAmount: monthlyGrossSalary,
-    type: salaryStructure.specialAllowanceType || "remainder",
-    value: salaryStructure.specialAllowanceValue ?? 0,
-    remainderBase: monthlyGrossSalary - basicSalary - hra,
-  });
-  const allowances = round2(toPositiveNumber(salaryStructure.otherAllowance));
-  const bonus = round2(toPositiveNumber(salaryStructure.bonus));
-  const tax = round2(toPositiveNumber(salaryStructure.tax));
-  const deductions = round2(toPositiveNumber(salaryStructure.deductions));
+  const salaryType = ["monthly", "daily", "hourly"].includes(String(salaryStructure.salaryType))
+    ? String(salaryStructure.salaryType)
+    : "monthly";
+  const monthlyGrossSalary = round2(toPositiveNumber(salaryStructure.monthlyGrossSalary || employee?.salary || 0));
+  const dailyWage = round2(toPositiveNumber(salaryStructure.dailyWage));
+  const hourlyWage = round2(toPositiveNumber(salaryStructure.hourlyWage));
+  const standardDailyHours = Math.max(1, round2(toPositiveNumber(salaryStructure.standardDailyHours, 8)));
 
   return {
+    salaryType,
     monthlyGrossSalary,
-    basicSalary,
-    hra,
-    specialAllowance,
-    allowances,
-    bonus,
-    tax,
-    deductions,
+    dailyWage,
+    hourlyWage,
+    standardDailyHours,
+    basicSalaryType: salaryStructure.basicSalaryType || "percentage",
+    basicSalaryValue: round2(toPositiveNumber(salaryStructure.basicSalaryValue ?? 40)),
+    hraType: salaryStructure.hraType || "percentage",
+    hraValue: round2(toPositiveNumber(salaryStructure.hraValue ?? 40)),
+    specialAllowanceType: salaryStructure.specialAllowanceType || "remainder",
+    specialAllowanceValue: round2(toPositiveNumber(salaryStructure.specialAllowanceValue ?? 0)),
+    allowances: round2(toPositiveNumber(salaryStructure.otherAllowance)),
+    bonus: round2(toPositiveNumber(salaryStructure.bonus)),
+    tax: round2(toPositiveNumber(salaryStructure.tax)),
+    deductions: round2(toPositiveNumber(salaryStructure.deductions)),
     pfEnabled: Boolean(salaryStructure.pfEnabled),
     esiEnabled: Boolean(salaryStructure.esiEnabled),
     finePerAbsentDay: round2(toPositiveNumber(salaryStructure.finePerAbsentDay)),
@@ -162,18 +154,135 @@ export const getEmployeeDisplayName = (employee) => employee?.userId?.name || em
 export const buildPayrollId = (employeeCode, monthNumber, year) =>
   `PAY-${year}${String(monthNumber).padStart(2, "0")}-${employeeCode}`;
 
-export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettings, period }) => {
-  const salary = buildSalaryStructureSnapshot(employee);
-  const presentDays = attendanceRows.filter((row) => row.status === "present").length;
-  const lateDays = attendanceRows.filter((row) => row.status === "late").length;
-  const leaveDays = attendanceRows.filter((row) => row.status === "leave").length;
-  const overtimeHours = round2(
-    attendanceRows.reduce((sum, row) => {
-      const extra = Number(row.hoursWorked || 0) - toPositiveNumber(payrollSettings?.standardDailyHours, 8);
-      return sum + (extra > 0 ? extra : 0);
-    }, 0)
-  );
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
+const resolveSalaryBasisForPeriod = ({ salary, totalWorkingDays, standardDailyHours }) => {
+  const safeWorkingDays = Math.max(totalWorkingDays, 1);
+  const safeDailyHours = Math.max(standardDailyHours, 1);
+  const monthlyReference =
+    salary.salaryType === "daily"
+      ? round2(salary.dailyWage * safeWorkingDays)
+      : salary.salaryType === "hourly"
+        ? round2(salary.hourlyWage * safeDailyHours * safeWorkingDays)
+        : round2(salary.monthlyGrossSalary);
+  const perDaySalary =
+    salary.salaryType === "daily"
+      ? round2(salary.dailyWage)
+      : salary.salaryType === "hourly"
+        ? round2(salary.hourlyWage * safeDailyHours)
+        : round2(monthlyReference / safeWorkingDays);
+  const perHourSalary =
+    salary.salaryType === "hourly"
+      ? round2(salary.hourlyWage)
+      : round2(perDaySalary / safeDailyHours);
+
+  return {
+    monthlyReference,
+    perDaySalary,
+    perHourSalary,
+    salaryBasisAmount:
+      salary.salaryType === "daily"
+        ? round2(salary.dailyWage)
+        : salary.salaryType === "hourly"
+          ? round2(salary.hourlyWage)
+          : round2(salary.monthlyGrossSalary),
+  };
+};
+
+const buildAttendanceMetrics = ({
+  attendanceRows,
+  totalWorkingDays,
+  standardDailyHours,
+  includePaidLeaveInWages,
+  halfDayPayableFraction,
+  incompleteDayPayableFraction,
+  lateToHalfDayEnabled,
+  lateToHalfDayThreshold,
+}) => {
+  let presentDays = 0;
+  let lateDays = 0;
+  let halfDays = 0;
+  let leaveDays = 0;
+  let incompleteDays = 0;
+  let attendanceUnits = 0;
+  let payableHours = 0;
+  let overtimeHours = 0;
+
+  for (const row of attendanceRows) {
+    const rawHoursWorked = toPositiveNumber(row?.hoursWorked);
+    const status = String(row?.status || "").trim().toLowerCase();
+    const isIncomplete = Boolean(row?.isIncomplete);
+
+    let attendanceFraction = 0;
+    let creditedHours = 0;
+
+    if (status === ATTENDANCE_STATUSES.HALF_DAY) {
+      attendanceFraction = halfDayPayableFraction;
+      halfDays = round2(halfDays + 1);
+      creditedHours = round2(standardDailyHours * halfDayPayableFraction);
+    } else if (status === ATTENDANCE_STATUSES.PRESENT) {
+      presentDays = round2(presentDays + 1);
+      attendanceFraction = isIncomplete ? incompleteDayPayableFraction : 1;
+      creditedHours = isIncomplete
+        ? round2(standardDailyHours * incompleteDayPayableFraction)
+        : rawHoursWorked > 0
+          ? Math.min(rawHoursWorked, standardDailyHours)
+          : standardDailyHours;
+    } else if (status === ATTENDANCE_STATUSES.LATE) {
+      lateDays = round2(lateDays + 1);
+      attendanceFraction = isIncomplete ? incompleteDayPayableFraction : 1;
+      creditedHours = isIncomplete
+        ? round2(standardDailyHours * incompleteDayPayableFraction)
+        : rawHoursWorked > 0
+          ? Math.min(rawHoursWorked, standardDailyHours)
+          : standardDailyHours;
+    } else if (status === ATTENDANCE_STATUSES.LEAVE) {
+      leaveDays = round2(leaveDays + 1);
+      if (includePaidLeaveInWages) {
+        attendanceFraction = 1;
+        creditedHours = standardDailyHours;
+      }
+    }
+
+    if (isIncomplete) {
+      incompleteDays = round2(incompleteDays + 1);
+    }
+
+    attendanceUnits = round2(attendanceUnits + attendanceFraction);
+    payableHours = round2(payableHours + creditedHours);
+
+    const extraHours = rawHoursWorked - standardDailyHours;
+    if (extraHours > 0) {
+      overtimeHours = round2(overtimeHours + extraHours);
+    }
+  }
+
+  const latePenaltyDays =
+    lateToHalfDayEnabled && lateToHalfDayThreshold > 0
+      ? round2(Math.floor(lateDays / lateToHalfDayThreshold) * halfDayPayableFraction)
+      : 0;
+  const adjustedAttendanceUnits = round2(Math.max(attendanceUnits - latePenaltyDays, 0));
+  const adjustedPayableHours = round2(Math.max(payableHours - latePenaltyDays * standardDailyHours, 0));
+  const absentDays = round2(Math.max(totalWorkingDays - attendanceUnits, 0));
+
+  return {
+    presentDays,
+    lateDays,
+    halfDays,
+    leaveDays,
+    incompleteDays,
+    latePenaltyDays,
+    attendanceUnits,
+    adjustedAttendanceUnits,
+    payableHours,
+    adjustedPayableHours,
+    overtimeHours,
+    absentDays,
+  };
+};
+
+export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettings, attendanceSettings, period }) => {
+  const salary = buildSalaryStructureSnapshot(employee);
   const { start, end } = getMonthRange(period.monthNumber, period.year);
   const totalWorkingDays = countWorkingDays(
     start,
@@ -181,28 +290,75 @@ export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettin
     payrollSettings?.workingDaysMode,
     payrollSettings?.fixedWorkingDays
   );
-  const absentDays = Math.max(totalWorkingDays - presentDays - lateDays - leaveDays, 0);
-  const payableDays = Math.min(
-    totalWorkingDays,
-    presentDays + lateDays + (payrollSettings?.includePaidLeaveInWages !== false ? leaveDays : 0)
+  const standardDailyHours = Math.max(
+    1,
+    round2(toPositiveNumber(salary.standardDailyHours || payrollSettings?.standardDailyHours, 8))
   );
+  const { monthlyReference, perDaySalary, perHourSalary, salaryBasisAmount } = resolveSalaryBasisForPeriod({
+    salary,
+    totalWorkingDays,
+    standardDailyHours,
+  });
+  const attendanceMetrics = buildAttendanceMetrics({
+    attendanceRows,
+    totalWorkingDays,
+    standardDailyHours,
+    includePaidLeaveInWages: payrollSettings?.includePaidLeaveInWages !== false,
+    halfDayPayableFraction: clamp(toPositiveNumber(payrollSettings?.halfDayPayableFraction, 0.5), 0, 1),
+    incompleteDayPayableFraction: clamp(toPositiveNumber(payrollSettings?.incompleteDayPayableFraction, 0), 0, 1),
+    lateToHalfDayEnabled: payrollSettings?.lateToHalfDayEnabled === true,
+    lateToHalfDayThreshold: Math.max(0, Number(payrollSettings?.lateToHalfDayThreshold || 0)),
+  });
 
-  const fullWages = round2(salary.basicSalary + salary.hra + salary.specialAllowance + salary.allowances);
-  const payableRatio = totalWorkingDays > 0 ? payableDays / totalWorkingDays : 0;
-  const earnedBasicSalary = round2(salary.basicSalary * payableRatio);
-  const earnedHra = round2(salary.hra * payableRatio);
-  const earnedSpecialAllowance = round2(salary.specialAllowance * payableRatio);
+  const grossReferenceAmount = monthlyReference;
+  const fullBasicSalary = resolveComponentAmount({
+    total: grossReferenceAmount,
+    baseAmount: grossReferenceAmount,
+    type: salary.basicSalaryType,
+    value: salary.basicSalaryValue,
+  });
+  const fullHra = resolveComponentAmount({
+    total: grossReferenceAmount,
+    baseAmount: fullBasicSalary,
+    type: salary.hraType,
+    value: salary.hraValue,
+  });
+  const fullSpecialAllowance = resolveComponentAmount({
+    total: grossReferenceAmount,
+    baseAmount: grossReferenceAmount,
+    type: salary.specialAllowanceType,
+    value: salary.specialAllowanceValue,
+    remainderBase: grossReferenceAmount - fullBasicSalary - fullHra,
+  });
+  const fullWages = round2(fullBasicSalary + fullHra + fullSpecialAllowance + salary.allowances);
+
+  const payableDays =
+    salary.salaryType === "hourly"
+      ? round2(attendanceMetrics.adjustedPayableHours / standardDailyHours)
+      : round2(attendanceMetrics.adjustedAttendanceUnits);
+  const payableRatio =
+    salary.salaryType === "hourly"
+      ? (totalWorkingDays * standardDailyHours > 0 ? attendanceMetrics.adjustedPayableHours / (totalWorkingDays * standardDailyHours) : 0)
+      : totalWorkingDays > 0
+        ? payableDays / totalWorkingDays
+        : 0;
+
+  const earnedBasicSalary = round2(fullBasicSalary * payableRatio);
+  const earnedHra = round2(fullHra * payableRatio);
+  const earnedSpecialAllowance = round2(fullSpecialAllowance * payableRatio);
   const earnedAllowances = round2(salary.allowances * payableRatio);
   const earnedWages = round2(earnedBasicSalary + earnedHra + earnedSpecialAllowance + earnedAllowances);
   const overtimeRate =
     salary.overtimeRatePerHour > 0
       ? salary.overtimeRatePerHour
-      : round2((fullWages / Math.max(totalWorkingDays, 1)) / Math.max(toPositiveNumber(payrollSettings?.standardDailyHours, 8), 1));
-  const overtimePay = round2(overtimeHours * overtimeRate * Math.max(toPositiveNumber(payrollSettings?.overtimeMultiplier, 1), 0));
+      : round2(perHourSalary);
+  const overtimePay = round2(
+    attendanceMetrics.overtimeHours * overtimeRate * Math.max(toPositiveNumber(payrollSettings?.overtimeMultiplier, 1), 0)
+  );
 
   const finePerAbsentDay = salary.finePerAbsentDay || round2(toPositiveNumber(payrollSettings?.absentPenaltyAmount));
   const finePerLateMark = salary.finePerLateMark || round2(toPositiveNumber(payrollSettings?.latePenaltyAmount));
-  const fineAmount = round2(absentDays * finePerAbsentDay + lateDays * finePerLateMark);
+  const fineAmount = round2(attendanceMetrics.absentDays * finePerAbsentDay + attendanceMetrics.lateDays * finePerLateMark);
 
   const pfBaseWage = payrollSettings?.pf?.wageLimit > 0
     ? Math.min(earnedBasicSalary, toPositiveNumber(payrollSettings.pf.wageLimit))
@@ -227,6 +383,18 @@ export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettin
   const totalDeductions = round2(salary.deductions + salary.tax + fineAmount + pfEmployee + esiEmployee);
   const grossSalary = round2(earnedWages + overtimePay + salary.bonus);
   const netSalary = round2(Math.max(0, earnedWages + overtimePay + salary.bonus - totalDeductions));
+  const attendanceDeductionAmount = round2(Math.max(0, fullWages - earnedWages));
+  const latePenaltyDeductionAmount = round2(perDaySalary * attendanceMetrics.latePenaltyDays);
+  const halfDayDeductionAmount = round2(
+    perDaySalary *
+      attendanceMetrics.halfDays *
+      Math.max(0, 1 - clamp(toPositiveNumber(payrollSettings?.halfDayPayableFraction, 0.5), 0, 1))
+  );
+  const incompleteDeductionAmount = round2(
+    perDaySalary *
+      attendanceMetrics.incompleteDays *
+      Math.max(0, 1 - clamp(toPositiveNumber(payrollSettings?.incompleteDayPayableFraction, 0), 0, 1))
+  );
 
   const earnings = [
     { label: "Basic Salary", amount: earnedBasicSalary },
@@ -238,6 +406,10 @@ export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettin
   ];
 
   const deductionBreakdown = [
+    { label: "Attendance Deduction", amount: attendanceDeductionAmount },
+    { label: "Late Penalty Deduction", amount: latePenaltyDeductionAmount },
+    { label: "Half Day Deduction", amount: halfDayDeductionAmount },
+    { label: "Incomplete Attendance Deduction", amount: incompleteDeductionAmount },
     { label: "PF", amount: pfEmployee },
     { label: "ESI", amount: esiEmployee },
     { label: "Fine / Penalty", amount: fineAmount },
@@ -258,15 +430,25 @@ export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettin
     month: period.month,
     monthNumber: period.monthNumber,
     year: period.year,
-    presentDays,
-    lateDays,
-    absentDays,
-    leaveDays,
-    overtimeHours,
+    presentDays: attendanceMetrics.presentDays,
+    lateDays: attendanceMetrics.lateDays,
+    halfDays: attendanceMetrics.halfDays,
+    absentDays: attendanceMetrics.absentDays,
+    leaveDays: attendanceMetrics.leaveDays,
+    incompleteDays: attendanceMetrics.incompleteDays,
+    latePenaltyDays: attendanceMetrics.latePenaltyDays,
+    attendanceUnits: attendanceMetrics.attendanceUnits,
+    payableHours: attendanceMetrics.adjustedPayableHours,
+    overtimeHours: attendanceMetrics.overtimeHours,
     totalWorkingDays,
     payableDays,
+    salaryType: salary.salaryType,
+    salaryBasisAmount,
+    perDaySalary,
+    perHourSalary,
     fullWages,
     earnedWages,
+    earnedSalary: earnedWages,
     basicSalary: earnedBasicSalary,
     hra: earnedHra,
     allowances: earnedAllowances,
@@ -279,6 +461,10 @@ export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettin
     deductions: salary.deductions,
     tax: salary.tax,
     fineAmount,
+    attendanceDeductionAmount,
+    latePenaltyDeductionAmount,
+    halfDayDeductionAmount,
+    incompleteDeductionAmount,
     pfEmployee,
     esiEmployee,
     totalDeductions,
@@ -288,6 +474,19 @@ export const calculatePayrollRecord = ({ employee, attendanceRows, payrollSettin
     deductionBreakdown: deductionBreakdown.filter((item) => item.amount > 0),
     amountInWords: amountToWords(netSalary),
     status: "processed",
+    payrollLocked: Boolean(payrollSettings?.freezePayrollOnGenerate),
+    lockedAt: payrollSettings?.freezePayrollOnGenerate ? new Date() : null,
+    processedAt: new Date(),
+    policySnapshot: {
+      attendance: sanitizeAttendanceSettings(attendanceSettings),
+      payroll: {
+        ...payrollSettings,
+      },
+    },
+    paymentStatus: "unpaid",
+    paidAmount: 0,
+    unpaidAmount: netSalary,
+    paymentHistory: [],
   };
 };
 
@@ -329,17 +528,28 @@ const buildBankDetailsText = (bankDetails = {}) => {
 };
 
 const buildEarningDeductionRows = (payroll) => {
-  const earnings = [
-    { label: "Basic", amount: payroll.basicSalary || 0 },
-    { label: "HRA", amount: payroll.hra || 0 },
-    { label: "Allowance", amount: (payroll.specialAllowance || 0) + (payroll.allowances || 0) + (payroll.bonus || 0) + (payroll.overtimePay || 0) },
-  ];
+  const earnings = payroll.earnings?.length
+    ? payroll.earnings
+    : [
+        { label: "Basic", amount: payroll.basicSalary || 0 },
+        { label: "HRA", amount: payroll.hra || 0 },
+        {
+          label: "Allowance",
+          amount:
+            (payroll.specialAllowance || 0) +
+            (payroll.allowances || 0) +
+            (payroll.bonus || 0) +
+            (payroll.overtimePay || 0),
+        },
+      ];
 
-  const deductions = [
-    { label: "PF", amount: payroll.pfEmployee || 0 },
-    { label: "ESI", amount: payroll.esiEmployee || 0 },
-    { label: "Fine / Tax / Other", amount: (payroll.fineAmount || 0) + (payroll.tax || 0) + (payroll.deductions || 0) },
-  ];
+  const deductions = payroll.deductionBreakdown?.length
+    ? payroll.deductionBreakdown
+    : [
+        { label: "PF", amount: payroll.pfEmployee || 0 },
+        { label: "ESI", amount: payroll.esiEmployee || 0 },
+        { label: "Fine / Tax / Other", amount: (payroll.fineAmount || 0) + (payroll.tax || 0) + (payroll.deductions || 0) + (payroll.advanceDeduction || 0) },
+      ];
 
   return Array.from({ length: Math.max(earnings.length, deductions.length) }, (_, index) => ({
     earningLabel: earnings[index]?.label || "",
@@ -607,7 +817,9 @@ export const buildPayslipHtml = ({ payroll, company }) => {
             <tr>
               <th>Present Days</th>
               <th>Late Days</th>
+              <th>Half Days</th>
               <th>Absent Days</th>
+              <th>Incomplete Days</th>
               <th>Leave Days</th>
               <th>Overtime Hours</th>
             </tr>
@@ -616,7 +828,9 @@ export const buildPayslipHtml = ({ payroll, company }) => {
             <tr>
               <td class="amount">${payroll.presentDays}</td>
               <td class="amount">${payroll.lateDays || 0}</td>
+              <td class="amount">${payroll.halfDays || 0}</td>
               <td class="amount">${payroll.absentDays}</td>
+              <td class="amount">${payroll.incompleteDays || 0}</td>
               <td class="amount">${payroll.leaveDays}</td>
               <td class="amount">${payroll.overtimeHours || 0}</td>
             </tr>

@@ -17,6 +17,7 @@ export const LABELS = {
   "nav.admin.settings": "Settings",
   "nav.employee.dashboard": "Dashboard",
   "nav.employee.attendance": "Attendance",
+  "nav.employee.offboarding": "Offboarding",
   "nav.employee.joiningForm": "Joining Form",
   "nav.hr.dashboard": "HR Dashboard",
   "nav.recruiter.dashboard": "Recruiter Dashboard",

@@ -24,7 +24,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type SalaryStructure = {
   employeeId?: string;
+  salaryType: "monthly" | "daily" | "hourly";
   monthlyGrossSalary: number;
+  dailyWage: number;
+  hourlyWage: number;
+  standardDailyHours: number;
   basicSalaryType: "fixed" | "percentage";
   basicSalaryValue: number;
   hraType: "fixed" | "percentage";
@@ -130,7 +134,11 @@ const emptyEmployee: Employee = {
 };
 
 const emptySalary: SalaryStructure = {
+  salaryType: "monthly",
   monthlyGrossSalary: 0,
+  dailyWage: 0,
+  hourlyWage: 0,
+  standardDailyHours: 8,
   basicSalaryType: "percentage",
   basicSalaryValue: 40,
   hraType: "percentage",
@@ -149,7 +157,14 @@ const emptySalary: SalaryStructure = {
 };
 
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
-const formLabelClassName = "text-[#8E6B4C]";
+const formLabelClassName = "text-[var(--portal-primary-dark)] dark:text-slate-300";
+const dialogSurfaceClassName =
+  "border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] text-[var(--portal-heading-color)] shadow-[0_28px_80px_rgba(15,23,42,0.18)] dark:bg-[#0a0a0a] dark:text-white dark:shadow-[0_28px_80px_rgba(0,0,0,0.45)]";
+const dialogSectionClassName =
+  "border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] dark:bg-[#0a0a0a]";
+const previewCardClassName =
+  "rounded-xl border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface-strong)] p-4 text-sm shadow-none dark:bg-[#111111]";
+const subtleHelperTextClassName = "text-[var(--portal-muted-color)] dark:text-[#b6b6b6]";
 
 const mapEmployeeRow = (row: EmployeeApiRow): Employee => ({
   _id: row._id,
@@ -264,7 +279,11 @@ const AdminEmployees: React.FC = () => {
     setSalaryIndex(index);
     setSalaryForm({
       employeeId: employee.employeeId,
+      salaryType: employee.salaryStructure?.salaryType || "monthly",
       monthlyGrossSalary: Number(employee.salaryStructure?.monthlyGrossSalary || employee.salary || 0),
+      dailyWage: Number(employee.salaryStructure?.dailyWage || 0),
+      hourlyWage: Number(employee.salaryStructure?.hourlyWage || 0),
+      standardDailyHours: Number(employee.salaryStructure?.standardDailyHours || 8),
       basicSalaryType: employee.salaryStructure?.basicSalaryType || "percentage",
       basicSalaryValue: Number(employee.salaryStructure?.basicSalaryValue || 40),
       hraType: employee.salaryStructure?.hraType || "percentage",
@@ -502,7 +521,13 @@ const AdminEmployees: React.FC = () => {
 
     setSalarySaving(true);
     try {
-      const monthlyGrossSalary = Number(salaryForm.monthlyGrossSalary || 0);
+      const standardDailyHours = Math.max(1, Number(salaryForm.standardDailyHours || 8));
+      const monthlyGrossSalary =
+        salaryForm.salaryType === "daily"
+          ? Number(salaryForm.dailyWage || 0) * 26
+          : salaryForm.salaryType === "hourly"
+            ? Number(salaryForm.hourlyWage || 0) * standardDailyHours * 26
+            : Number(salaryForm.monthlyGrossSalary || 0);
       const basicSalary =
         salaryForm.basicSalaryType === "fixed"
           ? Number(salaryForm.basicSalaryValue || 0)
@@ -519,7 +544,11 @@ const AdminEmployees: React.FC = () => {
             : Math.max(0, monthlyGrossSalary - basicSalary - hra);
 
       await apiService.updateEmployeeSalaryStructure(employee._id, {
+        salaryType: salaryForm.salaryType,
         monthlyGrossSalary,
+        dailyWage: Number(salaryForm.dailyWage || 0),
+        hourlyWage: Number(salaryForm.hourlyWage || 0),
+        standardDailyHours,
         basicSalaryType: salaryForm.basicSalaryType,
         basicSalaryValue: Number(salaryForm.basicSalaryValue || 0),
         hraType: salaryForm.hraType,
@@ -554,7 +583,13 @@ const AdminEmployees: React.FC = () => {
     }
   };
 
-  const grossPreview = Number(salaryForm.monthlyGrossSalary || 0) + Number(salaryForm.bonus || 0);
+  const basePreview =
+    salaryForm.salaryType === "daily"
+      ? Number(salaryForm.dailyWage || 0) * 26
+      : salaryForm.salaryType === "hourly"
+        ? Number(salaryForm.hourlyWage || 0) * Math.max(1, Number(salaryForm.standardDailyHours || 8)) * 26
+        : Number(salaryForm.monthlyGrossSalary || 0);
+  const grossPreview = basePreview + Number(salaryForm.bonus || 0);
 
   return (
     <div className="space-y-6">
@@ -564,7 +599,11 @@ const AdminEmployees: React.FC = () => {
         action={<Button onClick={openAdd} className="gradient-primary text-primary-foreground gap-2"><Plus className="w-4 h-4" />Add Employee</Button>}
       />
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="outline" className="gap-2 rounded-xl border-slate-200 bg-white/90" onClick={() => setFiltersOpen(true)}><Filter className="w-4 h-4" />Filter</Button>
+        <Button
+          variant="outline"
+          className="gap-2 rounded-xl border-[var(--portal-surface-border)] bg-[#111111] text-white hover:bg-[#181818]"
+          onClick={() => setFiltersOpen(true)}
+        ><Filter className="w-4 h-4" />Filter</Button>
         <ExportButton
           moduleName="employees"
           rows={filtered}
@@ -615,9 +654,9 @@ const AdminEmployees: React.FC = () => {
           if (!open) setSaveFeedback(null);
         }}
       >
-        <DialogContent className="max-h-[92vh] sm:max-w-3xl rounded-[28px] border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-0 shadow-[0_28px_80px_rgba(166,124,82,0.22)]">
-          <DialogHeader className="sticky top-0 z-10 border-b border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-6 py-5">
-            <DialogTitle className="text-[#F5F5F5]">{editIndex !== null ? "Edit Employee" : "Add Employee"}</DialogTitle>
+        <DialogContent className={`max-h-[92vh] sm:max-w-3xl rounded-[28px] p-0 ${dialogSurfaceClassName}`}>
+          <DialogHeader className={`sticky top-0 z-10 border-b px-6 py-5 ${dialogSectionClassName}`}>
+            <DialogTitle className="text-[var(--portal-heading-color)] dark:text-white">{editIndex !== null ? "Edit Employee" : "Add Employee"}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[calc(92vh-140px)] overflow-y-auto px-6 py-4">
           {saveFeedback ? (
@@ -643,7 +682,7 @@ const AdminEmployees: React.FC = () => {
               disabled={savingEmployee || editIndex === null}
             />
             {editIndex === null ? (
-              <p className="mt-2 text-xs font-medium text-[#8E6B4C]">Create the employee first, then upload the photo for the ID card.</p>
+              <p className={`mt-2 text-xs font-medium ${subtleHelperTextClassName}`}>Create the employee first, then upload the photo for the ID card.</p>
             ) : null}
           </div>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -726,12 +765,12 @@ const AdminEmployees: React.FC = () => {
             </div>
           </div>
           </div>
-          <DialogFooter className="sticky bottom-0 gap-2 border-t border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-6 py-4">
+          <DialogFooter className={`sticky bottom-0 gap-2 border-t px-6 py-4 ${dialogSectionClassName}`}>
             <DialogClose asChild><Button variant="outline" disabled={savingEmployee}>Cancel</Button></DialogClose>
             <Button
               onClick={handleSave}
               disabled={savingEmployee}
-              className="gap-2 rounded-xl border border-[#2A2623] bg-[linear-gradient(135deg,#A67C52,#E6C7A3)] px-5 text-[#1A1816] shadow-[0_18px_40px_rgba(166,124,82,0.4)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_44px_rgba(166,124,82,0.4)]"
+              className="gap-2 rounded-xl border border-[#1f2937] bg-[#1f2937] px-5 text-white shadow-none transition-colors duration-200 hover:bg-[#111827]"
             >
               {savingEmployee ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {savingEmployee ? (editIndex !== null ? "Updating..." : "Adding...") : editIndex !== null ? "Update" : "Add"}
@@ -741,22 +780,51 @@ const AdminEmployees: React.FC = () => {
       </Dialog>
 
       <Dialog open={salaryDialogOpen} onOpenChange={setSalaryDialogOpen}>
-        <DialogContent className="max-h-[92vh] sm:max-w-3xl rounded-[28px] border border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-0 shadow-[0_28px_80px_rgba(166,124,82,0.22)]">
-          <DialogHeader className="sticky top-0 z-10 border-b border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-6 py-5">
-            <DialogTitle className="text-[#F5F5F5]">Payroll Configuration</DialogTitle>
+        <DialogContent className={`max-h-[92vh] sm:max-w-3xl rounded-[28px] p-0 ${dialogSurfaceClassName}`}>
+          <DialogHeader className={`sticky top-0 z-10 border-b px-6 py-5 ${dialogSectionClassName}`}>
+            <DialogTitle className="text-[var(--portal-heading-color)] dark:text-white">Payroll Configuration</DialogTitle>
           </DialogHeader>
           <div className="max-h-[calc(92vh-140px)] overflow-y-auto px-6 py-4">
           <div className="space-y-4 py-2">
-            <div className="rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.72)] p-4 text-sm">
-              <div className="font-medium text-[#F5F5F5]">{salaryIndex !== null ? employees[salaryIndex]?.name : "Employee"}</div>
-              <div className="text-[#A1A1AA]">{salaryIndex !== null ? employees[salaryIndex]?.employeeId : ""}</div>
-              <div className="mt-2 text-[#F5F5F5]">Gross Salary Preview: <span className="font-semibold text-[#E6C7A3]">{currency.format(grossPreview)}</span></div>
+            <div className={previewCardClassName}>
+              <div className="font-medium text-[var(--portal-heading-color)] dark:text-white">{salaryIndex !== null ? employees[salaryIndex]?.name : "Employee"}</div>
+              <div className={subtleHelperTextClassName}>{salaryIndex !== null ? employees[salaryIndex]?.employeeId : ""}</div>
+              <div className="mt-2 text-[var(--portal-heading-color)] dark:text-white">Gross Salary Preview: <span className="font-semibold text-[var(--portal-primary-dark)] dark:text-slate-200">{currency.format(grossPreview)}</span></div>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Monthly Gross Salary</Label>
-                <Input type="number" min="0" value={salaryForm.monthlyGrossSalary} onChange={(event) => setSalaryForm({ ...salaryForm, monthlyGrossSalary: Number(event.target.value) })} />
+                <Label>Salary Basis</Label>
+                <Select value={salaryForm.salaryType} onValueChange={(value) => setSalaryForm({ ...salaryForm, salaryType: value as SalaryStructure["salaryType"] })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="hourly">Hourly</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+              <div className="space-y-1.5">
+                <Label>Standard Daily Hours</Label>
+                <Input type="number" min="1" max="24" value={salaryForm.standardDailyHours} onChange={(event) => setSalaryForm({ ...salaryForm, standardDailyHours: Number(event.target.value) })} />
+              </div>
+              {salaryForm.salaryType === "monthly" ? (
+                <div className="space-y-1.5">
+                  <Label>Monthly Gross Salary</Label>
+                  <Input type="number" min="0" value={salaryForm.monthlyGrossSalary} onChange={(event) => setSalaryForm({ ...salaryForm, monthlyGrossSalary: Number(event.target.value) })} />
+                </div>
+              ) : null}
+              {salaryForm.salaryType === "daily" ? (
+                <div className="space-y-1.5">
+                  <Label>Daily Wage</Label>
+                  <Input type="number" min="0" value={salaryForm.dailyWage} onChange={(event) => setSalaryForm({ ...salaryForm, dailyWage: Number(event.target.value) })} />
+                </div>
+              ) : null}
+              {salaryForm.salaryType === "hourly" ? (
+                <div className="space-y-1.5">
+                  <Label>Hourly Wage</Label>
+                  <Input type="number" min="0" value={salaryForm.hourlyWage} onChange={(event) => setSalaryForm({ ...salaryForm, hourlyWage: Number(event.target.value) })} />
+                </div>
+              ) : null}
               <div className="space-y-1.5">
                 <Label>Basic Salary Rule</Label>
                 <div className="grid grid-cols-[1fr_1fr] gap-2">
@@ -825,18 +893,18 @@ const AdminEmployees: React.FC = () => {
                 <Label>Overtime Rate Per Hour</Label>
                 <Input type="number" min="0" value={salaryForm.overtimeRatePerHour} onChange={(event) => setSalaryForm({ ...salaryForm, overtimeRatePerHour: Number(event.target.value) })} />
               </div>
-              <div className="rounded-xl border border-[#2A2623] bg-[rgba(35,32,29,0.72)] p-4 sm:col-span-2">
+              <div className={`${previewCardClassName} sm:col-span-2`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-[#F5F5F5]">PF Deduction</p>
-                    <p className="text-xs text-[#A1A1AA]">Apply PF during payroll calculation</p>
+                    <p className="text-sm font-medium text-[var(--portal-heading-color)] dark:text-white">PF Deduction</p>
+                    <p className={`text-xs ${subtleHelperTextClassName}`}>Apply PF during payroll calculation</p>
                   </div>
                   <input type="checkbox" checked={salaryForm.pfEnabled} onChange={(event) => setSalaryForm({ ...salaryForm, pfEnabled: event.target.checked })} />
                 </div>
                 <div className="mt-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-[#F5F5F5]">ESI Deduction</p>
-                    <p className="text-xs text-[#A1A1AA]">Apply ESI when payroll rules allow it</p>
+                    <p className="text-sm font-medium text-[var(--portal-heading-color)] dark:text-white">ESI Deduction</p>
+                    <p className={`text-xs ${subtleHelperTextClassName}`}>Apply ESI when payroll rules allow it</p>
                   </div>
                   <input type="checkbox" checked={salaryForm.esiEnabled} onChange={(event) => setSalaryForm({ ...salaryForm, esiEnabled: event.target.checked })} />
                 </div>
@@ -844,9 +912,9 @@ const AdminEmployees: React.FC = () => {
             </div>
           </div>
           </div>
-          <DialogFooter className="sticky bottom-0 border-t border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-6 py-4">
+          <DialogFooter className={`sticky bottom-0 border-t px-6 py-4 ${dialogSectionClassName}`}>
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-            <Button onClick={() => void handleSalarySave()} disabled={salarySaving} className="gradient-primary text-primary-foreground">
+            <Button onClick={() => void handleSalarySave()} disabled={salarySaving} className="border border-[#1f2937] bg-[#1f2937] text-white hover:bg-[#111827]">
               {salarySaving ? "Saving..." : "Save Compensation"}
             </Button>
           </DialogFooter>

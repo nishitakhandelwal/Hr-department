@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { body, param } from "express-validator";
 import {
+  applyInternshipAction,
   createInternship,
   decideInternship,
   deleteInternship,
@@ -49,11 +50,27 @@ router.put(
 );
 
 router.patch(
+  "/:id/action",
+  protect,
+  authorize("admin", "employee"),
+  authorizeModule("candidates"),
+  [
+    param("id").isMongoId().withMessage("Invalid id."),
+    body("action").isString().notEmpty().withMessage("action is required."),
+  ],
+  validateRequest,
+  asyncHandler(applyInternshipAction)
+);
+
+router.patch(
   "/:id/decision",
   protect,
   authorize("admin", "employee"),
   authorizeModule("candidates"),
-  [param("id").isMongoId().withMessage("Invalid id.")],
+  [
+    param("id").isMongoId().withMessage("Invalid id."),
+    body("action").isString().notEmpty().withMessage("action is required."),
+  ],
   validateRequest,
   asyncHandler(decideInternship)
 );

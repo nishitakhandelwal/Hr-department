@@ -7,6 +7,7 @@ type HeroHighlight = {
   value: string;
   note: string;
   icon: LucideIcon;
+  tone?: "success" | "process" | "finance" | "pending" | "teal";
 };
 
 type PortalHeroPanelProps = {
@@ -14,6 +15,14 @@ type PortalHeroPanelProps = {
   title: string;
   description: string;
   highlights: HeroHighlight[];
+};
+
+const toneClassMap = {
+  success: "border border-[#16a34a]/20 bg-[#16a34a] text-white shadow-[0_8px_18px_rgba(22,163,74,0.16)]",
+  process: "border border-[#2563eb]/20 bg-[#2563eb] text-white shadow-[0_8px_18px_rgba(37,99,235,0.16)]",
+  finance: "border border-[#7c3aed]/20 bg-[#7c3aed] text-white shadow-[0_8px_18px_rgba(124,58,237,0.16)]",
+  pending: "border border-[#e11d48]/20 bg-[#e11d48] text-white shadow-[0_8px_18px_rgba(225,29,72,0.16)]",
+  teal: "border border-[#0f766e]/20 bg-[#0f766e] text-white shadow-[0_8px_18px_rgba(15,118,110,0.16)]",
 };
 
 const PortalHeroPanel: React.FC<PortalHeroPanelProps> = ({ eyebrow, title, description, highlights }) => {
@@ -24,11 +33,6 @@ const PortalHeroPanel: React.FC<PortalHeroPanelProps> = ({ eyebrow, title, descr
       transition={{ duration: 0.45 }}
       className="dashboard-panel relative overflow-hidden p-7"
     >
-      <div className="portal-orb pointer-events-none absolute -right-10 top-0 h-40 w-40 rounded-full blur-3xl" />
-      <div className="portal-orb-soft pointer-events-none absolute bottom-0 left-0 h-28 w-28 rounded-full blur-2xl" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.16),transparent_28%,transparent_72%,rgba(var(--portal-primary-rgb),0.08))]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.46),transparent_68%)]" />
-
       <div className="relative">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
@@ -49,7 +53,7 @@ const PortalHeroPanel: React.FC<PortalHeroPanelProps> = ({ eyebrow, title, descr
             <div key={item.label} className="dashboard-subtle-card group">
               <div className="flex items-center justify-between gap-3">
                 <p className="dashboard-label">{item.label}</p>
-                <div className="portal-accent-icon flex h-10 w-10 items-center justify-center rounded-[16px] transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-[16px] border transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3 ${toneClassMap[item.tone || "process"]}`}>
                   <item.icon className="h-4 w-4" />
                 </div>
               </div>

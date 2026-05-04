@@ -178,18 +178,21 @@ const EmployeeDashboard: React.FC = () => {
               value: String(summary.attendanceRows.length),
               note: "Recent check-ins and check-outs recorded in your account.",
               icon: Clock,
+              tone: "teal",
             },
             {
               label: "Approved leave",
               value: `${summary.approvedLeaveDays} days`,
               note: `${pendingLeaveRequests} request(s) are still pending review.`,
               icon: CalendarDays,
+              tone: "finance",
             },
             {
               label: "Latest payroll",
               value: currency.format(Number(latestPayroll?.netSalary || 0)),
               note: latestPayroll?.month || "Payroll data becomes visible here after processing.",
               icon: IndianRupee,
+              tone: "process",
             },
           ]}
         />
@@ -200,9 +203,9 @@ const EmployeeDashboard: React.FC = () => {
           subtitle="Your personal dashboard keeps work essentials together: attendance rhythm, leave planning, payroll visibility, and quick access to profile information."
           imageUrl={user?.profileImage || user?.profilePhotoUrl || ""}
           meta={[
-            { label: "Current status", value: todayStatus, icon: CheckCircle },
-            { label: "Pending leaves", value: `${pendingLeaveRequests} request(s)`, icon: CalendarDays },
-            { label: "Department", value: profile?.department || "Not assigned", icon: Sparkles },
+            { label: "Current status", value: todayStatus, icon: CheckCircle, tone: "success" },
+            { label: "Pending leaves", value: `${pendingLeaveRequests} request(s)`, icon: CalendarDays, tone: "finance" },
+            { label: "Department", value: profile?.department || "Not assigned", icon: Sparkles, tone: "teal" },
           ]}
         />
       </div>
@@ -235,18 +238,21 @@ const EmployeeDashboard: React.FC = () => {
               description: "Keep daily records clean and complete for a smooth workweek.",
               progress: Math.min(100, 40 + summary.attendanceRows.length * 10),
               icon: Clock,
+              tone: "process",
             },
             {
               title: "Leave planning",
               description: `${pendingLeaveRequests} leave request(s) are still in the queue.`,
               progress: Math.max(20, 100 - pendingLeaveRequests * 20),
               icon: CalendarDays,
+              tone: "finance",
             },
             {
               title: "Payroll awareness",
               description: "Review the latest cycle and keep compensation details visible.",
               progress: latestPayroll ? 88 : 34,
               icon: IndianRupee,
+              tone: "teal",
             },
           ]}
         />

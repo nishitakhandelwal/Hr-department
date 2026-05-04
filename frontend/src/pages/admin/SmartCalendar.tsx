@@ -30,18 +30,18 @@ import { apiService, type CalendarEvent, type CalendarMonth, type UpcomingEvents
 
 const EVENT_COLOR_CLASSES = {
   holiday: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  meeting: "border-[#D8B58E] bg-[linear-gradient(135deg,#FAE8CF_0%,#F3DFC2_100%)] text-[#6E4A27] dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.2)] dark:text-[#E6C7A3]",
-  birthday: "border-[#D7C3A4] bg-[linear-gradient(135deg,#F7EBD9_0%,#F1E2CC_100%)] text-[#725332] dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.2)] dark:text-[#E6C7A3]",
+  meeting: "border-[#D8B58E] bg-[linear-gradient(135deg,#FAE8CF_0%,#F3DFC2_100%)] text-[#6E4A27] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04))] dark:text-[#f5f5f5]",
+  birthday: "border-[#D7C3A4] bg-[linear-gradient(135deg,#F7EBD9_0%,#F1E2CC_100%)] text-[#725332] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] dark:text-[#e5e5e5]",
   reminder: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
 } as const;
 
 const DARK_PANEL =
-  "dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)] dark:shadow-[0_22px_60px_rgba(166,124,82,0.4)]";
+  "dark:border-[var(--portal-surface-border)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_24%),linear-gradient(135deg,var(--portal-surface-bg),var(--portal-surface-bg-strong))] dark:shadow-[0_24px_54px_rgba(2,6,23,0.34)]";
 
 const EVENT_DOT_CLASSES = {
   holiday: "bg-emerald-500",
-  meeting: "bg-[#B87A3B]",
-  birthday: "bg-[#B88952]",
+  meeting: "bg-white",
+  birthday: "bg-neutral-300",
   reminder: "bg-amber-500",
 } as const;
 
@@ -332,7 +332,7 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
 
         <div className="flex items-center gap-3">
           <Select value={country} onValueChange={setCountry}>
-            <SelectTrigger className="w-32 border-white/15 bg-white/80 text-foreground dark:border-white/15 dark:bg-white/5 dark:text-white">
+            <SelectTrigger className="w-32 border-white/15 bg-white/80 text-foreground dark:border-[var(--portal-surface-border)] dark:bg-[var(--portal-subtle-surface)] dark:text-[var(--portal-heading-color)]">
               <SelectValue placeholder="Country" />
             </SelectTrigger>
             <SelectContent>
@@ -346,7 +346,7 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
 
           <Button
             onClick={() => setShowEventModal(true)}
-            className="border border-primary/30 bg-[linear-gradient(135deg,#7c6cff_0%,#3bb8ff_100%)] text-white shadow-[0_12px_30px_rgba(87,102,255,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(87,102,255,0.45)]"
+            className="border border-white/14 bg-[linear-gradient(135deg,#d4d4d4_0%,#ffffff_100%)] text-[#0a0a0a] shadow-[0_16px_36px_rgba(0,0,0,0.28)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_20px_42px_rgba(0,0,0,0.36)]"
           >
             <Plus className="mr-2 h-4 w-4 [stroke-width:2.6]" />
             Add Event
@@ -374,7 +374,7 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
                 variant="ghost"
                 size="icon"
                 onClick={() => changeVisibleMonth(subMonths(visibleMonth, 1))}
-                className="border border-white/10 bg-white/55 text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/80 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                className="border border-white/10 bg-white/55 text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/80 dark:border-[var(--portal-surface-border)] dark:bg-[var(--portal-subtle-surface)] dark:text-[var(--portal-heading-color)] dark:hover:bg-[var(--portal-subtle-surface-strong)]"
               >
                 <ChevronLeft className="h-5 w-5 [stroke-width:2.6]" />
               </Button>
@@ -382,7 +382,7 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
                 variant="outline"
                 size="sm"
                 onClick={() => void handleTodayClick()}
-                className="border-white/15 bg-white/70 text-foreground dark:border-white/15 dark:bg-white/5 dark:text-white"
+                className="border-white/15 bg-white/70 text-foreground dark:border-[var(--portal-surface-border)] dark:bg-[var(--portal-subtle-surface)] dark:text-[var(--portal-heading-color)]"
               >
                 Today
               </Button>
@@ -390,7 +390,7 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
                 variant="ghost"
                 size="icon"
                 onClick={() => changeVisibleMonth(addMonths(visibleMonth, 1))}
-                className="border border-white/10 bg-white/55 text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/80 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                className="border border-white/10 bg-white/55 text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/80 dark:border-[var(--portal-surface-border)] dark:bg-[var(--portal-subtle-surface)] dark:text-[var(--portal-heading-color)] dark:hover:bg-[var(--portal-subtle-surface-strong)]"
               >
                 <ChevronRight className="h-5 w-5 [stroke-width:2.6]" />
               </Button>
@@ -426,9 +426,9 @@ const SmartCalendar: React.FC<SmartCalendarProps> = ({ embedded = false }) => {
                     className={cn(
                       "relative min-h-[112px] rounded-[20px] border p-3 text-left transition-all duration-300",
                       !isCurrentMonth && "border-white/8 bg-white/[0.03] text-muted-foreground dark:text-slate-500",
-                      isCurrentMonth && "border-border bg-background/70 hover:bg-accent/50 dark:border-white/8 dark:bg-white/[0.035] dark:hover:bg-white/[0.08]",
-                      isTodayDate && "border-primary bg-primary/5 shadow-[0_0_0_1px_rgba(230,199,163,0.2),0_12px_30px_rgba(166,124,82,0.4)] dark:bg-primary/10 dark:shadow-[0_0_0_1px_rgba(230,199,163,0.2),0_16px_34px_rgba(166,124,82,0.4)]",
-                      isSelectedDate && "border-primary bg-primary/10 dark:bg-primary/12"
+                      isCurrentMonth && "border-border bg-background/70 hover:bg-accent/50 dark:border-[var(--portal-surface-border)] dark:bg-[rgba(20,20,20,0.72)] dark:hover:bg-[rgba(32,32,32,0.92)]",
+                      isTodayDate && "border-primary bg-primary/5 shadow-[0_0_0_1px_rgba(230,199,163,0.2),0_12px_30px_rgba(166,124,82,0.4)] dark:bg-white/6 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14),0_18px_38px_rgba(0,0,0,0.38)]",
+                      isSelectedDate && "border-primary bg-primary/10 dark:bg-white/5"
                     )}
                   >
                     <div className="mb-2 flex items-center justify-between">

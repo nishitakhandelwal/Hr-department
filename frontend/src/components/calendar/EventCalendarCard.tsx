@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import InlineStatusMessage from "@/components/InlineStatusMessage";
 import { useToast } from "@/hooks/use-toast";
 import { apiService, type EventItem } from "@/services/api";
+import { destructiveIconButtonClass } from "@/lib/destructive";
 import { cn } from "@/lib/utils";
 
 type EventCalendarCardProps = {
@@ -393,9 +394,8 @@ export const EventCalendarCard: React.FC<EventCalendarCardProps> = ({ role, titl
                             ) : null}
                             {event.canDelete ? (
                               <Button
-                                variant="ghost"
                                 size="icon"
-                                className="h-9 w-9 rounded-xl text-destructive hover:text-destructive"
+                                className={`h-9 w-9 rounded-xl ${destructiveIconButtonClass}`}
                                 onClick={() => void handleDelete(event)}
                                 disabled={deletingId === event._id}
                               >

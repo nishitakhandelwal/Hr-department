@@ -232,18 +232,21 @@ const AdminDashboard: React.FC = () => {
               value: String(summary.activeEmployeesCount),
               note: `${summary.totalEmployees} total employee records currently managed.`,
               icon: Users,
+              tone: "teal",
             },
             {
               label: highlightHiringLabel,
               value: String(summary.applicationsUnderReview),
               note: `${summary.pendingHrReviews} profiles still waiting on HR review.`,
               icon: BriefcaseBusiness,
+              tone: "process",
             },
             {
               label: highlightPayrollLabel,
               value: currency.format(Math.round(summary.totalPayrollValue)),
               note: `${summary.pendingLeavesCount} leave approvals still need attention.`,
               icon: Wallet,
+              tone: "finance",
             },
           ]}
         />
@@ -254,9 +257,9 @@ const AdminDashboard: React.FC = () => {
           subtitle={profileSubtitle}
           imageUrl={user?.profileImage || user?.profilePhotoUrl || ""}
           meta={[
-            { label: departmentsMetaLabel, value: `${summary.departmentsCovered} active teams`, icon: Building2 },
-            { label: leavesMetaLabel, value: `${summary.pendingLeavesCount} approvals`, icon: CalendarDays },
-            { label: queueMetaLabel, value: `${summary.pendingHrReviews} candidate profiles`, icon: ClipboardCheck },
+            { label: departmentsMetaLabel, value: `${summary.departmentsCovered} active teams`, icon: Building2, tone: "teal" },
+            { label: leavesMetaLabel, value: `${summary.pendingLeavesCount} approvals`, icon: CalendarDays, tone: "finance" },
+            { label: queueMetaLabel, value: `${summary.pendingHrReviews} candidate profiles`, icon: ClipboardCheck, tone: "pending" },
           ]}
         />
       </div>
@@ -268,7 +271,7 @@ const AdminDashboard: React.FC = () => {
           change={candidatesChangeLabel}
           changeType="positive"
           icon={UserCheck}
-          color="info"
+          color="primary"
           delay={0}
           onClick={() => navigate("/admin/candidates")}
         />
@@ -278,7 +281,7 @@ const AdminDashboard: React.FC = () => {
           change={`${summary.totalEmployees} ${employeesChangeSuffix}`}
           changeType="positive"
           icon={Users}
-          color="primary"
+          color="success"
           delay={1}
           onClick={() => navigate("/admin/employees")}
         />
@@ -298,7 +301,7 @@ const AdminDashboard: React.FC = () => {
           change={queueChangeLabel}
           changeType="neutral"
           icon={ShieldCheck}
-          color="success"
+          color="info"
           delay={3}
           onClick={() => navigate("/admin/leave")}
         />
@@ -325,18 +328,21 @@ const AdminDashboard: React.FC = () => {
               description: `${summary.pendingLeavesCount} requests are waiting for admin action.`,
               progress: Math.min(100, summary.pendingLeavesCount === 0 ? 100 : 100 - summary.pendingLeavesCount * 12),
               icon: CalendarDays,
+              tone: "finance",
             },
             {
               title: priorityReviewsLabel,
               description: `${summary.pendingHrReviews} candidates still need a final review cycle.`,
               progress: Math.min(100, summary.pendingHrReviews === 0 ? 100 : 100 - summary.pendingHrReviews * 14),
               icon: ClipboardCheck,
+              tone: "pending",
             },
             {
               title: priorityHiringLabel,
               description: `${summary.applicationsUnderReview} applicants are moving through the active recruitment stream.`,
               progress: Math.min(100, summary.applicationsUnderReview * 18),
               icon: BriefcaseBusiness,
+              tone: "teal",
             },
           ]}
         />

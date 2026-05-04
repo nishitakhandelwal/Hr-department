@@ -4,6 +4,7 @@ import { Employee } from "../models/Employee.js";
 import { Payroll } from "../models/Payroll.js";
 import { ensureEmployeeProfileForUser } from "../services/employeeProfileService.js";
 import { getSystemSettings, refreshSystemSettingsCache } from "../services/systemSettingsService.js";
+import { getAttendanceMonthRange, sanitizeAttendanceSettings } from "../services/attendancePolicyService.js";
 import {
   amountToWords,
   buildSalaryStructureSnapshot,
@@ -29,6 +30,8 @@ const getPayrollEligibleEmployeeFilter = (employeeScope = null) =>
 
 const hasSalaryAmount = (employee) => {
   const salarySnapshot = buildSalaryStructureSnapshot(employee);
+  if (salarySnapshot.salaryType === "daily") return Number(salarySnapshot.dailyWage || 0) > 0;
+  if (salarySnapshot.salaryType === "hourly") return Number(salarySnapshot.hourlyWage || 0) > 0;
   return Number(salarySnapshot.monthlyGrossSalary || 0) > 0;
 };
 
@@ -196,6 +199,35 @@ const buildPayrollQuery = async (user, query = {}) => {
   return employeeScope ? { ...query, employeeId: employeeScope } : query;
 };
 
+const hasBankDetails = (bankDetails = {}) =>
+  Boolean(
+    bankDetails &&
+      (bankDetails.bankName ||
+        bankDetails.accountHolderName ||
+        bankDetails.accountNumber ||
+        bankDetails.ifscCode ||
+        bankDetails.branchName ||
+        bankDetails.paymentMode)
+  );
+
+const resolveLatestBankDetails = (record) => {
+  const employeeBankDetails =
+    record?.employeeId && typeof record.employeeId === "object" && !Array.isArray(record.employeeId)
+      ? record.employeeId.bankDetails || {}
+      : {};
+
+  return hasBankDetails(employeeBankDetails) ? employeeBankDetails : record?.bankDetails || {};
+};
+
+const withResolvedBankDetails = (record) => {
+  if (!record) return record;
+  const serialized = typeof record.toObject === "function" ? record.toObject() : record;
+  return {
+    ...serialized,
+    bankDetails: resolveLatestBankDetails(serialized),
+  };
+};
+
 const loadPayrollRecords = async (query) =>
   Payroll.find(query)
     .populate({
@@ -218,9 +250,14 @@ const sanitizePayrollSettings = (settings) => ({
   fixedWorkingDays: Number(settings?.fixedWorkingDays || 26),
   standardDailyHours: Number(settings?.standardDailyHours || 8),
   includePaidLeaveInWages: settings?.includePaidLeaveInWages !== false,
+  halfDayPayableFraction: Number(settings?.halfDayPayableFraction ?? 0.5),
+  incompleteDayPayableFraction: Number(settings?.incompleteDayPayableFraction ?? 0),
+  lateToHalfDayEnabled: Boolean(settings?.lateToHalfDayEnabled),
+  lateToHalfDayThreshold: Number(settings?.lateToHalfDayThreshold || 0),
   latePenaltyAmount: Number(settings?.latePenaltyAmount || 0),
   absentPenaltyAmount: Number(settings?.absentPenaltyAmount || 0),
   overtimeMultiplier: Number(settings?.overtimeMultiplier || 1),
+  freezePayrollOnGenerate: settings?.freezePayrollOnGenerate !== false,
   pf: {
     enabled: settings?.pf?.enabled !== false,
     employeeRate: Number(settings?.pf?.employeeRate || 0),
@@ -235,13 +272,50 @@ const sanitizePayrollSettings = (settings) => ({
   },
 });
 
+const sumPaymentHistory = (entries = []) =>
+  roundCurrency(
+    entries.reduce((sum, entry) => sum + Number(entry?.amount || 0), 0)
+  );
+
+const resolvePaymentStatus = ({ netSalary, paidAmount }) => {
+  if (paidAmount <= 0) return "unpaid";
+  if (paidAmount >= netSalary) return "paid";
+  return "partially_paid";
+};
+
+const mergeExistingPaymentState = (payrollRecord, existingRecord) => {
+  if (!existingRecord) {
+    return payrollRecord;
+  }
+
+  const paymentHistory = Array.isArray(existingRecord.paymentHistory) ? existingRecord.paymentHistory : [];
+  const paidAmount = sumPaymentHistory(paymentHistory);
+  const unpaidAmount = roundCurrency(Math.max(0, Number(payrollRecord.netSalary || 0) - paidAmount));
+  const lastPayment = paymentHistory[paymentHistory.length - 1] || null;
+
+  return {
+    ...payrollRecord,
+    paymentHistory,
+    paidAmount,
+    unpaidAmount,
+    paymentStatus: resolvePaymentStatus({ netSalary: Number(payrollRecord.netSalary || 0), paidAmount }),
+    lastPaymentDate: lastPayment?.paymentDate || existingRecord.lastPaymentDate || null,
+    paymentMethod: lastPayment?.paymentMethod || existingRecord.paymentMethod || "",
+    paymentReference: lastPayment?.reference || existingRecord.paymentReference || "",
+    paymentNotes: lastPayment?.notes || existingRecord.paymentNotes || "",
+    payrollLocked: existingRecord.payrollLocked ?? payrollRecord.payrollLocked,
+    lockedAt: existingRecord.lockedAt || payrollRecord.lockedAt || null,
+  };
+};
+
 export const getPayroll = async (req, res) => {
   const period = normalizePayrollPeriod(req.query.month, req.query.year);
   const query = await buildPayrollQuery(req.user, {
     monthNumber: period.monthNumber,
     year: period.year,
   });
-  const data = await loadPayrollRecords(query);
+  const records = await loadPayrollRecords(query);
+  const data = records.map((record) => withResolvedBankDetails(record));
   res.json({ success: true, message: "Fetched payroll", data });
 };
 
@@ -251,7 +325,7 @@ export const getPayrollSummary = async (req, res) => {
   const employeeFilter = getPayrollEligibleEmployeeFilter(employeeScope);
 
   const [activeEmployees, records] = await Promise.all([
-    Employee.find(employeeFilter).select("_id salaryStructure"),
+    Employee.find(employeeFilter).select("_id salaryStructure salary"),
     loadPayrollRecords(await buildPayrollQuery(req.user, { monthNumber: period.monthNumber, year: period.year })),
   ]);
 
@@ -384,6 +458,7 @@ export const runPayroll = async (req, res) => {
   const period = normalizePayrollPeriod(req.body?.month, req.body?.year);
   const settings = await getSystemSettings({ lean: true });
   const payrollSettings = sanitizePayrollSettings(settings.payroll);
+  const attendanceSettings = sanitizeAttendanceSettings(settings.attendance, settings.preferences?.timezone);
 
   console.info("[Payroll] Starting payroll run", {
     monthNumber: period.monthNumber,
@@ -399,8 +474,11 @@ export const runPayroll = async (req, res) => {
   }
 
   const employeeIds = activeEmployees.map((employee) => employee._id);
-  const monthStart = new Date(period.year, period.monthNumber - 1, 1);
-  const monthEnd = new Date(period.year, period.monthNumber, 1);
+  const { start: monthStart, end: monthEnd } = getAttendanceMonthRange(
+    period.monthNumber,
+    period.year,
+    attendanceSettings.timezone
+  );
 
   const [existingPayroll, attendanceRows] = await Promise.all([
     Payroll.find({ employeeId: { $in: employeeIds }, monthNumber: period.monthNumber, year: period.year }),
@@ -480,13 +558,22 @@ export const runPayroll = async (req, res) => {
     }
 
     const monthlyAttendance = attendanceByEmployeeId.get(employeeKey) || [];
+    const existingRecord = payrollByEmployeeId.get(employeeKey);
+    if (existingRecord?.payrollLocked) {
+      skipped.push({
+        employeeId: employee.employeeId,
+        employeeName: getEmployeeDisplayName(employee),
+        reason: "Payroll is already locked for this month.",
+      });
+      continue;
+    }
     const payrollRecordBase = calculatePayrollRecord({
       employee,
       attendanceRows: monthlyAttendance,
       payrollSettings,
+      attendanceSettings,
       period,
     });
-    const existingRecord = payrollByEmployeeId.get(employeeKey);
     const employeeAdvances = (advancesByEmployeeId.get(employeeKey) || []).filter(
       (advance) => advance.status !== "cancelled" && Number(advance.remainingAmount || 0) > 0
     );
@@ -496,6 +583,7 @@ export const runPayroll = async (req, res) => {
       period,
       existingPayrollId: existingRecord?._id || null,
     });
+    const payrollRecordWithPaymentState = mergeExistingPaymentState(payrollRecord, existingRecord);
 
     if (existingRecord) {
       updatedCount += 1;
@@ -511,7 +599,7 @@ export const runPayroll = async (req, res) => {
           year: period.year,
         },
         update: {
-          $set: payrollRecord,
+          $set: payrollRecordWithPaymentState,
         },
         upsert: true,
       },
@@ -595,7 +683,12 @@ export const runPayroll = async (req, res) => {
 };
 
 export const downloadPayslipPdf = async (req, res) => {
-  const record = await Payroll.findById(req.params.id).lean();
+  const record = await Payroll.findById(req.params.id)
+    .populate({
+      path: "employeeId",
+      select: "bankDetails",
+    })
+    .lean();
   if (!record) {
     return res.status(404).json({ success: false, message: "Payroll record not found." });
   }
@@ -608,7 +701,10 @@ export const downloadPayslipPdf = async (req, res) => {
   }
 
   const settings = await getSystemSettings({ lean: true });
-  const pdfBuffer = await generatePayslipPdfBuffer({ payroll: record, company: settings.company });
+  const pdfBuffer = await generatePayslipPdfBuffer({
+    payroll: withResolvedBankDetails(record),
+    company: settings.company,
+  });
   const fileName = `${record.employeeCode || record.employeeName}-${record.month}-${record.year}-salary-slip.pdf`
     .replace(/[^a-zA-Z0-9._-]+/g, "-");
 
@@ -616,4 +712,74 @@ export const downloadPayslipPdf = async (req, res) => {
   res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
   res.setHeader("Content-Length", String(pdfBuffer.length));
   return res.status(200).send(pdfBuffer);
+};
+
+export const updatePayrollPayment = async (req, res) => {
+  const record = await Payroll.findById(req.params.id);
+  if (!record) {
+    throw createError("Payroll record not found.", 404);
+  }
+
+  const action = String(req.body?.action || "record").trim().toLowerCase();
+  if (action === "reset") {
+    record.paymentHistory = [];
+    record.paidAmount = 0;
+    record.unpaidAmount = roundCurrency(record.netSalary || 0);
+    record.paymentStatus = "unpaid";
+    record.lastPaymentDate = null;
+    record.paymentMethod = "";
+    record.paymentReference = "";
+    record.paymentNotes = "";
+    await record.save();
+
+    return res.json({
+      success: true,
+      message: "Payroll payment status reset to unpaid.",
+      data: record,
+    });
+  }
+
+  const unpaidAmount = roundCurrency(Math.max(0, Number(record.netSalary || 0) - sumPaymentHistory(record.paymentHistory)));
+  const requestedAmount = req.body?.amount === undefined || req.body?.amount === null || req.body?.amount === ""
+    ? unpaidAmount
+    : roundCurrency(req.body.amount);
+
+  if (requestedAmount <= 0) {
+    throw createError("Payment amount must be greater than zero.", 400);
+  }
+
+  const paymentAmount = roundCurrency(Math.min(requestedAmount, unpaidAmount));
+  if (paymentAmount <= 0) {
+    throw createError("This payroll is already fully paid.", 400);
+  }
+
+  const paymentDate = req.body?.paymentDate ? new Date(req.body.paymentDate) : new Date();
+  if (Number.isNaN(paymentDate.getTime())) {
+    throw createError("Payment date is invalid.", 400);
+  }
+
+  const paymentEntry = {
+    amount: paymentAmount,
+    paymentDate,
+    paymentMethod: String(req.body?.paymentMethod || "").trim(),
+    reference: String(req.body?.reference || "").trim(),
+    notes: String(req.body?.notes || "").trim(),
+    recordedBy: req.user?._id || null,
+  };
+
+  record.paymentHistory = [...(record.paymentHistory || []), paymentEntry];
+  record.paidAmount = sumPaymentHistory(record.paymentHistory);
+  record.unpaidAmount = roundCurrency(Math.max(0, Number(record.netSalary || 0) - record.paidAmount));
+  record.paymentStatus = resolvePaymentStatus({ netSalary: Number(record.netSalary || 0), paidAmount: record.paidAmount });
+  record.lastPaymentDate = paymentEntry.paymentDate;
+  record.paymentMethod = paymentEntry.paymentMethod;
+  record.paymentReference = paymentEntry.reference;
+  record.paymentNotes = paymentEntry.notes;
+  await record.save();
+
+  return res.json({
+    success: true,
+    message: record.paymentStatus === "paid" ? "Payroll marked as paid." : "Payroll payment recorded.",
+    data: record,
+  });
 };

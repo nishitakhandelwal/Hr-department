@@ -26,6 +26,22 @@ const payrollPercentageRuleSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const attendanceSettingsSchema = new mongoose.Schema(
+  {
+    standardPunchInTime: { type: String, trim: true, default: "10:00" },
+    gracePeriodMinutes: { type: Number, default: 15, min: 0, max: 180 },
+    halfDayCutoffTime: { type: String, trim: true, default: "14:00" },
+    minimumWorkingHours: { type: Number, default: 8, min: 1, max: 24 },
+    missingPunchOutHandling: {
+      type: String,
+      enum: ["auto_close", "mark_incomplete"],
+      default: "mark_incomplete",
+    },
+    autoCloseTime: { type: String, trim: true, default: "18:00" },
+  },
+  { _id: false }
+);
+
 const payrollSettingsSchema = new mongoose.Schema(
   {
     workingDaysMode: {
@@ -36,9 +52,14 @@ const payrollSettingsSchema = new mongoose.Schema(
     fixedWorkingDays: { type: Number, default: 26, min: 1, max: 31 },
     standardDailyHours: { type: Number, default: 8, min: 1, max: 24 },
     includePaidLeaveInWages: { type: Boolean, default: true },
+    halfDayPayableFraction: { type: Number, default: 0.5, min: 0, max: 1 },
+    incompleteDayPayableFraction: { type: Number, default: 0, min: 0, max: 1 },
+    lateToHalfDayEnabled: { type: Boolean, default: false },
+    lateToHalfDayThreshold: { type: Number, default: 0, min: 0, max: 31 },
     latePenaltyAmount: { type: Number, default: 0, min: 0 },
     absentPenaltyAmount: { type: Number, default: 0, min: 0 },
     overtimeMultiplier: { type: Number, default: 1, min: 0 },
+    freezePayrollOnGenerate: { type: Boolean, default: true },
     pf: { type: payrollPercentageRuleSchema, default: () => ({ enabled: true, employeeRate: 12, employerRate: 12, wageLimit: 15000 }) },
     esi: { type: payrollPercentageRuleSchema, default: () => ({ enabled: false, employeeRate: 0.75, employerRate: 3.25, wageLimit: 21000 }) },
   },
@@ -154,6 +175,10 @@ const systemSettingsSchema = new mongoose.Schema(
       navigation: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
       portalVisibility: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
       routes: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+    },
+    attendance: {
+      type: attendanceSettingsSchema,
+      default: () => ({}),
     },
     payroll: {
       type: payrollSettingsSchema,

@@ -216,9 +216,21 @@ export const updateEmployeeSalaryStructure = async (req, res) => {
   const employee = await Employee.findById(req.params.id).populate("userId", "name email role department isActive");
   if (!employee) throw createError("Employee not found.", 404);
 
+  const salaryType = ["monthly", "daily", "hourly"].includes(String(req.body?.salaryType))
+    ? String(req.body.salaryType)
+    : "monthly";
+  const monthlyGrossSalary = toPositiveNumber(req.body?.monthlyGrossSalary || req.body?.grossSalary || employee.salary || 0);
+  const dailyWage = toPositiveNumber(req.body?.dailyWage);
+  const hourlyWage = toPositiveNumber(req.body?.hourlyWage);
+  const standardDailyHours = Math.min(24, Math.max(1, toPositiveNumber(req.body?.standardDailyHours, 8)));
+
   const salaryStructure = {
     employeeId: employee.employeeId,
-    monthlyGrossSalary: toPositiveNumber(req.body?.monthlyGrossSalary || req.body?.grossSalary || employee.salary || 0),
+    salaryType,
+    monthlyGrossSalary,
+    dailyWage,
+    hourlyWage,
+    standardDailyHours,
     basicSalaryType: ["fixed", "percentage"].includes(String(req.body?.basicSalaryType)) ? String(req.body.basicSalaryType) : "percentage",
     basicSalaryValue: toPositiveNumber(req.body?.basicSalaryValue ?? req.body?.basicSalary),
     hraType: ["fixed", "percentage"].includes(String(req.body?.hraType)) ? String(req.body.hraType) : "percentage",
@@ -245,7 +257,12 @@ export const updateEmployeeSalaryStructure = async (req, res) => {
   };
 
   employee.salaryStructure = salaryStructure;
-  employee.salary = salaryStructure.monthlyGrossSalary;
+  employee.salary =
+    salaryType === "daily"
+      ? dailyWage * 26
+      : salaryType === "hourly"
+        ? hourlyWage * standardDailyHours * 26
+        : monthlyGrossSalary;
   await employee.save();
 
   res.json({

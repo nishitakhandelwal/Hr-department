@@ -58,6 +58,11 @@ const fieldInputClassName =
   "border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg)] text-[var(--portal-heading-color)] placeholder:text-[var(--portal-muted-color)]";
 const switchClassName =
   "data-[state=checked]:bg-[var(--portal-primary-solid)] data-[state=unchecked]:bg-[var(--portal-primary-faint)]";
+const semanticIconToneMap = {
+  success: "border border-[#16a34a]/20 bg-[#16a34a] text-white shadow-[0_8px_18px_rgba(22,163,74,0.16)]",
+  process: "border border-[#2563eb]/20 bg-[#2563eb] text-white shadow-[0_8px_18px_rgba(37,99,235,0.16)]",
+  pending: "border border-[#e11d48]/20 bg-[#e11d48] text-white shadow-[0_8px_18px_rgba(225,29,72,0.16)]",
+};
 
 const formatLogTime = (value?: string) => {
   if (!value) return "-";
@@ -222,10 +227,10 @@ const SuperAdminDashboard: React.FC = () => {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Total Users", value: overview.totalUsers, icon: Users },
-          { label: "Active Users", value: overview.activeUsers, icon: Crown },
-          { label: "Visible Portals", value: overview.visiblePortals, icon: Eye },
-          { label: "Enabled Features", value: overview.enabledFeatures, icon: Sparkles },
+          { label: "Total Users", value: overview.totalUsers, icon: Users, tone: "process" as const },
+          { label: "Active Users", value: overview.activeUsers, icon: Crown, tone: "success" as const },
+          { label: "Visible Portals", value: overview.visiblePortals, icon: Eye, tone: "process" as const },
+          { label: "Enabled Features", value: overview.enabledFeatures, icon: Sparkles, tone: "success" as const },
         ].map((item) => (
           <Card key={item.label} className={statCardClassName}>
             <CardContent className="flex items-center justify-between p-6">
@@ -233,8 +238,8 @@ const SuperAdminDashboard: React.FC = () => {
                 <p className="text-xs uppercase tracking-[0.24em] text-[var(--portal-muted-color)]">{item.label}</p>
                 <p className="mt-3 text-3xl font-semibold">{statsLoading ? "--" : item.value}</p>
               </div>
-              <div className="rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-primary-faint)] p-3">
-                <item.icon className="h-6 w-6 text-[var(--portal-primary-solid)]" />
+              <div className={`rounded-2xl p-3 ${semanticIconToneMap[item.tone]}`}>
+                <item.icon className="h-6 w-6" />
               </div>
             </CardContent>
           </Card>

@@ -1,5 +1,6 @@
 import { Pencil, Trash2 } from "lucide-react";
 import StatusBadge from "../common/StatusBadge";
+import { destructiveIconButtonClass } from "@/lib/destructive";
 
 export default function UserTable({ users, onEdit, onDelete }) {
   return (
@@ -38,7 +39,7 @@ export default function UserTable({ users, onEdit, onDelete }) {
 
                   <button
                     onClick={() => onDelete(user.id)}
-                    className="rounded bg-red-600 p-2 text-white hover:bg-red-700"
+                    className={`p-2 ${destructiveIconButtonClass}`}
                     title="Delete User"
                   >
                     <Trash2 size={16} />

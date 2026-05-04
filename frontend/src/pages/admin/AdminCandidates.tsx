@@ -28,6 +28,7 @@ import { ExportButton } from "@/components/common/ExportButton";
 import type { ExportColumn } from "@/utils/export";
 import { EmptyState } from "@/components/EmptyState";
 import { useLabel } from "@/context/SystemSettingsContext";
+import { destructiveButtonClass } from "@/lib/destructive";
 
 type CandidateExportRow = {
   candidateName: string;
@@ -683,7 +684,7 @@ const AdminCandidates: React.FC = () => {
                             ) : null}
                             {(canMoveCandidateToEmployee(candidate) || candidate.status === "Selected" || candidate.status === "Internship") ? <DropdownMenuSeparator /> : null}
                             <DropdownMenuItem
-                              className="rounded-xl bg-red-600 px-3 py-2.5 text-white focus:bg-red-700 focus:text-white"
+                              className={`${destructiveButtonClass} rounded-xl px-3 py-2.5 focus:bg-[#9f1239] focus:text-white`}
                               disabled={deletingId === candidate._id}
                               onClick={() => setCandidateToDelete(candidate)}
                             >

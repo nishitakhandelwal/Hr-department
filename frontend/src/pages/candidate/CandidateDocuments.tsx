@@ -309,11 +309,11 @@ const CandidateDocuments: React.FC = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      className={destructiveIconButtonClass}
+                      className={`h-9 w-9 rounded-xl p-0 ${destructiveIconButtonClass}`}
                       onClick={() => setDeleteTarget({ fieldId: field.fieldId, label: field.label })}
                       disabled={field.status === "required" || Boolean(deletingFieldId)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   ) : null}
                 </div>
@@ -356,7 +356,7 @@ const CandidateDocuments: React.FC = () => {
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      className={destructiveIconButtonClass}
+                                      className={`h-8 w-8 rounded-lg p-0 ${destructiveIconButtonClass}`}
                                       onClick={() =>
                                         setDeleteTarget({
                                           fieldId: "certificates",
@@ -366,7 +366,7 @@ const CandidateDocuments: React.FC = () => {
                                       }
                                       disabled={deletingFieldId === deleteKey}
                                     >
-                                      <Trash2 className="h-4 w-4" />
+                                      <Trash2 className="h-3.5 w-3.5" />
                                     </Button>
                                   </div>
                                 </div>

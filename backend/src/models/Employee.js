@@ -45,7 +45,11 @@ const bankDetailsSchema = new mongoose.Schema(
 const salaryStructureSchema = new mongoose.Schema(
   {
     employeeId: { type: String, trim: true, default: "" },
+    salaryType: { type: String, enum: ["monthly", "daily", "hourly"], default: "monthly" },
     monthlyGrossSalary: { type: Number, default: 0, min: 0 },
+    dailyWage: { type: Number, default: 0, min: 0 },
+    hourlyWage: { type: Number, default: 0, min: 0 },
+    standardDailyHours: { type: Number, default: 8, min: 1, max: 24 },
     basicSalaryType: { type: String, enum: ["fixed", "percentage"], default: "percentage" },
     basicSalaryValue: { type: Number, default: 40, min: 0 },
     hraType: { type: String, enum: ["fixed", "percentage"], default: "percentage" },

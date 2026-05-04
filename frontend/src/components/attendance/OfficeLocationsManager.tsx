@@ -15,6 +15,7 @@ import {
 import type { OfficeLocationRecord } from "@/services/api";
 import { apiService } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
+import { destructiveButtonClass } from "@/lib/destructive";
 
 type OfficeLocationsManagerProps = {
   canManage: boolean;
@@ -208,8 +209,7 @@ const OfficeLocationsManager: React.FC<OfficeLocationsManagerProps> = ({ canMana
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
-                      className="rounded-xl border-destructive/20 text-destructive hover:bg-destructive/5"
+                      className={`rounded-xl ${destructiveButtonClass}`}
                       disabled={deleteLoadingId === String(item._id)}
                       onClick={(event) => {
                         event.stopPropagation();

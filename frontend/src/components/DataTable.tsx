@@ -18,7 +18,7 @@ interface DataTableProps<T> {
 
 export function DataTable<T>({ columns, data, onRowClick }: DataTableProps<T>) {
   return (
-    <div className="overflow-hidden rounded-[28px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.82))] shadow-card backdrop-blur-xl dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)]">
+    <div className="overflow-hidden rounded-[28px] border border-[var(--portal-surface-border)] bg-[var(--portal-surface-bg-strong)] shadow-[0_10px_24px_rgba(15,23,42,0.06)] dark:bg-[#0a0a0a] dark:shadow-[0_10px_24px_rgba(0,0,0,0.28)]">
       {data.length === 0 ? (
         <div className="p-6">
           <EmptyState title="No records available yet." description="New items will appear here as soon as your team starts using this module." />
@@ -26,7 +26,7 @@ export function DataTable<T>({ columns, data, onRowClick }: DataTableProps<T>) {
       ) : (
         <Table>
           <TableHeader className="sticky top-0 z-10">
-            <TableRow className="border-b bg-[linear-gradient(180deg,rgba(230,199,163,0.12),rgba(255,255,255,0.8))] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#2A211B)]">
+            <TableRow className="border-b border-[var(--portal-surface-border)] bg-[#f8fafc] hover:bg-[#f8fafc] dark:bg-[#111111] dark:hover:bg-[#111111]">
               {columns.map((col) => (
                 <TableHead key={col.key} className={col.key === "actions" ? "text-right" : undefined}>
                   {col.label}
@@ -40,7 +40,7 @@ export function DataTable<T>({ columns, data, onRowClick }: DataTableProps<T>) {
                 key={i}
                 onClick={() => onRowClick?.(item)}
                 className={[
-                  "border-b border-border/70 transition-all duration-300 hover:bg-[linear-gradient(90deg,rgba(230,199,163,0.14),rgba(166,124,82,0.08))] dark:border-white/8 dark:hover:bg-[linear-gradient(90deg,rgba(230,199,163,0.2),rgba(166,124,82,0.12))]",
+                  "border-b border-[var(--portal-surface-border)] bg-white text-[var(--portal-heading-color)] transition-colors duration-200 hover:bg-[#f8fafc] dark:bg-[#101010] dark:hover:bg-[#141414]",
                   onRowClick ? "cursor-pointer" : "",
                 ].join(" ")}
               >
@@ -60,24 +60,28 @@ export function DataTable<T>({ columns, data, onRowClick }: DataTableProps<T>) {
 
 export const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const variants: Record<string, string> = {
-    active: "bg-[linear-gradient(135deg,rgba(34,197,94,0.14),rgba(16,185,129,0.08))] text-success border-success/20",
-    inactive: "bg-slate-100/90 text-slate-600 border-slate-200 dark:border-white/12 dark:bg-white/[0.07] dark:text-slate-300",
-    disabled: "bg-[linear-gradient(135deg,rgba(239,68,68,0.14),rgba(251,113,133,0.08))] text-destructive border-destructive/20",
-    selected: "bg-[linear-gradient(135deg,rgba(34,197,94,0.14),rgba(16,185,129,0.08))] text-success border-success/20",
-    rejected: "bg-[linear-gradient(135deg,rgba(239,68,68,0.14),rgba(251,113,133,0.08))] text-destructive border-destructive/20",
-    "on hold": "bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(249,115,22,0.08))] text-warning border-warning/20",
-    pending: "bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(249,115,22,0.08))] text-warning border-warning/20",
-    approved: "bg-[linear-gradient(135deg,rgba(34,197,94,0.14),rgba(16,185,129,0.08))] text-success border-success/20",
-    configured: "bg-[linear-gradient(135deg,rgba(34,197,94,0.14),rgba(16,185,129,0.08))] text-success border-success/20",
-    processed: "bg-[linear-gradient(135deg,rgba(34,197,94,0.14),rgba(16,185,129,0.08))] text-success border-success/20",
-    present: "bg-[linear-gradient(135deg,rgba(34,197,94,0.14),rgba(16,185,129,0.08))] text-success border-success/20",
-    absent: "bg-[linear-gradient(135deg,rgba(239,68,68,0.14),rgba(251,113,133,0.08))] text-destructive border-destructive/20",
-    leave: "bg-[linear-gradient(135deg,rgba(230,199,163,0.2),rgba(166,124,82,0.12))] text-info border-[#2A2623]",
-    late: "bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(249,115,22,0.08))] text-warning border-warning/20",
-    paid: "bg-[linear-gradient(135deg,rgba(34,197,94,0.14),rgba(16,185,129,0.08))] text-success border-success/20",
-    processing: "bg-[linear-gradient(135deg,rgba(230,199,163,0.2),rgba(166,124,82,0.12))] text-info border-[#2A2623]",
-    new: "bg-[linear-gradient(135deg,rgba(230,199,163,0.2),rgba(166,124,82,0.12))] text-info border-[#2A2623]",
-    "interview scheduled": "bg-[linear-gradient(135deg,rgba(200,162,124,0.18),rgba(139,94,60,0.08))] text-primary border-primary/20",
+    active: "border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    inactive: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
+    disabled: "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    selected: "border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    rejected: "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    "on hold": "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    pending: "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    approved: "border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    completed: "border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    configured: "border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    processed: "border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    present: "border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    absent: "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    leave: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
+    late: "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    paid: "border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    processing: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
+    new: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
+    "interview scheduled": "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
+    eligible: "border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    "not eligible": "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    "under review": "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
   };
 
   const className = variants[status.toLowerCase()] || "bg-muted text-muted-foreground border-border";

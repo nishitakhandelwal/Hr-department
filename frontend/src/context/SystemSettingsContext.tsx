@@ -21,6 +21,35 @@ const normalizeCompanyName = (value?: string | null) => {
   return trimmedValue;
 };
 
+const mergeNavigationByScope = (
+  defaults: RuntimeConfigPayload["navigation"],
+  runtime: RuntimeConfigPayload["navigation"] | null | undefined
+) => {
+  const runtimeNavigation = typeof runtime === "object" && runtime ? runtime : {};
+  const scopes = new Set([...Object.keys(defaults || {}), ...Object.keys(runtimeNavigation || {})]);
+  const merged = Object.fromEntries(
+    Array.from(scopes).map((scope) => {
+      const defaultItems = Array.isArray(defaults?.[scope]) ? defaults[scope] : [];
+      const runtimeItems = Array.isArray(runtimeNavigation?.[scope]) ? runtimeNavigation[scope] : [];
+      const byId = new Map<string, RuntimeNavigationItem>();
+
+      runtimeItems.forEach((item) => {
+        if (!item?.id) return;
+        byId.set(item.id, item);
+      });
+
+      defaultItems.forEach((item) => {
+        if (!item?.id) return;
+        byId.set(item.id, { ...(byId.get(item.id) || {}), ...item });
+      });
+
+      return [scope, Array.from(byId.values())];
+    })
+  );
+
+  return merged;
+};
+
 const safeDefaultConfig: RuntimeConfigPayload = {
   company: {
     companyName: DEFAULT_COMPANY_NAME,
@@ -32,7 +61,7 @@ const safeDefaultConfig: RuntimeConfigPayload = {
     description: "",
   },
   preferences: {
-    theme: "light",
+    theme: "dark",
     defaultDashboardPage: DEFAULT_ADMIN_DASHBOARD_PATH,
     language: "en",
     timezone: "Asia/Kolkata",
@@ -47,7 +76,7 @@ const safeDefaultConfig: RuntimeConfigPayload = {
   permissions: {},
   theme: {
     primaryColor: "#C89B6D",
-    mode: "light",
+    mode: "dark",
   },
   portalVisibility: {
     admin: true,
@@ -100,19 +129,6 @@ type SystemSettingsContextType = {
 
 const SystemSettingsContext = createContext<SystemSettingsContextType | undefined>(undefined);
 
-const getStoredTheme = (): AppTheme | null => {
-  if (typeof window === "undefined") return null;
-  const value = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return value === "dark" || value === "light" ? value : null;
-};
-
-const getSystemTheme = (): AppTheme => {
-  if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-    return "dark";
-  }
-  return "light";
-};
-
 const applyTheme = (theme: AppTheme | undefined, primaryColor?: string) => {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
@@ -125,19 +141,16 @@ const applyTheme = (theme: AppTheme | undefined, primaryColor?: string) => {
 };
 
 const resolveInitialTheme = (): AppTheme => {
-  const storedTheme = getStoredTheme();
-  if (storedTheme) return storedTheme;
-  if (typeof document !== "undefined") {
-    const attrTheme = document.documentElement.getAttribute("data-theme");
-    if (attrTheme === "dark" || attrTheme === "light") return attrTheme;
-    if (document.documentElement.classList.contains("dark")) return "dark";
-  }
-  return getSystemTheme();
+  if (typeof window === "undefined") return "dark";
+  return window.localStorage.getItem(THEME_STORAGE_KEY) === "light" ? "light" : "dark";
 };
 
 const normalizeConfig = (value: RuntimeConfigPayload | null | undefined): RuntimeConfigPayload => {
   if (!value || typeof value !== "object") return safeDefaultConfig;
-  const mergedNavigation = { ...SIDEBAR, ...(typeof value.navigation === "object" && value.navigation ? value.navigation : {}) };
+  const mergedNavigation = mergeNavigationByScope(
+    SIDEBAR as RuntimeConfigPayload["navigation"],
+    value.navigation
+  );
   const filteredNavigation = Object.fromEntries(
     Object.entries(mergedNavigation).map(([scope, items]) => [
       scope,
@@ -175,10 +188,18 @@ export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = (
     const data = normalizeConfig(value);
     setConfig(data);
     setError(null);
-    const persistedTheme = getStoredTheme();
-    const nextTheme = persistedTheme || data.theme.mode || resolveInitialTheme();
+    const storedTheme = typeof window !== "undefined" ? window.localStorage.getItem(THEME_STORAGE_KEY) : null;
+    const nextTheme: AppTheme =
+      data.theme.mode === "light"
+        ? "light"
+        : storedTheme === "light"
+          ? "light"
+          : "dark";
     setThemeState(nextTheme);
     applyTheme(nextTheme, data.theme.primaryColor);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    }
     if (data.preferences?.timezone) localStorage.setItem("hr_timezone", data.preferences.timezone);
     if (data.preferences?.dateFormat) localStorage.setItem("hr_date_format", data.preferences.dateFormat);
     if (data.preferences?.currencyFormat) localStorage.setItem("hr_currency", data.preferences.currencyFormat);
@@ -200,7 +221,7 @@ export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = (
       console.warn("[config] Falling back to safe defaults", error);
       setConfig(safeDefaultConfig);
       setError(error instanceof Error ? error.message : "Runtime configuration could not be loaded.");
-      applyTheme(getStoredTheme() || safeDefaultConfig.theme.mode, safeDefaultConfig.theme.primaryColor);
+      applyTheme("dark", safeDefaultConfig.theme.primaryColor);
     } finally {
       setLoading(false);
     }

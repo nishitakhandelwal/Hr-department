@@ -25,6 +25,7 @@ const EmployeeDashboard = lazy(() => import("@/pages/employee/EmployeeDashboard"
 const EmployeeProfile = lazy(() => import("@/pages/employee/EmployeeProfile"));
 const EmployeeAttendance = lazy(() => import("@/pages/employee/EmployeeAttendance"));
 const EmployeeLeave = lazy(() => import("@/pages/employee/EmployeeLeave"));
+const EmployeeOffboarding = lazy(() => import("@/pages/employee/EmployeeOffboarding"));
 const EmployeePayroll = lazy(() => import("@/pages/employee/EmployeePayroll"));
 const EmployeeLetters = lazy(() => import("@/pages/employee/EmployeeLetters"));
 const HrDashboard = lazy(() => import("@/pages/employee/HrDashboard"));
@@ -88,6 +89,7 @@ export const APP_ROUTES: AppRouteConfig[] = [
   { path: "/employee/profile", component: EmployeeProfile, authMode: "auth", roles: ["employee"], routeKey: "employee.profile", useAppLayout: true },
   { path: "/employee/attendance", component: EmployeeAttendance, authMode: "auth", roles: ["employee"], routeKey: "employee.attendance", useAppLayout: true },
   { path: "/employee/leave", component: EmployeeLeave, authMode: "auth", roles: ["employee"], routeKey: "employee.leave", useAppLayout: true },
+  { path: "/employee/offboarding", component: EmployeeOffboarding, authMode: "auth", roles: ["employee"], routeKey: "employee.offboarding", useAppLayout: true },
   { path: "/employee/payroll", component: EmployeePayroll, authMode: "auth", roles: ["employee"], routeKey: "employee.payroll", useAppLayout: true },
   { path: "/employee/letters", component: EmployeeLetters, authMode: "auth", roles: ["employee"], routeKey: "employee.letters", useAppLayout: true },
   { path: "/apply", component: CandidateApply, authMode: "auth", roles: ["candidate"], useCandidatePortal: true },

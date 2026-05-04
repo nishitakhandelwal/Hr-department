@@ -48,6 +48,7 @@ export const DEFAULT_RUNTIME_LABELS = {
   "nav.employee.profile": "Profile",
   "nav.employee.attendance": "Attendance",
   "nav.employee.leave": "Leave",
+  "nav.employee.offboarding": "Offboarding",
   "nav.employee.payroll": "Payroll",
   "nav.employee.letters": "Letters",
   "nav.hr.dashboard": "HR Dashboard",
@@ -104,6 +105,7 @@ export const DEFAULT_RUNTIME_NAVIGATION = {
     { id: "employee.payroll", path: "/employee/payroll", labelKey: "nav.employee.payroll", icon: "IndianRupee", featureKey: "payroll" },
     { id: "employee.letters", path: "/employee/letters", labelKey: "nav.employee.letters", icon: "FileText", featureKey: "letters" },
     { id: "joining.form", path: "/joining-form", labelKey: "nav.employee.joiningForm", icon: "ClipboardCheck", featureKey: "joiningForms" },
+    { id: "employee.offboarding", path: "/employee/offboarding", labelKey: "nav.employee.offboarding", icon: "ClipboardList", featureKey: "offboarding" },
   ],
   hr_manager: [
     { id: "hr.dashboard", path: "/hr/dashboard", labelKey: "nav.hr.dashboard", icon: "LayoutDashboard", featureKey: "dashboard", moduleKey: "dashboard" },
@@ -145,6 +147,7 @@ export const DEFAULT_RUNTIME_ROUTES = {
   "employee.profile": { enabled: true, featureKey: "profile", roles: ["employee"] },
   "employee.attendance": { enabled: true, featureKey: "attendance", roles: ["employee"] },
   "employee.leave": { enabled: true, featureKey: "leave", roles: ["employee"] },
+  "employee.offboarding": { enabled: true, featureKey: "offboarding", roles: ["employee"] },
   "employee.payroll": { enabled: true, featureKey: "payroll", roles: ["employee"] },
   "employee.letters": { enabled: true, featureKey: "letters", roles: ["employee"] },
   "hr.dashboard": { enabled: true, featureKey: "dashboard", moduleKey: "dashboard", roles: ["employee"], accessRoles: ["hr_manager"] },

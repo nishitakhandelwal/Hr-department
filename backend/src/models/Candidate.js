@@ -175,7 +175,7 @@ const candidateSchema = new mongoose.Schema(
       isAssigned: { type: Boolean, default: false },
       status: {
         type: String,
-        enum: ["Not Assigned", "Assigned", "In Progress", "Approved", "Rejected", "Extended"],
+        enum: ["Not Assigned", "Assigned", "In Progress", "Approved", "Rejected", "Extended", "Active", "Completed", "Cancelled", "Converted to Employee"],
         default: "Not Assigned",
       },
       startDate: { type: Date, default: null },

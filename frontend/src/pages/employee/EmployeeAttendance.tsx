@@ -53,6 +53,13 @@ type CorrectionTableRow = {
   adminRemarks: string;
 };
 
+const formatAttendanceStatus = (row: AttendanceRecord) => {
+  const normalized = String(row.status || "present")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+  return row.isIncomplete ? `${normalized} (Incomplete)` : normalized;
+};
+
 const todayValue = () => new Date().toISOString().slice(0, 10);
 
 const formatDateLabel = (value: string) =>
@@ -145,7 +152,7 @@ const EmployeeAttendance: React.FC = () => {
             entry.checkInLocation?.officeName ||
             "-",
           hours: entry.hoursWorked ? `${entry.hoursWorked}h` : "-",
-          status: entry.status ? `${entry.status.charAt(0).toUpperCase()}${entry.status.slice(1)}` : "Present",
+          status: formatAttendanceStatus(entry),
         }));
 
       const normalizedRequests = correctionRequests.map((request: AttendanceCorrectionRequestRecord) => ({
@@ -310,11 +317,17 @@ const EmployeeAttendance: React.FC = () => {
     }
   };
 
-  const presentDays = useMemo(() => attendanceRows.filter((row) => row.status === "Present").length, [attendanceRows]);
+  const presentDays = useMemo(
+    () => attendanceRows.filter((row) => row.status.startsWith("Present") || row.status.startsWith("Late")).length,
+    [attendanceRows]
+  );
   const pendingRequests = useMemo(() => requestRows.filter((row) => row.status === "Pending").length, [requestRows]);
   const avgHours = useMemo(() => {
     if (!attendanceRows.length) return "0h";
-    const total = attendanceRows.reduce((sum, row) => sum + Number(row.hours.replace("h", "") || 0), 0);
+    const total = attendanceRows.reduce((sum, row) => {
+      const parsed = Number(String(row.hours || "").replace("h", "").trim());
+      return sum + (Number.isFinite(parsed) ? parsed : 0);
+    }, 0);
     return `${(total / attendanceRows.length).toFixed(1)}h`;
   }, [attendanceRows]);
   const isCorrectionFormComplete = Boolean(form.date && form.type && form.time && form.reason.trim());
@@ -328,7 +341,7 @@ const EmployeeAttendance: React.FC = () => {
           <Button
             variant="outline"
             onClick={() => setOpenCorrectionModal(true)}
-            className="rounded-xl border-slate-200 bg-white/90 dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#1A1816,#23201D)] dark:text-[#E6C7A3] dark:hover:border-[rgba(230,199,163,0.22)] dark:hover:bg-[rgba(230,199,163,0.12)] dark:hover:text-[#F5F5F5]"
+            className="rounded-xl border-[var(--portal-surface-border)] bg-white/90 text-[var(--portal-heading-color)] hover:border-[rgba(var(--portal-primary-rgb),0.2)] hover:bg-[rgba(var(--portal-primary-rgb),0.08)] hover:text-[var(--portal-heading-color)] dark:bg-[#0f0f0f] dark:text-white dark:hover:border-white/16 dark:hover:bg-[#161616] dark:hover:text-white"
           >
             <FileClock className="mr-2 h-4 w-4" />
             Missed Check-in/Out
@@ -361,13 +374,13 @@ const EmployeeAttendance: React.FC = () => {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <section className="space-y-4 rounded-[28px] border bg-white p-5 shadow-card sm:p-6 dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#111111,#1A1816)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+        <section className="space-y-4 rounded-[28px] border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-5 shadow-card sm:p-6 dark:bg-[#0a0a0a]">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950 dark:text-[#F5F5F5]">Attendance Log</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Your recorded attendance history, including the office that matched your geo-fenced check-in or check-out.</p>
+            <h2 className="text-lg font-semibold text-[var(--portal-heading-color)] dark:text-white">Attendance Log</h2>
+            <p className="mt-1 text-sm text-[var(--portal-muted-color)]">Your recorded attendance history, including the office that matched your geo-fenced check-in or check-out.</p>
           </div>
           {loading ? (
-            <div className="text-sm text-muted-foreground">Loading attendance...</div>
+            <div className="text-sm text-[var(--portal-muted-color)]">Loading attendance...</div>
           ) : (
             <DataTable
               columns={[
@@ -383,13 +396,13 @@ const EmployeeAttendance: React.FC = () => {
           )}
         </section>
 
-        <section className="space-y-4 rounded-[28px] border bg-white p-5 shadow-card sm:p-6 dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#111111,#1A1816)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+        <section className="space-y-4 rounded-[28px] border border-[var(--portal-surface-border)] bg-[linear-gradient(180deg,var(--portal-surface-bg-strong),var(--portal-surface-bg))] p-5 shadow-card sm:p-6 dark:bg-[#0a0a0a]">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950 dark:text-[#F5F5F5]">Correction Requests</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Past requests stay read-only until an admin approves or rejects them.</p>
+            <h2 className="text-lg font-semibold text-[var(--portal-heading-color)] dark:text-white">Correction Requests</h2>
+            <p className="mt-1 text-sm text-[var(--portal-muted-color)]">Past requests stay read-only until an admin approves or rejects them.</p>
           </div>
           {loading ? (
-            <div className="text-sm text-muted-foreground">Loading requests...</div>
+            <div className="text-sm text-[var(--portal-muted-color)]">Loading requests...</div>
           ) : (
             <DataTable
               columns={[

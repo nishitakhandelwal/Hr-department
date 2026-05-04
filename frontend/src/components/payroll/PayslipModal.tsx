@@ -73,7 +73,7 @@ const PayslipModal: React.FC<PayslipModalProps> = ({
               </Button>
               {onServerDownload ? (
                 <Button
-                  className={`${actionButtonClass} bg-[#4f46e5] text-white hover:bg-[#4338ca]`}
+                  className={`${actionButtonClass} bg-[#1f2937] text-white hover:bg-[#111827]`}
                   onClick={onServerDownload}
                   disabled={!record || downloading}
                 >
@@ -85,7 +85,7 @@ const PayslipModal: React.FC<PayslipModalProps> = ({
           </div>
         </DialogHeader>
         <div className="max-h-[calc(92vh-110px)] overflow-y-auto bg-slate-100 p-4 sm:p-6">
-          {record ? <PayslipDocument ref={printRef} record={record} className="shadow-[0_20px_60px_rgba(166,124,82,0.16)]" /> : null}
+          {record ? <PayslipDocument ref={printRef} record={record} className="shadow-[0_10px_24px_rgba(15,23,42,0.08)]" /> : null}
         </div>
       </DialogContent>
     </Dialog>

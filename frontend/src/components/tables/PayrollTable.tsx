@@ -19,24 +19,39 @@ export interface PayrollRow {
   employeeName: string;
   monthLabel: string;
   presentDays: number;
+  lateDays: number;
+  halfDays: number;
   absentDays: number;
+  incompleteDays: number;
+  payableDays: number;
+  perDaySalaryFormatted: string;
+  earnedSalaryFormatted: string;
+  overtimePayFormatted: string;
   grossSalaryFormatted: string;
   advanceDeductionFormatted: string;
   deductionsFormatted: string;
   netSalaryFormatted: string;
   status: string;
+  paymentStatus: string;
 }
 
 export const payrollExportColumns: ExportColumn<PayrollRow>[] = [
   { key: "employeeName", label: "Employee" },
   { key: "monthLabel", label: "Month" },
   { key: "presentDays", label: "Present Days" },
+  { key: "lateDays", label: "Late Days" },
+  { key: "halfDays", label: "Half Days" },
   { key: "absentDays", label: "Absent Days" },
+  { key: "incompleteDays", label: "Incomplete Days" },
+  { key: "payableDays", label: "Payable Days" },
+  { key: "perDaySalaryFormatted", label: "Per Day Salary" },
+  { key: "earnedSalaryFormatted", label: "Earned Salary" },
+  { key: "overtimePayFormatted", label: "Overtime Pay" },
   { key: "grossSalaryFormatted", label: "Gross Salary" },
   { key: "advanceDeductionFormatted", label: "Advance Recovery" },
   { key: "deductionsFormatted", label: "Deductions" },
   { key: "netSalaryFormatted", label: "Net Salary" },
-  { key: "status", label: "Status" },
+  { key: "paymentStatus", label: "Payment Status" },
 ];
 
 interface PayrollTableProps {
@@ -44,28 +59,33 @@ interface PayrollTableProps {
   onGeneratePayslip: (row: PayrollRow) => void;
   onViewPayslip: (row: PayrollRow) => void;
   onDownloadPdf: (row: PayrollRow) => void;
+  onManagePayment?: (row: PayrollRow) => void;
   actionLoadingId?: string;
   generatedPayrollIds?: string[];
 }
 
 const actionTriggerClass =
-  "h-10 min-w-[126px] justify-between rounded-xl border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] px-3.5 text-sm font-medium text-[#E6C7A3] shadow-none transition-all duration-200 hover:border-[rgba(230,199,163,0.22)] hover:bg-[rgba(230,199,163,0.12)] hover:text-[#E6C7A3]";
+  "h-10 min-w-[126px] justify-between rounded-xl border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface-strong)] px-3.5 text-sm font-medium text-[var(--portal-heading-color)] shadow-none transition-all duration-200 hover:border-[rgba(var(--portal-primary-rgb),0.2)] hover:bg-[rgba(var(--portal-primary-rgb),0.06)] hover:text-[var(--portal-heading-color)] dark:border-white/12 dark:bg-[#111111] dark:text-white dark:hover:border-white/18 dark:hover:bg-[#161616] dark:hover:text-white";
 
 const tableShellClass =
-  "overflow-hidden rounded-2xl border border-[#D9C8B6] bg-[linear-gradient(180deg,#FFFDFB,#F7EFE6)] shadow-[0_16px_36px_rgba(90,62,35,0.08)] dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#181513,#211d1a)]";
+  "overflow-hidden rounded-2xl border border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface-strong)] shadow-[0_16px_36px_rgba(15,23,42,0.08)] dark:bg-[#0a0a0a] dark:shadow-[0_16px_36px_rgba(0,0,0,0.32)]";
 
 const statusClassName = (status: string) => {
   const normalized = status.toLowerCase();
 
-  if (normalized === "processed") {
-    return "border border-[rgba(198,146,92,0.18)] bg-[rgba(198,146,92,0.12)] text-[#5A3B1F] dark:border border-[rgba(230,199,163,0.18)] dark:bg-[rgba(230,199,163,0.12)] dark:text-[#E6C7A3]";
+  if (normalized === "paid") {
+    return "border border-emerald-500/20 bg-emerald-500/12 text-emerald-300";
   }
 
-  if (normalized === "pending") {
-    return "border border-[rgba(166,124,82,0.22)] bg-[rgba(166,124,82,0.16)] text-[#E6C7A3]";
+  if (normalized === "partially paid") {
+    return "border border-sky-500/20 bg-sky-500/12 text-sky-300";
   }
 
-  return "border border-[#2A2623] bg-[rgba(35,32,29,0.72)] text-[#A1A1AA]";
+  if (normalized === "unpaid" || normalized === "pending") {
+    return "border border-amber-500/20 bg-amber-500/12 text-amber-300";
+  }
+
+  return "border border-[var(--portal-surface-border)] bg-[rgba(var(--portal-primary-rgb),0.08)] text-[var(--portal-heading-color)] dark:border-white/12 dark:bg-white/8 dark:text-neutral-200";
 };
 
 const PayrollTable: React.FC<PayrollTableProps> = ({
@@ -73,14 +93,15 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
   onGeneratePayslip,
   onViewPayslip,
   onDownloadPdf,
+  onManagePayment,
   actionLoadingId,
   generatedPayrollIds = [],
 }) => {
   if (data.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#D9C8B6] bg-[linear-gradient(180deg,#FFFDFB,#F7EFE6)] px-6 py-10 text-center dark:border-[#2A2623] dark:bg-[linear-gradient(135deg,#181513,#211d1a)]">
-        <p className="text-base font-medium text-[#1C1712] dark:text-[#F5F5F5]">No payroll records found</p>
-        <p className="mt-1 text-sm text-[#5B4635] dark:text-[#A1A1AA]">Try another month or adjust your payroll filters.</p>
+      <div className="rounded-2xl border border-dashed border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface-strong)] px-6 py-10 text-center dark:bg-[#0a0a0a]">
+        <p className="text-base font-medium text-[var(--portal-heading-color)] dark:text-white">No payroll records found</p>
+        <p className="mt-1 text-sm text-[var(--portal-muted-color)]">Try another month or adjust your payroll filters.</p>
       </div>
     );
   }
@@ -89,16 +110,23 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
     <div className={tableShellClass}>
       <Table>
         <TableHeader>
-          <TableRow className="border-b border-[#D9C8B6] bg-[rgba(198,146,92,0.08)] hover:bg-[rgba(198,146,92,0.08)] dark:border-[#2A2623] dark:bg-[rgba(230,199,163,0.08)] dark:hover:bg-[rgba(230,199,163,0.08)]">
-            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Month</TableHead>
-            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Present Days</TableHead>
-            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Absent Days</TableHead>
-            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Gross Salary</TableHead>
-            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Advance Recovery</TableHead>
-            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Deductions</TableHead>
-            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Net Salary</TableHead>
-            <TableHead className="text-[#3A2A1C] dark:text-[#E6C7A3]">Status</TableHead>
-            <TableHead className="text-right text-[#3A2A1C] dark:text-[#E6C7A3]">Actions</TableHead>
+            <TableRow className="border-b border-[var(--portal-surface-border)] bg-[rgba(var(--portal-primary-rgb),0.05)] hover:bg-[rgba(var(--portal-primary-rgb),0.05)] dark:bg-[#111111] dark:hover:bg-[#111111]">
+            <TableHead>Month</TableHead>
+            <TableHead>Present Days</TableHead>
+            <TableHead>Late Days</TableHead>
+            <TableHead>Half Days</TableHead>
+            <TableHead>Absent Days</TableHead>
+            <TableHead>Incomplete</TableHead>
+            <TableHead>Payable Days</TableHead>
+            <TableHead>Per Day</TableHead>
+            <TableHead>Earned</TableHead>
+            <TableHead>Overtime</TableHead>
+            <TableHead>Gross Salary</TableHead>
+            <TableHead>Advance Recovery</TableHead>
+            <TableHead>Deductions</TableHead>
+            <TableHead>Net Salary</TableHead>
+            <TableHead>Payment</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -106,20 +134,27 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
             const isGenerated = generatedPayrollIds.includes(row._id);
 
             return (
-              <TableRow key={row._id} className="border-b border-[#D9C8B6] hover:bg-[rgba(198,146,92,0.08)] dark:border-[#2A2623] dark:hover:bg-[rgba(230,199,163,0.08)]">
+              <TableRow key={row._id} className="border-b border-[var(--portal-surface-border)] hover:bg-[rgba(var(--portal-primary-rgb),0.04)] dark:hover:bg-[#141414]">
                 <TableCell className="min-w-[180px]">
-                  <div className="font-medium text-[#18120D] dark:text-[#F5F5F5]">{row.monthLabel}</div>
-                  <div className="mt-1 text-xs text-[#4F3C2E] dark:text-[#A1A1AA]">{row.employeeName}</div>
+                  <div className="font-medium text-[var(--portal-heading-color)] dark:text-white">{row.monthLabel}</div>
+                  <div className="mt-1 text-xs text-[var(--portal-muted-color)]">{row.employeeName}</div>
                 </TableCell>
-                <TableCell className="text-[#18120D] dark:text-[#D4D4D8]">{row.presentDays}</TableCell>
-                <TableCell className="text-[#18120D] dark:text-[#D4D4D8]">{row.absentDays}</TableCell>
-                <TableCell className="font-medium text-[#18120D] dark:text-[#F5F5F5]">{row.grossSalaryFormatted}</TableCell>
-                <TableCell className="text-[#18120D] dark:text-[#D4D4D8]">{row.advanceDeductionFormatted}</TableCell>
-                <TableCell className="text-[#18120D] dark:text-[#D4D4D8]">{row.deductionsFormatted}</TableCell>
-                <TableCell className="font-semibold text-[#18120D] dark:text-[#F5F5F5]">{row.netSalaryFormatted}</TableCell>
+                <TableCell>{row.presentDays}</TableCell>
+                <TableCell>{row.lateDays}</TableCell>
+                <TableCell>{row.halfDays}</TableCell>
+                <TableCell>{row.absentDays}</TableCell>
+                <TableCell>{row.incompleteDays}</TableCell>
+                <TableCell>{row.payableDays}</TableCell>
+                <TableCell>{row.perDaySalaryFormatted}</TableCell>
+                <TableCell>{row.earnedSalaryFormatted}</TableCell>
+                <TableCell>{row.overtimePayFormatted}</TableCell>
+                <TableCell className="font-medium">{row.grossSalaryFormatted}</TableCell>
+                <TableCell>{row.advanceDeductionFormatted}</TableCell>
+                <TableCell>{row.deductionsFormatted}</TableCell>
+                <TableCell className="font-semibold">{row.netSalaryFormatted}</TableCell>
                 <TableCell>
-                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusClassName(row.status)}`}>
-                    {row.status}
+                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusClassName(row.paymentStatus)}`}>
+                    {row.paymentStatus}
                   </span>
                 </TableCell>
                 <TableCell className="w-[170px] text-right">
@@ -133,19 +168,19 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
                           onClick={(event) => event.stopPropagation()}
                         >
                           <span className="inline-flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-[#E6C7A3]" />
+                            <FileText className="h-4 w-4 text-[var(--portal-muted-color)] dark:text-neutral-300" />
                             Actions
                           </span>
-                          <ChevronDown className="h-4 w-4 text-[#A1A1AA]" />
+                          <ChevronDown className="h-4 w-4 text-[var(--portal-muted-color)] dark:text-neutral-500" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-52 rounded-xl border-[#2A2623] bg-[linear-gradient(135deg,#1A1816,#23201D)] p-2 shadow-[0_18px_40px_rgba(166,124,82,0.22)]">
-                        <DropdownMenuLabel className="px-2.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#A1A1AA]">
+                      <DropdownMenuContent align="end" className="w-52 rounded-xl border-[var(--portal-surface-border)] bg-[var(--portal-subtle-surface-strong)] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-[#111111] dark:shadow-[0_18px_40px_rgba(0,0,0,0.38)]">
+                        <DropdownMenuLabel className="px-2.5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--portal-muted-color)] dark:text-neutral-500">
                           Payslip Actions
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-[#E6C7A3] focus:bg-[rgba(230,199,163,0.12)] focus:text-[#F5F5F5]"
+                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-[var(--portal-heading-color)] focus:bg-[rgba(var(--portal-primary-rgb),0.08)] focus:text-[var(--portal-heading-color)] dark:text-white dark:focus:bg-[#181818] dark:focus:text-white"
                           onClick={(event) => {
                             event.stopPropagation();
                             onGeneratePayslip(row);
@@ -155,7 +190,7 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
                           {isGenerated ? "Regenerate Payslip" : "Generate Payslip"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-[#E6C7A3] focus:bg-[rgba(230,199,163,0.12)] focus:text-[#F5F5F5]"
+                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-[var(--portal-heading-color)] focus:bg-[rgba(var(--portal-primary-rgb),0.08)] focus:text-[var(--portal-heading-color)] dark:text-white dark:focus:bg-[#181818] dark:focus:text-white"
                           onClick={(event) => {
                             event.stopPropagation();
                             onViewPayslip(row);
@@ -165,8 +200,18 @@ const PayrollTable: React.FC<PayrollTableProps> = ({
                           View Payslip
                         </DropdownMenuItem>
                         <DropdownMenuItem
+                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-[var(--portal-heading-color)] focus:bg-[rgba(var(--portal-primary-rgb),0.08)] focus:text-[var(--portal-heading-color)] dark:text-white dark:focus:bg-[#181818] dark:focus:text-white"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onManagePayment?.(row);
+                          }}
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          Update Payment
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
                           disabled={actionLoadingId === row._id}
-                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-[#E6C7A3] focus:bg-[rgba(230,199,163,0.12)] focus:text-[#F5F5F5]"
+                          className="rounded-lg px-2.5 py-2 text-sm font-medium text-[var(--portal-heading-color)] focus:bg-[rgba(var(--portal-primary-rgb),0.08)] focus:text-[var(--portal-heading-color)] dark:text-white dark:focus:bg-[#181818] dark:focus:text-white"
                           onClick={(event) => {
                             event.stopPropagation();
                             onDownloadPdf(row);

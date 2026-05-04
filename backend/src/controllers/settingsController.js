@@ -165,6 +165,44 @@ const validatePayroll = (payroll) => {
   return "";
 };
 
+const validateAttendance = (attendance) => {
+  const parseMinutes = (value) => {
+    const match = String(value || "").trim().match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+    if (!match) return null;
+    return Number(match[1]) * 60 + Number(match[2]);
+  };
+
+  const standardPunchIn = parseMinutes(attendance?.standardPunchInTime);
+  const halfDayCutoff = parseMinutes(attendance?.halfDayCutoffTime);
+  const autoCloseTime = parseMinutes(attendance?.autoCloseTime);
+  const gracePeriodMinutes = Number(attendance?.gracePeriodMinutes || 0);
+  const minimumWorkingHours = Number(attendance?.minimumWorkingHours || 0);
+  const missingPunchOutHandling = String(attendance?.missingPunchOutHandling || "");
+
+  if (standardPunchIn === null) {
+    return "Standard punch-in time must be in HH:MM format.";
+  }
+  if (halfDayCutoff === null) {
+    return "Half-day cutoff time must be in HH:MM format.";
+  }
+  if (autoCloseTime === null) {
+    return "Auto-close time must be in HH:MM format.";
+  }
+  if (gracePeriodMinutes < 0 || gracePeriodMinutes > 180) {
+    return "Grace period must be between 0 and 180 minutes.";
+  }
+  if (minimumWorkingHours < 1 || minimumWorkingHours > 24) {
+    return "Minimum working hours must be between 1 and 24.";
+  }
+  if (!["auto_close", "mark_incomplete"].includes(missingPunchOutHandling)) {
+    return "Missing punch-out handling must be auto_close or mark_incomplete.";
+  }
+  if (halfDayCutoff <= standardPunchIn) {
+    return "Half-day cutoff must be later than standard punch-in time.";
+  }
+  return "";
+};
+
 const updateSection = async (sectionKey, patch) => {
   const settings = await getSystemSettings();
   settings[sectionKey] = { ...toPlain(settings[sectionKey]), ...patch };
@@ -354,6 +392,21 @@ export const updatePreferenceSettings = async (req, res) => {
   const incoming = pickObject(parseMaybeJson(req.body.preferences, req.body));
   const settings = await updateSection("preferences", incoming);
   return res.json({ success: true, message: "System preferences updated", data: settings.preferences });
+};
+
+export const updateAttendanceSettings = async (req, res) => {
+  const incoming = pickObject(parseMaybeJson(req.body.attendance, req.body));
+  const settings = await getSystemSettings();
+  const patch = {
+    ...toPlain(settings.attendance),
+    ...incoming,
+  };
+  const errorMessage = validateAttendance(patch);
+  if (errorMessage) return res.status(422).json({ success: false, message: errorMessage });
+  settings.attendance = patch;
+  await settings.save();
+  await refreshSystemSettingsCache();
+  return res.json({ success: true, message: "Attendance settings updated", data: settings.attendance });
 };
 
 export const updateDocumentSettings = async (req, res) => {

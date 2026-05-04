@@ -145,14 +145,27 @@ const DEFAULT_SETTINGS = {
     retentionDays: 180,
   },
   runtimeConfig: getDefaultRuntimeConfig(),
+  attendance: {
+    standardPunchInTime: "10:00",
+    gracePeriodMinutes: 15,
+    halfDayCutoffTime: "14:00",
+    minimumWorkingHours: 8,
+    missingPunchOutHandling: "mark_incomplete",
+    autoCloseTime: "18:00",
+  },
   payroll: {
     workingDaysMode: "weekdays",
     fixedWorkingDays: 26,
     standardDailyHours: 8,
     includePaidLeaveInWages: true,
+    halfDayPayableFraction: 0.5,
+    incompleteDayPayableFraction: 0,
+    lateToHalfDayEnabled: false,
+    lateToHalfDayThreshold: 0,
     latePenaltyAmount: 0,
     absentPenaltyAmount: 0,
     overtimeMultiplier: 1,
+    freezePayrollOnGenerate: true,
     pf: {
       enabled: true,
       employeeRate: 12,
@@ -223,6 +236,7 @@ const migrateLegacySettingsIfRequired = async () => {
     },
     documents: { ...DEFAULT_SETTINGS.documents },
     audit: { ...DEFAULT_SETTINGS.audit },
+    attendance: { ...DEFAULT_SETTINGS.attendance },
     payroll: { ...DEFAULT_SETTINGS.payroll },
   };
 
@@ -265,6 +279,7 @@ export const resetSystemSettingsToDefault = async () => {
   settings.documents = deepClone(DEFAULT_SETTINGS.documents);
   settings.audit = deepClone(DEFAULT_SETTINGS.audit);
   settings.runtimeConfig = deepClone(DEFAULT_SETTINGS.runtimeConfig);
+  settings.attendance = deepClone(DEFAULT_SETTINGS.attendance);
   settings.payroll = deepClone(DEFAULT_SETTINGS.payroll);
   await settings.save();
   await refreshSystemSettingsCache();

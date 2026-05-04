@@ -7,6 +7,7 @@ import {
   getPayrollConfig,
   getPayrollSummary,
   runPayroll,
+  updatePayrollPayment,
   updateAdvance,
   updatePayrollConfig,
 } from "../controllers/payrollController.js";
@@ -49,6 +50,14 @@ router.patch(
 );
 router.get("/config", authorize(API_ROLE_GROUPS.adminOnly), authorizeModule("payroll"), asyncHandler(getPayrollConfig));
 router.put("/config", authorize(API_ROLE_GROUPS.adminOnly), authorizeModule("payroll"), asyncHandler(updatePayrollConfig));
+router.patch(
+  "/:id/payment",
+  authorize(API_ROLE_GROUPS.adminOnly),
+  authorizeModule("payroll"),
+  [param("id").isMongoId().withMessage("Valid payroll id is required.")],
+  validateRequest,
+  asyncHandler(updatePayrollPayment)
+);
 router.get("/:id/payslip", authorizeModule("payroll"), asyncHandler(downloadPayslipPdf));
 router.post("/run", authorize(API_ROLE_GROUPS.adminOnly), authorizeModule("payroll"), asyncHandler(runPayroll));
 

@@ -11,5 +11,7 @@ export const SIDEBAR = {
   employee: [
     { id: "employee.attendance", labelKey: "nav.employee.attendance", path: "/employee/attendance", icon: "Clock", featureKey: "attendance" },
     { id: "joining.form", labelKey: "nav.employee.joiningForm", path: "/joining-form", icon: "ClipboardCheck", featureKey: "joiningForms" },
+    { id: "employee.letters", labelKey: "nav.employee.letters", path: "/employee/letters", icon: "FileText", featureKey: "letters" },
+    { id: "employee.offboarding", labelKey: "nav.employee.offboarding", path: "/employee/offboarding", icon: "ClipboardList", featureKey: "offboarding" },
   ],
 } as const;

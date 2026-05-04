@@ -36,12 +36,32 @@ const maskAccountNumber = (value?: string) => {
   return `${"*".repeat(Math.max(raw.length - 4, 0))}${raw.slice(-4)}`;
 };
 
+const resolveBankDetails = (record: PayrollRecord) => {
+  const employeeBankDetails =
+    record.employeeId && typeof record.employeeId === "object" && "bankDetails" in record.employeeId
+      ? record.employeeId.bankDetails
+      : undefined;
+
+  const activeBankDetails =
+    employeeBankDetails?.bankName ||
+    employeeBankDetails?.accountHolderName ||
+    employeeBankDetails?.accountNumber ||
+    employeeBankDetails?.ifscCode ||
+    employeeBankDetails?.branchName ||
+    employeeBankDetails?.paymentMode
+      ? employeeBankDetails
+      : record.bankDetails;
+
+  return activeBankDetails;
+};
+
 const buildBankDetailsText = (record: PayrollRecord) => {
+  const bankDetails = resolveBankDetails(record);
   const parts = [
-    record.bankDetails?.bankName,
-    record.bankDetails?.accountHolderName,
-    record.bankDetails?.accountNumber ? `A/C ${maskAccountNumber(record.bankDetails.accountNumber)}` : "",
-    record.bankDetails?.ifscCode ? `IFSC ${record.bankDetails.ifscCode}` : "",
+    bankDetails?.bankName,
+    bankDetails?.accountHolderName,
+    bankDetails?.accountNumber ? `A/C ${maskAccountNumber(bankDetails.accountNumber)}` : "",
+    bankDetails?.ifscCode ? `IFSC ${bankDetails.ifscCode}` : "",
   ].filter(Boolean);
 
   return parts.length ? parts.join(" | ") : "-";
@@ -163,7 +183,10 @@ export const SalarySlipCard: React.FC<SalarySlipCardProps> = ({
               <thead>
                 <tr className="bg-slate-200">
                   <th className="border border-slate-900 px-3 py-2 text-left font-semibold">Present Days</th>
+                  <th className="border border-slate-900 px-3 py-2 text-left font-semibold">Late Days</th>
+                  <th className="border border-slate-900 px-3 py-2 text-left font-semibold">Half Days</th>
                   <th className="border border-slate-900 px-3 py-2 text-left font-semibold">Absent Days</th>
+                  <th className="border border-slate-900 px-3 py-2 text-left font-semibold">Incomplete</th>
                   <th className="border border-slate-900 px-3 py-2 text-left font-semibold">Leaves</th>
                   <th className="border border-slate-900 px-3 py-2 text-left font-semibold">OT Hours</th>
                 </tr>
@@ -171,7 +194,10 @@ export const SalarySlipCard: React.FC<SalarySlipCardProps> = ({
               <tbody>
                 <tr>
                   <td className="border border-slate-900 px-3 py-2 text-right">{record.presentDays}</td>
+                  <td className="border border-slate-900 px-3 py-2 text-right">{record.lateDays || 0}</td>
+                  <td className="border border-slate-900 px-3 py-2 text-right">{record.halfDays || 0}</td>
                   <td className="border border-slate-900 px-3 py-2 text-right">{record.absentDays}</td>
+                  <td className="border border-slate-900 px-3 py-2 text-right">{record.incompleteDays || 0}</td>
                   <td className="border border-slate-900 px-3 py-2 text-right">{record.leaveDays}</td>
                   <td className="border border-slate-900 px-3 py-2 text-right">{record.overtimeHours || 0}</td>
                 </tr>
